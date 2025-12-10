@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\samalves\\Dev\\GestaoRecursosHumanos\\backend\\backend.csproj": {}
+    "C:\\Users\\samalves\\Dev\\GestaoRecursosHumanos\\sistema-gestao-recursos-humanos\\backend\\backend.csproj": {}
   },
   "projects": {
-    "C:\\Users\\samalves\\Dev\\GestaoRecursosHumanos\\backend\\backend.csproj": {
+    "C:\\Users\\samalves\\Dev\\GestaoRecursosHumanos\\sistema-gestao-recursos-humanos\\backend\\backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\samalves\\Dev\\GestaoRecursosHumanos\\backend\\backend.csproj",
+        "projectUniqueName": "C:\\Users\\samalves\\Dev\\GestaoRecursosHumanos\\sistema-gestao-recursos-humanos\\backend\\backend.csproj",
         "projectName": "backend",
-        "projectPath": "C:\\Users\\samalves\\Dev\\GestaoRecursosHumanos\\backend\\backend.csproj",
+        "projectPath": "C:\\Users\\samalves\\Dev\\GestaoRecursosHumanos\\sistema-gestao-recursos-humanos\\backend\\backend.csproj",
         "packagesPath": "C:\\Users\\samalves\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\samalves\\Dev\\GestaoRecursosHumanos\\backend\\obj\\",
+        "outputPath": "C:\\Users\\samalves\\Dev\\GestaoRecursosHumanos\\sistema-gestao-recursos-humanos\\backend\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\samalves\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -47,6 +47,20 @@
             "Microsoft.AspNetCore.OpenApi": {
               "target": "Package",
               "version": "[9.0.11, )"
+            },
+            "Microsoft.EntityFrameworkCore.SqlServer": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
+            "Microsoft.EntityFrameworkCore.Tools": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[10.0.1, )"
+            },
+            "System.IdentityModel.Tokens.Jwt": {
+              "target": "Package",
+              "version": "[8.15.0, )"
             }
           },
           "imports": [
