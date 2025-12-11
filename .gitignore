@@ -20,3 +20,5 @@ packages/
 # Outros temporários
 *.tmp
 *.cache
+
+backend/appsettings.json
