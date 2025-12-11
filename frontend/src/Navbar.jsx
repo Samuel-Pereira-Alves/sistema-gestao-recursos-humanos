@@ -37,7 +37,7 @@ function Navbar() {
               <Link className="nav-link" to="/payments">Pagamentos</Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link" to="/hr">Recursos Humanos</Link>
+              <Link className="nav-link" to="/rh">Recursos Humanos</Link>
             </li>
             <li className="nav-item">
               <Link className="nav-link" to="/candidates">Candidatos</Link>

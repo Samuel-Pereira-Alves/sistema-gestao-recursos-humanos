@@ -1,16 +1,24 @@
-import './App.css'
-import { Routes, Route } from "react-router-dom";
-import HomePage from './HomePage'
+import React from "react";
+import './App.css';
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import HomePage from './HomePage';
 import FormPage from './FormPage';
-
+import Login from './Login';
+import DashboardRH from "./DashboardRH";
+import Candidatos from "./Candidatos";
+ 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/form" element={<FormPage />} />
-    </Routes>
 
-  )
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/form" element={<FormPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/rh" element={<DashboardRH />} />
+        <Route path="/candidatos" element={<Candidatos />} />
+      </Routes>
+
+  );
 }
-
-export default App
+ 
+export default App;
