@@ -8,6 +8,7 @@ import DashboardRH from "./DashboardRH";
 import Candidatos from "./Candidatos";
 import PaymentsList from "./PayHistory";
 import DepartmentHistoryList from "./DepHistory";
+import EmployeeProfile from "./EmployeeProfile";
  
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/candidatos" element={<Candidatos />} />
         <Route path="/payhistory" element={<PaymentsList />} />
         <Route path="/dephistory" element={<DepartmentHistoryList />} />
+        <Route path="/profile" element={<EmployeeProfile />} />
       </Routes>
 
   );
