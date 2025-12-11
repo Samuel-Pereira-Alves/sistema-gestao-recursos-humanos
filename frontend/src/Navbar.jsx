@@ -43,7 +43,16 @@ function Navbar() {
               <Link className="nav-link" to="/rh">Recursos Humanos</Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link" to="/candidates">Candidatos</Link>
+              <Link className="nav-link" to="/candidatos">Candidatos</Link>
+            </li>
+            <li className="nav-item">
+              <Link className="nav-link" to="/funcionarios">Funcionarios</Link>
+            </li>
+            <li className="nav-item">
+              <Link className="nav-link" to="/gestao-pagamentos">paagmentos</Link>
+            </li>
+            <li className="nav-item">
+              <Link className="nav-link" to="/gestao-movimentos">Movimentos</Link>
             </li>
           </ul>
         </div>

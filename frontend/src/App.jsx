@@ -9,22 +9,35 @@ import Candidatos from "./Candidatos";
 import PaymentsList from "./PayHistory";
 import DepartmentHistoryList from "./DepHistory";
 import EmployeeProfile from "./EmployeeProfile";
- 
+import Navbar from "./Navbar"; // se tiveres a Navbar
+import Funcionarios from "./Funcionarios";
+import GestaoPagamentos from "./GestaoPagamentos";
+import GestaoMovimentacoes from "./GestaoMovimentos";
+
 function App() {
   return (
+    <Router>
+      {/* Navbar global */}
+      <Navbar />
 
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/form" element={<FormPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/rh" element={<DashboardRH />} />
-        <Route path="/candidatos" element={<Candidatos />} />
-        <Route path="/payhistory" element={<PaymentsList />} />
-        <Route path="/dephistory" element={<DepartmentHistoryList />} />
-        <Route path="/profile" element={<EmployeeProfile />} />
-      </Routes>
-
+      {/* Rotas */}
+      <div style={{ marginTop: "80px" }}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/form" element={<FormPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/rh" element={<DashboardRH />} />
+          <Route path="/candidatos" element={<Candidatos />} />
+          <Route path="/payhistory" element={<PaymentsList />} />
+          <Route path="/dephistory" element={<DepartmentHistoryList />} />
+          <Route path="/profile" element={<EmployeeProfile />} />
+          <Route path="/funcionarios" element={<Funcionarios />} />
+          <Route path="/gestao-pagamentos" element={<GestaoPagamentos />} />
+          <Route path="/gestao-movimentos" element={< GestaoMovimentacoes/>} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
- 
+
 export default App;
