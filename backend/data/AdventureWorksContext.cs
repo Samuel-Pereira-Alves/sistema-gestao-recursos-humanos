@@ -32,7 +32,6 @@ namespace sistema_gestao_recursos_humanos.backend.data
                 .WithMany(e => e.PayHistories)
                 .HasForeignKey(ph => ph.BusinessEntityID);
 
-            // DepartmentHistory
             modelBuilder.Entity<DepartmentHistory>()
                 .ToTable("EmployeeDepartmentHistory", "HumanResources")
                 .HasKey(dh => new { dh.BusinessEntityID, dh.DepartmentID, dh.ShiftID, dh.StartDate });
