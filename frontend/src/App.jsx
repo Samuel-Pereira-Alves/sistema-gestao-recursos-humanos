@@ -6,6 +6,8 @@ import FormPage from './FormPage';
 import Login from './Login';
 import DashboardRH from "./DashboardRH";
 import Candidatos from "./Candidatos";
+import PaymentsList from "./PayHistory";
+import DepartmentHistoryList from "./DepHistory";
  
 function App() {
   return (
@@ -16,6 +18,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/rh" element={<DashboardRH />} />
         <Route path="/candidatos" element={<Candidatos />} />
+        <Route path="/payhistory" element={<PaymentsList />} />
+        <Route path="/dephistory" element={<DepartmentHistoryList />} />
       </Routes>
 
   );
