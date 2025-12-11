@@ -1,35 +1,35 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
-import "bootstrap-icons/font/bootstrap-icons.css"; 
+import "bootstrap-icons/font/bootstrap-icons.css";
 
 function EmployeeProfile() {
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const navigate = useNavigate();
+  const { id } = useParams(); // rota /profile/:id
 
   useEffect(() => {
-    const mockEmployee = {
-      employeeId: 101,
-      nationalIdNumber: 123456789,
-      loginId: "jsilva",
-      jobTitle: "Software Engineer",
-      birthDate: "1990-05-15T00:00:00",
-      maritalStatus: "Solteiro",
-      gender: "M",
-      hireDate: "2020-01-10T00:00:00",
-      salariedFlag: true,
-      vacationHours: 120,
-      sickLeaveHours: 40,
-      modifiedDate: "2025-12-01T00:00:00",
+    const fetchEmployee = async () => {
+      try {
+        const response = await fetch(`http://localhost:5136/api/v1/employee/${id}`);
+        if (!response.ok) throw new Error("Erro ao carregar funcionário");
+        const data = await response.json();
+        console.log("API data:", data);
+        setEmployee(data);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    setEmployee(mockEmployee);
-    setLoading(false);
-  }, []);
+    fetchEmployee();
+  }, [id]);
 
   if (loading) return <p className="text-center mt-5">Carregando perfil...</p>;
+  if (!employee) return <p className="text-center mt-5">Funcionário não encontrado</p>;
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -39,9 +39,22 @@ function EmployeeProfile() {
     }));
   };
 
-  const handleSave = () => {
-    setEditing(false);
-    console.log("Dados atualizados:", employee);
+  const handleSave = async () => {
+    try {
+      const response = await fetch(`http://localhost:5136/api/v1/employee/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(employee),
+      });
+      if (!response.ok) throw new Error("Erro ao atualizar funcionário");
+      const updated = await response.json();
+      setEmployee(updated);
+      setEditing(false);
+      console.log("Dados atualizados:", updated);
+    } catch (error) {
+      console.error(error);
+      alert("Falha ao salvar alterações");
+    }
   };
 
   return (
@@ -52,14 +65,15 @@ function EmployeeProfile() {
           className="btn btn-link text-decoration-none text-dark"
           onClick={() => navigate(-1)}
         >
-          <i className="bi bi-arrow-left fs-4"></i> {/* seta do Bootstrap */}
+          <i className="bi bi-arrow-left fs-4"></i>
         </button>
         <h2 className="ms-2 mb-0 text-primary fw-bold">Perfil do Funcionário</h2>
       </div>
 
+      {/* Card */}
       <div className="card shadow-lg border-0 rounded-4">
         <div className="card-header bg-primary text-white text-center rounded-top-4">
-          <h4 className="mb-0">{employee.jobTitle}</h4>
+          <h4 className="mb-0">{employee.JobTitle}</h4>
         </div>
         <div className="card-body p-4">
           {editing ? (
@@ -70,8 +84,8 @@ function EmployeeProfile() {
                   <input
                     type="text"
                     className="form-control"
-                    name="loginId"
-                    value={employee.loginId}
+                    name="LoginID"
+                    value={employee.LoginID}
                     onChange={handleChange}
                   />
                 </div>
@@ -80,8 +94,8 @@ function EmployeeProfile() {
                   <input
                     type="text"
                     className="form-control"
-                    name="maritalStatus"
-                    value={employee.maritalStatus}
+                    name="MaritalStatus"
+                    value={employee.MaritalStatus}
                     onChange={handleChange}
                   />
                 </div>
@@ -90,8 +104,8 @@ function EmployeeProfile() {
                   <input
                     type="text"
                     className="form-control"
-                    name="gender"
-                    value={employee.gender}
+                    name="Gender"
+                    value={employee.Gender}
                     onChange={handleChange}
                   />
                 </div>
@@ -100,8 +114,8 @@ function EmployeeProfile() {
                     <input
                       type="checkbox"
                       className="form-check-input"
-                      name="salariedFlag"
-                      checked={employee.salariedFlag}
+                      name="SalariedFlag"
+                      checked={employee.SalariedFlag}
                       onChange={handleChange}
                     />
                     <label className="form-check-label">Com Salário</label>
@@ -120,23 +134,23 @@ function EmployeeProfile() {
           ) : (
             <div className="row g-3">
               <div className="col-md-6">
-                <p><strong>ID:</strong> <span className="badge bg-secondary">{employee.employeeId}</span></p>
-                <p><strong>Login:</strong> {employee.loginId}</p>
-                <p><strong>Nome Nacional:</strong> {employee.nationalIdNumber}</p>
+                <p><strong>ID:</strong> <span className="badge bg-secondary">{employee.BusinessEntityID}</span></p>
+                <p><strong>Login:</strong> {employee.LoginID}</p>
+                <p><strong>Nome Nacional:</strong> {employee.NationalIDNumber}</p>
               </div>
               <div className="col-md-6">
-                <p><strong>Data de Nascimento:</strong> {new Date(employee.birthDate).toLocaleDateString()}</p>
-                <p><strong>Estado Civil:</strong> {employee.maritalStatus || "N/A"}</p>
-                <p><strong>Género:</strong> {employee.gender || "N/A"}</p>
+                <p><strong>Data de Nascimento:</strong> {new Date(employee.BirthDate).toLocaleDateString()}</p>
+                <p><strong>Estado Civil:</strong> {employee.MaritalStatus || "N/A"}</p>
+                <p><strong>Género:</strong> {employee.Gender || "N/A"}</p>
               </div>
               <div className="col-md-6">
-                <p><strong>Data de Contratação:</strong> {new Date(employee.hireDate).toLocaleDateString()}</p>
-                <p><strong>Com Salário:</strong> {employee.salariedFlag ? "✅ Sim" : "❌ Não"}</p>
+                <p><strong>Data de Contratação:</strong> {new Date(employee.HireDate).toLocaleDateString()}</p>
+                <p><strong>Com Salário:</strong> {employee.SalariedFlag ? "✅ Sim" : "❌ Não"}</p>
               </div>
               <div className="col-md-6">
-                <p><strong>Horas de Férias:</strong> {employee.vacationHours}</p>
-                <p><strong>Horas de Baixa:</strong> {employee.sickLeaveHours}</p>
-                <p><strong>Última Modificação:</strong> {new Date(employee.modifiedDate).toLocaleDateString()}</p>
+                <p><strong>Horas de Férias:</strong> {employee.VacationHours}</p>
+                <p><strong>Horas de Baixa:</strong> {employee.SickLeaveHours}</p>
+                <p><strong>Última Modificação:</strong> {new Date(employee.ModifiedDate).toLocaleDateString()}</p>
               </div>
               <div className="text-center mt-4">
                 <button className="btn btn-primary px-4" onClick={() => setEditing(true)}>

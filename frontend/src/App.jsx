@@ -18,7 +18,7 @@ import GestaoPagamentos from "./GestaoPagamentos";
 function App() {
   return (
      <AuthProvider>
-
+     
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/form" element={<FormPage />} />
@@ -27,11 +27,13 @@ function App() {
         <Route path="/candidatos" element={<Candidatos />} />
         <Route path="/payhistory" element={<PaymentsList />} />
         <Route path="/dephistory" element={<DepartmentHistoryList />} />
-        <Route path="/profile" element={<EmployeeProfile />} />
+        <Route path="/profile/:id" element={<EmployeeProfile />} />
         <Route path="/funcionarios" element={<Funcionarios />} />
         <Route path="/gestao-pagamentos" element={<GestaoPagamentos />} />
         <Route path="/gestao-movimentos" element={<GestaoMovimentacoes />} />
       </Routes>
+      
+
       </AuthProvider>
 
   );
