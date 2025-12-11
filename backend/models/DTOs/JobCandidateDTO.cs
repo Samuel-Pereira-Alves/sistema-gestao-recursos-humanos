@@ -1,6 +1,9 @@
-public class JobCandidateDto
+namespace sistema_gestao_recursos_humanos.backend.models.dtos
 {
-    public int JobCandidateId { get; set; }
-    public string Resume { get; set; } = string.Empty;
-    public DateTime ModifiedDate { get; set; }
+    public class JobCandidateDto
+    {
+        public int JobCandidateId { get; set; }
+        public string Resume { get; set; } = string.Empty;
+        public DateTime ModifiedDate { get; set; }
+    }
 }

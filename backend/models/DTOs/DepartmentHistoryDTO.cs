@@ -1,6 +1,9 @@
-public class DepartmentHistoryDto
+namespace sistema_gestao_recursos_humanos.backend.models.dtos
 {
-    public int DepartmentId { get; set; }
-    public DateTime StartDate { get; set; }
-    public DateTime? EndDate { get; set; }
+    public class DepartmentHistoryDto
+    {
+        public int DepartmentId { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+    }
 }

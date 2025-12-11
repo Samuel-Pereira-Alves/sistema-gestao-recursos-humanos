@@ -1,7 +1,10 @@
-public class JobCandidate
+namespace sistema_gestao_recursos_humanos.backend.models
 {
-    public int JobCandidateId { get; set; }
-    public int? EmployeeId { get; set; }
-    public string Resume { get; set; } = string.Empty;
-    public DateTime ModifiedDate { get; set; }
+    public class JobCandidate
+    {
+        public int JobCandidateId { get; set; }
+        public int? EmployeeId { get; set; }
+        public string Resume { get; set; } = string.Empty;
+        public DateTime ModifiedDate { get; set; }
+    }
 }

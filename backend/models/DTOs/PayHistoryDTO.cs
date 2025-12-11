@@ -1,6 +1,9 @@
-public class PayHistoryDto
+namespace sistema_gestao_recursos_humanos.backend.models.dtos
 {
-    public DateTime RateChangeDate { get; set; }
-    public decimal Rate { get; set; }
-    public int PayFrequency { get; set; }
+    public class PayHistoryDto
+    {
+        public DateTime RateChangeDate { get; set; }
+        public decimal Rate { get; set; }
+        public int PayFrequency { get; set; }
+    }
 }
