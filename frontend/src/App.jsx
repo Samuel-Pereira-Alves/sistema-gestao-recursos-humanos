@@ -9,9 +9,12 @@ import Candidatos from "./Candidatos";
 import PaymentsList from "./PayHistory";
 import DepartmentHistoryList from "./DepHistory";
 import EmployeeProfile from "./EmployeeProfile";
+import { AuthProvider } from "./AuthContext";
+
  
 function App() {
   return (
+     <AuthProvider>
 
       <Routes>
         <Route path="/" element={<HomePage />} />
@@ -23,6 +26,7 @@ function App() {
         <Route path="/dephistory" element={<DepartmentHistoryList />} />
         <Route path="/profile" element={<EmployeeProfile />} />
       </Routes>
+      </AuthProvider>
 
   );
 }
