@@ -73,7 +73,7 @@ function EmployeeProfile() {
       {/* Card */}
       <div className="card shadow-lg border-0 rounded-4">
         <div className="card-header bg-primary text-white text-center rounded-top-4">
-          <h4 className="mb-0">{employee.JobTitle}</h4>
+          <h4 className="mb-0">{employee.jobTitle}</h4>
         </div>
         <div className="card-body p-4">
           {editing ? (
@@ -84,8 +84,8 @@ function EmployeeProfile() {
                   <input
                     type="text"
                     className="form-control"
-                    name="LoginID"
-                    value={employee.LoginID}
+                    name="loginID"
+                    value={employee.loginID}
                     onChange={handleChange}
                   />
                 </div>
@@ -94,8 +94,8 @@ function EmployeeProfile() {
                   <input
                     type="text"
                     className="form-control"
-                    name="MaritalStatus"
-                    value={employee.MaritalStatus}
+                    name="maritalStatus"
+                    value={employee.maritalStatus}
                     onChange={handleChange}
                   />
                 </div>
@@ -104,8 +104,8 @@ function EmployeeProfile() {
                   <input
                     type="text"
                     className="form-control"
-                    name="Gender"
-                    value={employee.Gender}
+                    name="gender"
+                    value={employee.gender}
                     onChange={handleChange}
                   />
                 </div>
@@ -114,8 +114,8 @@ function EmployeeProfile() {
                     <input
                       type="checkbox"
                       className="form-check-input"
-                      name="SalariedFlag"
-                      checked={employee.SalariedFlag}
+                      name="salariedFlag"
+                      checked={employee.salariedFlag}
                       onChange={handleChange}
                     />
                     <label className="form-check-label">Com Salário</label>
@@ -134,23 +134,23 @@ function EmployeeProfile() {
           ) : (
             <div className="row g-3">
               <div className="col-md-6">
-                <p><strong>ID:</strong> <span className="badge bg-secondary">{employee.BusinessEntityID}</span></p>
-                <p><strong>Login:</strong> {employee.LoginID}</p>
-                <p><strong>Nome Nacional:</strong> {employee.NationalIDNumber}</p>
+                <p><strong>ID:</strong> <span className="badge bg-secondary">{employee.businessEntityID}</span></p>
+                <p><strong>Login:</strong> {employee.loginID}</p>
+                <p><strong>Cartao de Cidadao:</strong> {employee.nationalIDNumber}</p>
               </div>
               <div className="col-md-6">
-                <p><strong>Data de Nascimento:</strong> {new Date(employee.BirthDate).toLocaleDateString()}</p>
-                <p><strong>Estado Civil:</strong> {employee.MaritalStatus || "N/A"}</p>
-                <p><strong>Género:</strong> {employee.Gender || "N/A"}</p>
+                <p><strong>Data de Nascimento:</strong> {new Date(employee.birthDate).toLocaleDateString("pt-PT")}</p>
+                <p><strong>Estado Civil:</strong> {employee.maritalStatus || "N/A"}</p>
+                <p><strong>Género:</strong> {employee.gender || "N/A"}</p>
               </div>
               <div className="col-md-6">
-                <p><strong>Data de Contratação:</strong> {new Date(employee.HireDate).toLocaleDateString()}</p>
-                <p><strong>Com Salário:</strong> {employee.SalariedFlag ? "✅ Sim" : "❌ Não"}</p>
+                <p><strong>Data de Contratação:</strong> {new Date(employee.hireDate).toLocaleDateString("pt-PT")}</p>
+                <p><strong>Com Salário:</strong> {employee.salariedFlag ? "✅ Sim" : "❌ Não"}</p>
               </div>
               <div className="col-md-6">
-                <p><strong>Horas de Férias:</strong> {employee.VacationHours}</p>
-                <p><strong>Horas de Baixa:</strong> {employee.SickLeaveHours}</p>
-                <p><strong>Última Modificação:</strong> {new Date(employee.ModifiedDate).toLocaleDateString()}</p>
+                <p><strong>Horas de Férias:</strong> {employee.vacationHours}</p>
+                <p><strong>Horas de Baixa:</strong> {employee.sickLeaveHours}</p>
+                <p><strong>Última Modificação:</strong> {new Date(employee.modifiedDate).toLocaleDateString("pt-PT")}</p>
               </div>
               <div className="text-center mt-4">
                 <button className="btn btn-primary px-4" onClick={() => setEditing(true)}>
