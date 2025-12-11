@@ -34,7 +34,10 @@ function Navbar() {
               <Link className="nav-link" to="/profile">Perfil</Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link" to="/payments">Pagamentos</Link>
+              <Link className="nav-link" to="/payhistory">Pagamentos</Link>
+            </li>
+            <li className="nav-item">
+              <Link className="nav-link" to="/dephistory">Departamentos</Link>
             </li>
             <li className="nav-item">
               <Link className="nav-link" to="/rh">Recursos Humanos</Link>
