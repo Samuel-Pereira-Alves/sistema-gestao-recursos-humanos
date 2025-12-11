@@ -10,6 +10,9 @@ import PaymentsList from "./PayHistory";
 import DepartmentHistoryList from "./DepHistory";
 import EmployeeProfile from "./EmployeeProfile";
 import { AuthProvider } from "./AuthContext";
+import Funcionarios from "./Funcionarios";
+import GestaoMovimentacoes from "./GestaoMovimentos";
+import GestaoPagamentos from "./GestaoPagamentos";
 
  
 function App() {
@@ -25,6 +28,9 @@ function App() {
         <Route path="/payhistory" element={<PaymentsList />} />
         <Route path="/dephistory" element={<DepartmentHistoryList />} />
         <Route path="/profile" element={<EmployeeProfile />} />
+        <Route path="/funcionarios" element={<Funcionarios />} />
+        <Route path="/gestao-pagamentos" element={<GestaoPagamentos />} />
+        <Route path="/gestao-movimentos" element={<GestaoMovimentacoes />} />
       </Routes>
       </AuthProvider>
 

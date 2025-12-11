@@ -38,6 +38,15 @@ function Navbar() {
                     <li className="nav-item">
                       <Link className="nav-link" to="/candidates">Candidatos</Link>
                     </li>
+                    <li className="nav-item">
+                      <Link className="nav-link" to="/funcionarios">Funcionarios</Link>
+                    </li>
+                    <li className="nav-item">
+                      <Link className="nav-link" to="/gestao-pagamentos">Pagamentos</Link>
+                    </li>
+                    <li className="nav-item">
+                      <Link className="nav-link" to="/gestao-movimentos">Movimentos</Link>
+                    </li>
                   </>
                 )}
 
