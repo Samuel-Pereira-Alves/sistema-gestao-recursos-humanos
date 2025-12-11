@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap-icons/font/bootstrap-icons.css"; 
 
 function EmployeeProfile() {
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const mockEmployee = {
@@ -42,8 +45,18 @@ function EmployeeProfile() {
   };
 
   return (
-    <div className="container mt-5">
-      <h2 className="mb-4 text-primary fw-bold text-center">👤 Perfil do Funcionário</h2>
+    <div className="container mt-4">
+      {/* Barra superior com seta */}
+      <div className="d-flex align-items-center mb-3">
+        <button
+          className="btn btn-link text-decoration-none text-dark"
+          onClick={() => navigate(-1)}
+        >
+          <i className="bi bi-arrow-left fs-4"></i> {/* seta do Bootstrap */}
+        </button>
+        <h2 className="ms-2 mb-0 text-primary fw-bold">Perfil do Funcionário</h2>
+      </div>
+
       <div className="card shadow-lg border-0 rounded-4">
         <div className="card-header bg-primary text-white text-center rounded-top-4">
           <h4 className="mb-0">{employee.jobTitle}</h4>
