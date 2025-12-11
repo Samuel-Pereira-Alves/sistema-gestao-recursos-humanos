@@ -5,9 +5,9 @@ namespace sistema_gestao_recursos_humanos.backend.data
 {
     public class AdventureWorksContext : DbContext
     {
-        public AdventureWorksContext(DbContextOptions<AdventureWorksContext> options) 
-            : base(options) 
-        { 
+        public AdventureWorksContext(DbContextOptions<AdventureWorksContext> options)
+            : base(options)
+        {
         }
 
         public DbSet<JobCandidate> JobCandidates { get; set; }
@@ -18,16 +18,11 @@ namespace sistema_gestao_recursos_humanos.backend.data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<PayHistory>()
+                .HasKey(ph => new { ph.BusinessEntityID, ph.RateChangeDate });
 
-            modelBuilder.Entity<Employee>()
-                .HasMany(e => e.PayHistories)
-                .WithOne()
-                .HasForeignKey(ph => ph.EmployeeId);
-
-            modelBuilder.Entity<Employee>()
-                .HasMany(e => e.DepartmentHistories)
-                .WithOne()
-                .HasForeignKey(dh => dh.EmployeeId);
+            modelBuilder.Entity<DepartmentHistory>()
+                .HasKey(dh => new { dh.BusinessEntityID, dh.DepartmentID, dh.ShiftID, dh.StartDate });
         }
     }
 }

@@ -12,6 +12,7 @@ builder.Services.AddDbContext<AdventureWorksContext>(options => options.UseSqlSe
 builder.Services.AddControllers();
 
 builder.Services.AddAuthorization();
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddCors(options =>
 {
