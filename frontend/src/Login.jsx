@@ -1,5 +1,5 @@
 // src/pages/Login.jsx
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, use } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { useNavigate } from "react-router-dom";
 
@@ -33,6 +33,7 @@ const handleSubmit = async (e) => {
     localStorage.setItem("employeeId", data.employeeId);
     localStorage.setItem("systemUserId", data.systemUserId);
     localStorage.setItem("businessEntityId", data.businessEntityId);
+    localStorage.setItem("username", username);
 
     console.log("Login bem-sucedido:", data);
     // Atualiza o contexto da app
