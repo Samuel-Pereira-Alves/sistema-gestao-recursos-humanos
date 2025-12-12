@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function Funcionarios() {
+  const navigate = useNavigate();
+
   const [funcionarios, setFuncionarios] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedFuncionario, setSelectedFuncionario] = useState(null);
@@ -8,6 +11,13 @@ function Funcionarios() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+
+const viewProfile = (funcionarioId) => {
+  const id = funcionarioId;
+  navigate(`/profile?id=${id}`);
+};
+
 
   useEffect(() => {
     const fetchFuncionarios = async () => {
@@ -69,9 +79,31 @@ function Funcionarios() {
   };
 
   const filteredFuncionarios = funcionarios.filter(f =>
-   // f.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getNomeCompleto(f).toLowerCase().includes(searchTerm.toLowerCase()) ||
     f.jobTitle.toLowerCase().includes(searchTerm.toLowerCase()) 
   );
+  
+function getNomeCompleto(f) {
+  if (f?.nome) return f.nome; 
+  const p = f?.person ?? {};
+  const partes = [p.firstName,p.middleName, p.lastName].filter(Boolean);
+  return partes.join(" ") || "Sem nome";
+}
+
+  
+function getDepartamentoAtualNome(funcionario) {
+  const historicos = funcionario?.departmentHistories ?? [];
+  if (historicos.length === 0) return "Sem departamento";
+
+  const atual = historicos.find(h => h.endDate == null);
+
+  const escolhido = atual ?? historicos
+    .slice()
+    .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
+
+  return escolhido?.department?.name ?? "Departamento desconhecido";
+}
+
 
   // Paginação
   const indexOfLast = currentPage * itemsPerPage;
@@ -128,15 +160,15 @@ function Funcionarios() {
                     <tbody>
                       {currentFuncionarios.map((f) => (
                         <tr key={f.id}>
-                          <td className="px-4 py-3">{f.nome}</td>
+                          <td className="px-4 py-3">{getNomeCompleto(f)}</td>
                           <td className="px-4 py-3 text-muted">{f.jobTitle}</td>
-                          <td className="px-4 py-3 text-muted">{f.departamento}</td>
+                          <td className="px-4 py-3 text-muted">{getDepartamentoAtualNome(f)}</td>
                           <td className="px-4 py-3 text-center">
-                            <button className="btn btn-sm btn-outline-secondary me-2">
+                            <button className="btn btn-sm btn-outline-secondary me-2" onClick={() => viewProfile(f.businessEntityID)}>
                               Ver Perfil
                             </button>
                             <button
-                              className="btn btn-sm btn-outline-primary"
+                              className="btn btn-sm btn-outline-dark"
                               onClick={() => handleEditClick(f)}
                             >
                               Editar
@@ -152,11 +184,11 @@ function Funcionarios() {
                 <div className="d-md-none">
                   {currentFuncionarios.map((f) => (
                     <div key={f.id} className="border-bottom p-3">
-                      <h6 className="mb-1">{f.nome}</h6>
+                      <h6 className="mb-1">{getNomeCompleto(f)}</h6>
                       <p className="text-muted small mb-1">{f.jobTitle}</p>
-                      <p className="text-muted small mb-3">{f.departamento}</p>
+                      <p className="text-muted small mb-3">{getDepartamentoAtualNome(f)}</p>
                       <div className="d-flex gap-2">
-                        <button className="btn btn-sm btn-outline-secondary flex-fill">
+                        <button className="btn btn-sm btn-outline-secondary flex-fill" onClick={() => viewProfile(f.businessEntityID)}>
                           Ver Perfil
                         </button>
                         <button
@@ -224,11 +256,13 @@ function Funcionarios() {
                   <div className="mb-3">
                     <label className="form-label fw-medium">Nome</label>
                     <input
+                      disabled
                       type="text"
                       className="form-control"
                       name="nome"
-                      value={selectedFuncionario.nome}
-                      onChange={handleChange}
+                      value={getNomeCompleto(selectedFuncionario)}
+                      readOnly
+
                     />
                   </div>
                   <div className="mb-3">
@@ -246,9 +280,10 @@ function Funcionarios() {
                     <input
                       type="text"
                       className="form-control"
-                      name="departamento"
-                      value={selectedFuncionario.departamento}
-                      onChange={handleChange}
+                      name="departamento"      
+                      value={getDepartamentoAtualNome(selectedFuncionario)}
+                      readOnly
+
                     />
                   </div>
                 </div>
@@ -262,7 +297,7 @@ function Funcionarios() {
                   </button>
                   <button
                     type="button"
-                    className="btn btn-primary"
+                    className="btn btn-outline-dark"
                     onClick={handleSave}
                   >
                     Guardar Alterações
