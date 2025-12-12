@@ -12,7 +12,11 @@ function EmployeeProfile() {
   useEffect(() => {
     const fetchEmployee = async () => {
       try {
-        const response = await fetch(`http://localhost:5136/api/v1/employee/${localStorage.getItem("businessEntityId")}`);
+        const response = await fetch(
+          `http://localhost:5136/api/v1/employee/${localStorage.getItem(
+            "businessEntityId"
+          )}`
+        );
         if (!response.ok) throw new Error("Erro ao carregar funcionário");
         const data = await response.json();
         console.log("API data:", data);
@@ -28,7 +32,8 @@ function EmployeeProfile() {
   }, []);
 
   if (loading) return <p className="text-center mt-5">Carregando perfil...</p>;
-  if (!employee) return <p className="text-center mt-5">Funcionário não encontrado</p>;
+  if (!employee)
+    return <p className="text-center mt-5">Funcionário não encontrado</p>;
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -40,11 +45,16 @@ function EmployeeProfile() {
 
   const handleSave = async () => {
     try {
-      const response = await fetch(`http://localhost:5136/api/v1/employee/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(employee),
-      });
+      const response = await fetch(
+        `http://localhost:5136/api/v1/employee/${localStorage.getItem(
+          "businessEntityId"
+        )}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(employee),
+        }
+      );
       if (!response.ok) throw new Error("Erro ao atualizar funcionário");
       const updated = await response.json();
       setEmployee(updated);
@@ -66,7 +76,9 @@ function EmployeeProfile() {
         >
           <i className="bi bi-arrow-left fs-4"></i>
         </button>
-        <h2 className="ms-2 mb-0 text-primary fw-bold">Perfil do Funcionário</h2>
+        <h2 className="ms-2 mb-0 text-primary fw-bold">
+          Perfil do Funcionário
+        </h2>
       </div>
 
       {/* Card */}
@@ -122,10 +134,16 @@ function EmployeeProfile() {
                 </div>
               </div>
               <div className="mt-4 text-center">
-                <button className="btn btn-success me-2 px-4" onClick={handleSave}>
+                <button
+                  className="btn btn-success me-2 px-4"
+                  onClick={handleSave}
+                >
                   💾 Salvar
                 </button>
-                <button className="btn btn-secondary px-4" onClick={() => setEditing(false)}>
+                <button
+                  className="btn btn-secondary px-4"
+                  onClick={() => setEditing(false)}
+                >
                   ❌ Cancelar
                 </button>
               </div>
@@ -133,26 +151,61 @@ function EmployeeProfile() {
           ) : (
             <div className="row g-3">
               <div className="col-md-6">
-                <p><strong>ID:</strong> <span className="badge bg-secondary">{employee.businessEntityID}</span></p>
-                <p><strong>Login:</strong> {employee.loginID}</p>
-                <p><strong>Cartao de Cidadao:</strong> {employee.nationalIDNumber}</p>
+                <p>
+                  <strong>Nome:</strong>
+                  <span className="badge bg-secondary">
+                    {employee.person?.firstName} {employee.person?.lastName}
+                  </span>
+                </p>
+                <p>
+                  <strong>Login:</strong> {employee.loginID}
+                </p>
+                <p>
+                  <strong>Cartão de Cidadão:</strong>{" "}
+                  {employee.nationalIDNumber}
+                </p>
+              </div>
+
+              <div className="col-md-6">
+                <p>
+                  <strong>Data de Nascimento:</strong>{" "}
+                  {new Date(employee.birthDate).toLocaleDateString("pt-PT")}
+                </p>
+                <p>
+                  <strong>Estado Civil:</strong>{" "}
+                  {employee.maritalStatus || "N/A"}
+                </p>
+                <p>
+                  <strong>Género:</strong> {employee.gender || "N/A"}
+                </p>
               </div>
               <div className="col-md-6">
-                <p><strong>Data de Nascimento:</strong> {new Date(employee.birthDate).toLocaleDateString("pt-PT")}</p>
-                <p><strong>Estado Civil:</strong> {employee.maritalStatus || "N/A"}</p>
-                <p><strong>Género:</strong> {employee.gender || "N/A"}</p>
+                <p>
+                  <strong>Data de Contratação:</strong>{" "}
+                  {new Date(employee.hireDate).toLocaleDateString("pt-PT")}
+                </p>
+                <p>
+                  <strong>Com Salário:</strong>{" "}
+                  {employee.salariedFlag ? "✅ Sim" : "❌ Não"}
+                </p>
               </div>
               <div className="col-md-6">
-                <p><strong>Data de Contratação:</strong> {new Date(employee.hireDate).toLocaleDateString("pt-PT")}</p>
-                <p><strong>Com Salário:</strong> {employee.salariedFlag ? "✅ Sim" : "❌ Não"}</p>
-              </div>
-              <div className="col-md-6">
-                <p><strong>Horas de Férias:</strong> {employee.vacationHours}</p>
-                <p><strong>Horas de Baixa:</strong> {employee.sickLeaveHours}</p>
-                <p><strong>Última Modificação:</strong> {new Date(employee.modifiedDate).toLocaleDateString("pt-PT")}</p>
+                <p>
+                  <strong>Horas de Férias:</strong> {employee.vacationHours}
+                </p>
+                <p>
+                  <strong>Horas de Baixa:</strong> {employee.sickLeaveHours}
+                </p>
+                <p>
+                  <strong>Última Modificação:</strong>{" "}
+                  {new Date(employee.modifiedDate).toLocaleDateString("pt-PT")}
+                </p>
               </div>
               <div className="text-center mt-4">
-                <button className="btn btn-primary px-4" onClick={() => setEditing(true)}>
+                <button
+                  className="btn btn-primary px-4"
+                  onClick={() => setEditing(true)}
+                >
                   ✏️ Editar Perfil
                 </button>
               </div>
