@@ -141,14 +141,8 @@ export default function EmployeeProfile() {
     <div className="container mt-4">
       {/* Barra superior com seta */}
       <div className="d-flex align-items-center mb-3">
-        <button
-          className="btn btn-link text-decoration-none text-dark"
-          onClick={() => navigate(-1)}
-          type="button"
-        >
-          <i className="bi bi-arrow-left fs-4"></i>
-        </button>
-        <h2 className="ms-2 mb-0 fw-bold text-dark">Perfil do Funcionário</h2>
+  
+        <h2 className="ms-2 h3">Perfil do Funcionário</h2>
       </div>
 
       {/* Card principal em tons de cinza */}
