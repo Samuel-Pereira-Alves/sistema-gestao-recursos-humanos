@@ -14,6 +14,7 @@ namespace sistema_gestao_recursos_humanos.backend.data
         public DbSet<Employee> Employees { get; set; }
         public DbSet<DepartmentHistory> DepartmentHistories { get; set; }
         public DbSet<PayHistory> PayHistories { get; set; }
+        public DbSet<Person> Persons {get; set;}
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -22,6 +23,16 @@ namespace sistema_gestao_recursos_humanos.backend.data
             modelBuilder.Entity<Employee>()
                 .ToTable("Employee", "HumanResources")
                 .HasKey(e => e.BusinessEntityID);
+
+            modelBuilder.Entity<Employee>()
+                .HasOne(e => e.Person)
+                .WithOne(p => p.Employee)
+                .HasForeignKey<Employee>(e => e.BusinessEntityID);
+
+            modelBuilder.Entity<Person>()
+                .ToTable("Person", "Person")
+                .HasKey(p => p.BusinessEntityID);
+
 
             modelBuilder.Entity<PayHistory>()
                 .ToTable("EmployeePayHistory", "HumanResources")

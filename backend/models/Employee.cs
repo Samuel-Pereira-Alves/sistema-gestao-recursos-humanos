@@ -25,6 +25,8 @@ namespace sistema_gestao_recursos_humanos.backend.models
         // Navigation properties
         public List<DepartmentHistory>? DepartmentHistories { get; set; }
         public List<PayHistory>? PayHistories { get; set; }
+
+        public Person? Person { get; set; }
     }
 
 }

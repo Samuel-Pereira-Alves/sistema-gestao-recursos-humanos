@@ -14,5 +14,8 @@ namespace sistema_gestao_recursos_humanos.backend.models.dtos
         public short VacationHours { get; set; }
         public short SickLeaveHours { get; set; }
         public DateTime ModifiedDate { get; set; }
+
+
+        public PersonDto? Person { get; set; }
     }
 }
