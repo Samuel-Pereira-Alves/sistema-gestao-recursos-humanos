@@ -1,3 +1,4 @@
+
 using Microsoft.EntityFrameworkCore;
 using sistema_gestao_recursos_humanos.backend.models;
 
@@ -16,13 +17,46 @@ namespace sistema_gestao_recursos_humanos.backend.data
         public DbSet<PayHistory> PayHistories { get; set; }
         public DbSet<Person> Persons { get; set; }
         public DbSet<SystemUser> SystemUsers { get; set; }
+        public DbSet<BusinessEntity> BusinessEntities { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+
+            // BusinessEntity (IDENTITY + triggers)
+            modelBuilder.Entity<BusinessEntity>()
+                .ToTable("BusinessEntity", "Person", tb =>
+                {
+                    tb.HasTrigger("TR_BusinessEntity_Insert");
+                    tb.HasTrigger("TR_BusinessEntity_Update");
+                    tb.HasTrigger("TR_BusinessEntity_Delete");
+                })
+                .HasKey(be => be.BusinessEntityID);
+
+            modelBuilder.Entity<BusinessEntity>()
+                .Property(be => be.BusinessEntityID)
+                .ValueGeneratedOnAdd(); // IDENTITY
+
+            modelBuilder.Entity<BusinessEntity>()
+                .Property(be => be.RowGuid)
+                .HasDefaultValueSql("NEWID()");
+
+            modelBuilder.Entity<BusinessEntity>()
+                .Property(be => be.ModifiedDate)
+                .HasDefaultValueSql("GETDATE()");
+
+            // -----------------------------
+            // Employee
+            // -----------------------------
             modelBuilder.Entity<Employee>()
-                .ToTable("Employee", "HumanResources")
+                .ToTable("Employee", "HumanResources", tb =>
+                {
+                    // Informe que a tabela tem triggers (nomes exemplificativos)
+                    tb.HasTrigger("TR_Employee_Insert");
+                    tb.HasTrigger("TR_Employee_Update");
+                    tb.HasTrigger("TR_Employee_Delete");
+                })
                 .HasKey(e => e.BusinessEntityID);
 
             modelBuilder.Entity<Employee>()
@@ -30,11 +64,30 @@ namespace sistema_gestao_recursos_humanos.backend.data
                 .WithOne(p => p.Employee)
                 .HasForeignKey<Employee>(e => e.BusinessEntityID);
 
+
+            modelBuilder.Entity<Employee>()
+                    .Property(e => e.ModifiedDate)
+                    .HasDefaultValueSql("GETDATE()");
+
+            // -----------------------------
+            // Person
+            // -----------------------------
             modelBuilder.Entity<Person>()
-                .ToTable("Person", "Person")
+                .ToTable("Person", "Person", tb =>
+                {
+                    tb.HasTrigger("TR_Person_Insert");
+                    tb.HasTrigger("TR_Person_Update");
+                    tb.HasTrigger("TR_Person_Delete");
+                })
                 .HasKey(p => p.BusinessEntityID);
 
+            modelBuilder.Entity<Person>()
+                .Property(e => e.ModifiedDate)
+                .HasDefaultValueSql("GETDATE()");
 
+            // -----------------------------
+            // PayHistory
+            // -----------------------------
             modelBuilder.Entity<PayHistory>()
                 .ToTable("EmployeePayHistory", "HumanResources")
                 .HasKey(ph => new { ph.BusinessEntityID, ph.RateChangeDate });
@@ -44,6 +97,14 @@ namespace sistema_gestao_recursos_humanos.backend.data
                 .WithMany(e => e.PayHistories)
                 .HasForeignKey(ph => ph.BusinessEntityID);
 
+
+            modelBuilder.Entity<PayHistory>()
+                    .Property(ph => ph.Rate)
+                    .HasPrecision(19, 4);
+
+            // -----------------------------
+            // DepartmentHistory
+            // -----------------------------
             modelBuilder.Entity<DepartmentHistory>()
                 .ToTable("EmployeeDepartmentHistory", "HumanResources")
                 .HasKey(dh => new { dh.BusinessEntityID, dh.DepartmentID, dh.ShiftID, dh.StartDate });
@@ -62,9 +123,32 @@ namespace sistema_gestao_recursos_humanos.backend.data
                 .ToTable("Department", "HumanResources")
                 .HasKey(d => d.DepartmentID);
 
+            // -----------------------------
+            // SystemUser
+            // -----------------------------
             modelBuilder.Entity<SystemUser>()
-                .ToTable("SystemUsers", "HumanResources")
+                .ToTable("SystemUsers", "HumanResources", tb =>
+                {
+                    tb.HasTrigger("TR_SystemUsers_Insert");
+                    tb.HasTrigger("TR_SystemUsers_Update");
+                    tb.HasTrigger("TR_SystemUsers_Delete");
+                })
                 .HasKey(su => su.SystemUserId);
+
+            // FK SystemUser -> Employee (BusinessEntityID)
+            modelBuilder.Entity<SystemUser>()
+                .HasOne<Employee>()
+                .WithOne()
+                .HasForeignKey<SystemUser>(su => su.BusinessEntityID);
+
+            // Índices/constraints conforme a tua tabela SQL
+            modelBuilder.Entity<SystemUser>()
+                .HasIndex(su => su.BusinessEntityID)
+                .IsUnique();
+
+            modelBuilder.Entity<SystemUser>()
+                .HasIndex(su => su.Username)
+                .IsUnique();
         }
     }
 }

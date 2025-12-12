@@ -15,6 +15,7 @@ namespace sistema_gestao_recursos_humanos.backend.models
         public string? Suffix { get; set; }
         public int EmailPromotion { get; set; }
         public DateTime ModifiedDate { get; set; }
+        public string PersonType { get; set; } = "EM";
 
         // Navigation properties
         public Employee? Employee { get; set; }

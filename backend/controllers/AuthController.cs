@@ -12,21 +12,21 @@ using sistema_gestao_recursos_humanos.backend.models.dtos;
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
     [ApiController]
-    [Route("api/v1/[controller]")]
-    public class LoginController : ControllerBase
+    [Route("api/v1/")]
+    public class AuthController : ControllerBase
     {
         private readonly AdventureWorksContext _db;
         private readonly IConfiguration _config;
 
-        public LoginController(AdventureWorksContext db, IConfiguration config)
+        public AuthController(AdventureWorksContext db, IConfiguration config)
         {
             _db = db;
             _config = config;
         }
 
         // POST: api/v1/login
-        [HttpPost]
-        public IActionResult Login([FromBody] LoginDTO request)
+        [HttpPost("login")]
+        public IActionResult Login([FromBody] SystemUsersDTO request)
         {
             // 1. Procurar utilizador
             var user = _db.SystemUsers.FirstOrDefault(u => u.Username == request.Username);
@@ -41,13 +41,13 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             return Ok(new { token, role = user.Role, systemUserId = user.SystemUserId, businessEntityId = user.BusinessEntityID });
         }
 
-        private bool VerifyPassword(string password, string storedPassword)
-        {
-            if (string.IsNullOrEmpty(storedPassword))
-                return false;
 
-            return password == storedPassword;
+        private bool VerifyPassword(string password, string storedHash)
+        {
+            if (string.IsNullOrWhiteSpace(storedHash)) return false;
+            return BCrypt.Net.BCrypt.Verify(password, storedHash);
         }
+
 
         private string GenerateJwtToken(SystemUser user)
         {

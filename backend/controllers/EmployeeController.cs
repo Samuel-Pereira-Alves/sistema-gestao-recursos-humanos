@@ -4,6 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
+using System.Security.Cryptography;
+using System.Text;
+using BCrypt.Net;
 
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
@@ -27,7 +30,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var employees = await _db.Employees
                 .Include(e => e.PayHistories)
                 .Include(e => e.DepartmentHistories)
-                    .ThenInclude(dh =>dh.Department)
+                    .ThenInclude(dh => dh.Department)
                 .Include(e => e.Person)
                 .ToListAsync();
 
@@ -42,7 +45,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var employee = await _db.Employees
                 .Include(e => e.PayHistories)
                 .Include(e => e.DepartmentHistories)
-                    .ThenInclude(dh =>dh.Department)
+                    .ThenInclude(dh => dh.Department)
                 .Include(e => e.Person)
                 .FirstOrDefaultAsync(e => e.BusinessEntityID == id);
 
@@ -157,6 +160,162 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             var deptHistoryDto = _mapper.Map<List<DepartmentHistoryDto>>(employee.DepartmentHistories);
             return Ok(deptHistoryDto);
+        }
+
+
+        //Secção de Aprovação de candidatura
+        private static string GenerateUsername(Employee employee)
+        {
+            if (!string.IsNullOrWhiteSpace(employee.LoginID))
+                return employee.LoginID.ToLowerInvariant();
+
+            if (employee.Person != null &&
+                !string.IsNullOrWhiteSpace(employee.Person.FirstName) &&
+                !string.IsNullOrWhiteSpace(employee.Person.LastName))
+            {
+                return $"{employee.Person.FirstName}.{employee.Person.LastName}@emailnadainventado.com".ToLowerInvariant();
+            }
+
+            return $"emp{employee.BusinessEntityID}";
+        }
+
+
+        private static string GenerateTempPassword(int length = 12)
+        {
+            // Password forte com maiúsculas, minúsculas, dígitos e símbolos
+            const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+            const string lower = "abcdefghijkmnopqrstuvwxyz";
+            const string digits = "23456789";
+            const string symbols = "!@#$%^&*()-_=+[]{}";
+            string all = upper + lower + digits + symbols;
+
+            var bytes = new byte[length];
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(bytes);
+
+            var chars = new char[length];
+            for (int i = 0; i < length; i++)
+            {
+                chars[i] = all[bytes[i] % all.Length];
+            }
+
+            // Garantir pelo menos um de cada tipo (opcional)
+            chars[0] = upper[bytes[0] % upper.Length];
+            chars[1] = lower[bytes[1] % lower.Length];
+            chars[2] = digits[bytes[2] % digits.Length];
+            chars[3] = symbols[bytes[3] % symbols.Length];
+
+            return new string(chars);
+        }
+
+        private static string HashWithBcrypt(string plain)
+        {
+            return BCrypt.Net.BCrypt.HashPassword(plain, workFactor: 11);
+        }
+
+
+
+
+
+        [HttpPost("approve")]
+        public async Task<IActionResult> ApproveCandidate([FromBody] ApproveCandidateDTO request)
+        {
+            if (request?.Employee == null)
+                return BadRequest(new { message = "Employee é obrigatório" });
+
+            await using var transaction = await _db.Database.BeginTransactionAsync();
+
+            try
+            {
+                var now = DateTime.Now;
+
+                // (A) Criar BusinessEntity para obter o ID
+                var be = new BusinessEntity { RowGuid = Guid.NewGuid(), ModifiedDate = now };
+                _db.BusinessEntities.Add(be);
+                await _db.SaveChangesAsync();               // ID gerado aqui
+                var beId = be.BusinessEntityID;
+
+                // (B) Mapear Person (a partir do DTO)
+                var person = new Person
+                {
+                    BusinessEntityID = beId,
+                    FirstName = request.Employee.Person?.FirstName ?? "",
+                    LastName = request.Employee.Person?.LastName ?? "",
+                    MiddleName = request.Employee.Person?.MiddleName,
+                    Title = request.Employee.Person?.Title,
+                    Suffix = request.Employee.Person?.Suffix,
+                    EmailPromotion = 0,
+                    ModifiedDate = now,
+                    PersonType = "EM"
+                };
+                _db.Persons.Add(person);
+                await _db.SaveChangesAsync();
+
+                // (C) Mapear Employee (usar o mesmo BusinessEntityID)
+                var employee = _mapper.Map<Employee>(request.Employee);
+                employee.BusinessEntityID = beId;
+                employee.HireDate = employee.HireDate.Year < 1753 ? now : employee.HireDate;  // garantir range válido por causa das constrains do SQL
+                employee.ModifiedDate = now;
+                employee.Person = person; // ligar navegação
+
+                _db.Employees.Add(employee);
+                await _db.SaveChangesAsync();
+
+                // (D) Username
+                var username = string.IsNullOrWhiteSpace(request.Username)
+                    ? GenerateUsername(employee)
+                    : request.Username.Trim().ToLowerInvariant();
+
+                var usernameExists = await _db.SystemUsers.AnyAsync(u => u.Username == username);
+                if (usernameExists)
+                {
+                    await transaction.RollbackAsync();
+                    return Conflict(new { message = "Username já existe", username });
+                }
+
+                // (E) Password temporária + hash
+                var tempPassword = string.IsNullOrWhiteSpace(request.TempPassword)
+                    ? GenerateTempPassword()
+                    : request.TempPassword!;
+                var hashed = HashWithBcrypt(tempPassword);
+
+                // (F) Criar SystemUser
+                var role = string.IsNullOrWhiteSpace(request.Role) ? "Employee" : request.Role!.Trim();
+
+                var sysUser = new SystemUser
+                {
+                    BusinessEntityID = beId,
+                    Username = username,
+                    PasswordHash = hashed,
+                    Role = role
+                };
+
+                _db.SystemUsers.Add(sysUser);
+                await _db.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+
+                return CreatedAtAction(nameof(GetEmployee),
+                    new { id = beId },
+                    new
+                    {
+                        employeeId = beId,
+                        systemUserId = sysUser.SystemUserId,
+                        username,
+                        role,
+                        tempPassword // DEV only
+                    });
+            }
+            catch (DbUpdateException ex)
+            {
+                await transaction.RollbackAsync();
+                return Conflict(new { message = "Erro ao aprovar candidato", detail = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { message = "Erro interno ao aprovar candidato", detail = ex.Message });
+            }
         }
     }
 }
