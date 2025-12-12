@@ -91,11 +91,16 @@ export default function EmployeeProfile() {
     }
 
     try {
-      const response = await fetch(`http://localhost:5136/api/v1/employee/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(employee),
-      });
+      const response = await fetch(
+        `http://localhost:5136/api/v1/employee/${localStorage.getItem(
+          "businessEntityId"
+        )}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(employee),
+        }
+      );
       if (!response.ok) throw new Error("Erro ao atualizar funcionário");
       const updated = await response.json();
       setEmployee(updated);
