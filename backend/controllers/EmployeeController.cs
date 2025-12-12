@@ -27,9 +27,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var employees = await _db.Employees
                 .Include(e => e.PayHistories)
                 .Include(e => e.DepartmentHistories)
+                .Include(e => e.Person)
                 .ToListAsync();
 
-            var employeesDto = _mapper.Map<List<EmployeeHRDto>>(employees);
+            var employeesDto = _mapper.Map<List<EmployeeDto>>(employees);
             return Ok(employeesDto);
         }
 
@@ -40,11 +41,12 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var employee = await _db.Employees
                 .Include(e => e.PayHistories)
                 .Include(e => e.DepartmentHistories)
+                .Include(e => e.Person)
                 .FirstOrDefaultAsync(e => e.BusinessEntityID == id);
 
             if (employee == null) return NotFound();
 
-            var employeeDto = _mapper.Map<EmployeeHRDto>(employee);
+            var employeeDto = _mapper.Map<EmployeeDto>(employee);
             return Ok(employeeDto);
         }
 
