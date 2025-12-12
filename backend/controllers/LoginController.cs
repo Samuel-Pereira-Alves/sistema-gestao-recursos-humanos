@@ -38,14 +38,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             // 2. Gerar token JWT
             var token = GenerateJwtToken(user);
 
-            // 3. Devolver token + permissões
-            return Ok(new
-            {
-                token,
-                role = user.Role,
-                systemUserId = user.SystemUserId,
-                businessEntityId = user.BusinessEntityID
-            });
+            return Ok(new { token, role = user.Role, systemUserId = user.SystemUserId, businessEntityId = user.BusinessEntityID });
         }
 
         private bool VerifyPassword(string password, string storedPassword)
@@ -54,7 +47,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 return false;
 
             return password == storedPassword;
-
         }
 
         private string GenerateJwtToken(SystemUser user)
