@@ -2,14 +2,7 @@
 import React, { useState } from "react";
 
 function ProfilePage() {
-  const [user, setUser] = useState({
-    nome: "João Silva",
-    email: "joao.silva@email.com",
-    telefone: "912345678",
-    departamento: "Tecnologia",
-    cargo: "Desenvolvedor .NET",
-    salario: "2000€",
-  });
+  const [user, setUser] = useState({});
 
   return (
     <div className="container mt-5">

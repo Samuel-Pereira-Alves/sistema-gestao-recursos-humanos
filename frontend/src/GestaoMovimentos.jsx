@@ -90,7 +90,7 @@ function GestaoMovimentacoes() {
                           <td className="px-4 py-3">{f.funcionario}</td>
                           <td className="px-4 py-3 text-muted">{f.de}</td>
                           <td className="px-4 py-3 text-muted">{f.para}</td>
-                          <td className="px-4 py-3 text-muted">{f.data}</td>
+                          <td className="px-4 py-3 text-muted text-center">{f.data}</td>
                         </tr>
                       ))}
                     </tbody>
