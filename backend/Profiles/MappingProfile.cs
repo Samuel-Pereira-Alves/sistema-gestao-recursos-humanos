@@ -14,7 +14,7 @@ namespace sistema_gestao_recursos_humanos.backend.profiles
 
             CreateMap<Employee, EmployeeHRDto>().ReverseMap();
             CreateMap<Person, PersonDto>().ReverseMap();
-
+            CreateMap<Department, DepartmentDto>().ReverseMap();
         }
     }
 }

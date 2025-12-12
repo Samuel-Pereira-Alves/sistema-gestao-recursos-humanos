@@ -17,5 +17,7 @@ namespace sistema_gestao_recursos_humanos.backend.models.dtos
 
 
         public PersonDto? Person { get; set; }
+        public List<DepartmentHistoryDto> DepartmentHistories { get; set; } = new();
+        public List<PayHistoryDto> PayHistories { get; set; } = new();
     }
 }

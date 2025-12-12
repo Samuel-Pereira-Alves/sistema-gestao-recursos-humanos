@@ -14,7 +14,8 @@ namespace sistema_gestao_recursos_humanos.backend.data
         public DbSet<Employee> Employees { get; set; }
         public DbSet<DepartmentHistory> DepartmentHistories { get; set; }
         public DbSet<PayHistory> PayHistories { get; set; }
-        public DbSet<Person> Persons {get; set;}
+        public DbSet<Person> Persons { get; set; }
+        public DbSet<SystemUser> SystemUsers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -48,9 +49,22 @@ namespace sistema_gestao_recursos_humanos.backend.data
                 .HasKey(dh => new { dh.BusinessEntityID, dh.DepartmentID, dh.ShiftID, dh.StartDate });
 
             modelBuilder.Entity<DepartmentHistory>()
-                .HasOne<Employee>()
+                .HasOne(dh => dh.Employee)
                 .WithMany(e => e.DepartmentHistories)
                 .HasForeignKey(dh => dh.BusinessEntityID);
+
+            modelBuilder.Entity<DepartmentHistory>()
+                .HasOne(dh => dh.Department)
+                .WithMany(d => d.DepartmentHistories)
+                .HasForeignKey(dh => dh.DepartmentID);
+
+            modelBuilder.Entity<Department>()
+                .ToTable("Department", "HumanResources")
+                .HasKey(d => d.DepartmentID);
+
+            modelBuilder.Entity<SystemUser>()
+                .ToTable("SystemUsers", "HumanResources")
+                .HasKey(su => su.SystemUserId);
         }
     }
 }

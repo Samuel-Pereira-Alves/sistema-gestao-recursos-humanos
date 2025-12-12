@@ -13,5 +13,9 @@ namespace sistema_gestao_recursos_humanos.backend.models
         public DateTime StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public DateTime ModifiedDate { get; set; }
+
+
+        public Employee? Employee { get; set; }
+        public Department? Department { get; set; }
     }
 }

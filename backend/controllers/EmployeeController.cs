@@ -27,6 +27,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var employees = await _db.Employees
                 .Include(e => e.PayHistories)
                 .Include(e => e.DepartmentHistories)
+                    .ThenInclude(dh =>dh.Department)
                 .Include(e => e.Person)
                 .ToListAsync();
 
@@ -41,6 +42,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var employee = await _db.Employees
                 .Include(e => e.PayHistories)
                 .Include(e => e.DepartmentHistories)
+                    .ThenInclude(dh =>dh.Department)
                 .Include(e => e.Person)
                 .FirstOrDefaultAsync(e => e.BusinessEntityID == id);
 
