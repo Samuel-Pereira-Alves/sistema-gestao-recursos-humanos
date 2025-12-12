@@ -8,12 +8,11 @@ function EmployeeProfile() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const navigate = useNavigate();
-  const { id } = useParams(); // rota /profile/:id
 
   useEffect(() => {
     const fetchEmployee = async () => {
       try {
-        const response = await fetch(`http://localhost:5136/api/v1/employee/${id}`);
+        const response = await fetch(`http://localhost:5136/api/v1/employee/${localStorage.getItem("businessEntityId")}`);
         if (!response.ok) throw new Error("Erro ao carregar funcionário");
         const data = await response.json();
         console.log("API data:", data);
@@ -26,7 +25,7 @@ function EmployeeProfile() {
     };
 
     fetchEmployee();
-  }, [id]);
+  }, []);
 
   if (loading) return <p className="text-center mt-5">Carregando perfil...</p>;
   if (!employee) return <p className="text-center mt-5">Funcionário não encontrado</p>;
