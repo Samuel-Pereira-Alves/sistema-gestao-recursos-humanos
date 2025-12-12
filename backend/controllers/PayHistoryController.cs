@@ -29,12 +29,26 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             return Ok(dto);
         }
 
+        // GET: api/v1/payhistory/{businessEntityId}
+        [HttpGet("{businessEntityId}")]
+        public async Task<IActionResult> GetAllByEmployee(int businessEntityId)
+        {
+            var histories = await _db.PayHistories
+                .Where(ph => ph.BusinessEntityID == businessEntityId)
+                .OrderByDescending(ph => ph.RateChangeDate)
+                .ToListAsync();
+
+            var dtos = _mapper.Map<List<PayHistoryDto>>(histories);
+            return Ok(dtos);
+        }
+
+
         // GET: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
         [HttpGet("{businessEntityId}/{rateChangeDate}")]
         public async Task<IActionResult> Get(int businessEntityId, DateTime rateChangeDate)
         {
             var history = await _db.PayHistories
-                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId 
+                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
                                         && ph.RateChangeDate == rateChangeDate);
 
             if (history == null) return NotFound();
@@ -53,8 +67,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             _db.PayHistories.Add(history);
             await _db.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(Get), 
-                new { businessEntityId = history.BusinessEntityID, rateChangeDate = history.RateChangeDate }, 
+            return CreatedAtAction(nameof(Get),
+                new { businessEntityId = history.BusinessEntityID, rateChangeDate = history.RateChangeDate },
                 _mapper.Map<PayHistoryDto>(history));
         }
 
@@ -63,7 +77,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<IActionResult> Update(int businessEntityId, DateTime rateChangeDate, PayHistoryDto dto)
         {
             var history = await _db.PayHistories
-                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId 
+                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
                                         && ph.RateChangeDate == rateChangeDate);
 
             if (history == null) return NotFound();
@@ -82,7 +96,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<IActionResult> Patch(int businessEntityId, DateTime rateChangeDate, PayHistoryDto dto)
         {
             var history = await _db.PayHistories
-                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId 
+                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
                                         && ph.RateChangeDate == rateChangeDate);
 
             if (history == null) return NotFound();
