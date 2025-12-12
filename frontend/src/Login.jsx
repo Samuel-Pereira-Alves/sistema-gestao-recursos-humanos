@@ -1,7 +1,6 @@
 // src/pages/Login.jsx
 import React, { useState, useContext } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { AuthContext } from "./AuthContext";
 import { useNavigate } from "react-router-dom";
 
 function Login() {
@@ -9,26 +8,41 @@ function Login() {
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
 
-  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  try {
+    // Chamada ao backend
+    const response = await fetch("http://localhost:5136/api/v1/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
 
-    // --- TESTE LOCAL ---
-    console.log("Username:", username);
-    console.log("Password:", password);
-    console.log("Remember me:", remember);
+    if (!response.ok) {
+      console.error("Login falhou");
+      return;
+    }
 
-    // Simulação: se username começar por "adm", assume admin, senão employee
-    const role = username.startsWith("adm") ? "admin" : "employee";
+    const data = await response.json();
 
-    // Atualiza o contexto
-    login(username, role);
+    // Guarda token e dados no localStorage
+    localStorage.setItem("authToken", data.token);
+    localStorage.setItem("role", data.role);
+    localStorage.setItem("employeeId", data.employeeId);
+    localStorage.setItem("systemUserId", data.systemUserId);
+    localStorage.setItem("businessEntityId", data.businessEntityId);
 
-    // Redireciona para Home
+    console.log("Login bem-sucedido:", data);
+    // Atualiza o contexto da app
+    //login(data.username, data.role, data.employeeId);
     navigate("/");
-  };
+    // Redireciona para Home
+  } catch (error) {
+    console.error("Erro no login:", error);
+  }
+};
 
   return (
     <div className="d-flex align-items-center justify-content-center vh-100 bg-gradient">
