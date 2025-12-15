@@ -663,7 +663,7 @@ export default function GestaoPagamentos() {
                     />
                   </div>
                   <div className="col-6">
-                    <label className="form-label">Data Pagamento</label>
+                    <label className="form-label">Data </label>
                     <input
                       type="date"
                       className="form-control"

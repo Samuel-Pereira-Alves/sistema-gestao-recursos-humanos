@@ -1,9 +1,8 @@
-
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 /* =========================
- * Utils (apresentação)
+ * Utils
  * ========================= */
 function formatDate(dateStr) {
   if (!dateStr) return "—";
@@ -11,10 +10,6 @@ function formatDate(dateStr) {
   if (isNaN(d)) return "—";
   return d.toLocaleDateString("pt-PT");
 }
-
-/* =========================
- * Utils (comparação/strings)
- * ========================= */
 function normalize(t) {
   if (!t) return "";
   return String(t)
@@ -27,40 +22,32 @@ function idToString(id) {
   if (id == null) return "";
   return String(id).trim();
 }
-/** Converte input "yyyy-MM-dd" em ISO "yyyy-MM-ddT00:00:00" (para POST/PATCH quando necessário) */
 function dateInputToIsoMidnight(dateStr) {
   return dateStr ? `${dateStr}T00:00:00` : "";
 }
 
-/* =========================
- * Helpers de extração (suportam camelCase/PascalCase)
- * ========================= */
+/* Helpers (suportam camelCase/PascalCase) */
 const getBusinessEntityID = (h) =>
   h?.businessEntityID ??
   h?.BusinessEntityID ??
   h?.employee?.businessEntityID ??
   "";
-
 const getDepartmentID = (h) =>
   h?.departmentID ??
   h?.DepartmentID ??
   h?.department?.departmentID ??
   h?.department?.DepartmentID ??
   "";
-
 const getShiftID = (h) =>
   h?.shiftID ?? h?.ShiftID ?? h?.shift?.shiftID ?? h?.shift?.ShiftID ?? "";
-
 const getStartDate = (h) => h?.startDate ?? h?.StartDate ?? "";
 const getEndDate = (h) => h?.endDate ?? h?.EndDate ?? "";
-
 const getDepartmentName = (h) =>
   h?.department?.name ??
   h?.department?.Name ??
   h?.departmentName ??
   h?.DepartmentName ??
   "—";
-
 const getGroupName = (h) =>
   h?.department?.groupName ??
   h?.department?.GroupName ??
@@ -68,26 +55,28 @@ const getGroupName = (h) =>
   h?.GroupName ??
   "—";
 
-/* =========================
- * API
- * ========================= */
+/* API */
 const API_BASE = "http://localhost:5136/api/v1";
 const EMPLOYEE_BASE = `${API_BASE}/employee`;
 const DEPT_HISTORY_BASE = `${API_BASE}/departmenthistory`;
 
-// PATCH: /api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
 const deptHistoryUrl = (businessEntityID, departmentID, shiftID, startDate) =>
-  `${DEPT_HISTORY_BASE}/${encodeURIComponent(String(businessEntityID))}/${encodeURIComponent(
-    String(departmentID)
-  )}/${encodeURIComponent(String(shiftID))}/${encodeURIComponent(String(startDate))}`;
+  `${DEPT_HISTORY_BASE}/${encodeURIComponent(
+    businessEntityID
+  )}/${encodeURIComponent(departmentID)}/${encodeURIComponent(
+    shiftID
+  )}/${encodeURIComponent(startDate)}`;
 
-/* =========================
- * Componente
- * ========================= */
+const SHIFT_LABELS = { 1: "Manhã", 2: "Tarde", 3: "Noite" };
+const resolveShiftLabel = (id) => SHIFT_LABELS[Number(id)] ?? "—";
+
 export default function GestaoDepartmentHistories() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
-  const [items, setItems] = useState([]); // departmentHistories flattened
+  const [items, setItems] = useState([]);
+
+  /* Departamentos: derivados dos próprios histories */
+  const [departments, setDepartments] = useState([]);
 
   // 🔎 pesquisa
   const [searchTerm, setSearchTerm] = useState("");
@@ -104,21 +93,30 @@ export default function GestaoDepartmentHistories() {
       const response = await fetch(EMPLOYEE_BASE, {
         headers: { Accept: "application/json" },
       });
-      if (!response.ok) throw new Error("Erro ao carregar colaboradores/departamentos");
+      if (!response.ok)
+        throw new Error("Erro ao carregar colaboradores/departamentos");
 
       const data = await response.json();
       const employees = Array.isArray(data) ? data : data?.items ?? [];
 
       const flattened = employees.flatMap((emp) =>
-        (emp.departmentHistories ?? emp.DepartmentHistories ?? []).map((dh) => ({
-          ...dh,
-          employee: emp, // manter referência ao colaborador (para Nome/ID)
-        }))
+        (emp.departmentHistories ?? emp.DepartmentHistories ?? []).map(
+          (dh) => ({
+            ...dh,
+            employee: emp, // referência ao colaborador (Nome/ID)
+          })
+        )
       );
 
       // Ordena por Data Início desc
-      flattened.sort((a, b) => new Date(getStartDate(b)) - new Date(getStartDate(a)));
+      flattened.sort(
+        (a, b) => new Date(getStartDate(b)) - new Date(getStartDate(a))
+      );
       setItems(flattened);
+
+      // Derivar departamentos (ID + Nome) a partir dos histories carregados
+      const derivedDeps = buildDerivedDepartments(flattened);
+      setDepartments(derivedDeps);
     } catch (err) {
       setFetchError(err.message || "Erro desconhecido ao obter dados.");
     } finally {
@@ -152,7 +150,9 @@ export default function GestaoDepartmentHistories() {
         return beid === rawSearch; // filtra por businessEntityID (igualdade exata)
       }
 
-      const fullName = `${normalize(person.firstName)} ${normalize(person.lastName)}`.trim();
+      const fullName = `${normalize(person.firstName)} ${normalize(
+        person.lastName
+      )}`.trim();
       const deptName = normalize(getDepartmentName(h));
       const groupName = normalize(getGroupName(h));
       const start = normalize(formatDate(getStartDate(h)));
@@ -182,9 +182,12 @@ export default function GestaoDepartmentHistories() {
     mode: "create", // 'create' | 'edit'
     loading: false,
     error: null,
-    // chaves (não editáveis no edit)
-    keys: { businessEntityID: "", departmentID: "", shiftID: "", startDate: "" },
-    // formulário (usado em ambos)
+    keys: {
+      businessEntityID: "",
+      departmentID: "",
+      shiftID: "",
+      startDate: "",
+    },
     form: {
       businessEntityID: "",
       departmentID: "",
@@ -200,8 +203,19 @@ export default function GestaoDepartmentHistories() {
       mode: "create",
       loading: false,
       error: null,
-      keys: { businessEntityID: "", departmentID: "", shiftID: "", startDate: "" },
-      form: { businessEntityID: "", departmentID: "", shiftID: "", startDate: "", endDate: "" },
+      keys: {
+        businessEntityID: "",
+        departmentID: "",
+        shiftID: "",
+        startDate: "",
+      },
+      form: {
+        businessEntityID: "",
+        departmentID: "",
+        shiftID: "",
+        startDate: "",
+        endDate: "",
+      },
     });
   };
 
@@ -233,7 +247,8 @@ export default function GestaoDepartmentHistories() {
     });
   };
 
-  const closeAction = () => setAction((s) => ({ ...s, open: false, error: null }));
+  const closeAction = () =>
+    setAction((s) => ({ ...s, open: false, error: null }));
 
   const submitAction = async () => {
     try {
@@ -242,7 +257,7 @@ export default function GestaoDepartmentHistories() {
       const { mode, form, keys } = action;
 
       if (mode === "create") {
-        // validações
+        // validações mínimas
         const businessEntityID = Number(form.businessEntityID);
         const departmentID = Number(form.departmentID);
         const shiftID = Number(form.shiftID);
@@ -261,20 +276,22 @@ export default function GestaoDepartmentHistories() {
 
         const resp = await fetch(`${DEPT_HISTORY_BASE}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
           body: JSON.stringify(body),
         });
-        if (!resp.ok) throw new Error((await resp.text()) || "Falha ao criar registo.");
+        if (!resp.ok)
+          throw new Error((await resp.text()) || "Falha ao criar registo.");
       } else {
         // EDIT: PATCH /departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
-        //  Normalmente NÃO se alteram chaves num PATCH. Aqui atualizamos apenas campos não-chave (ex.: endDate).
+        // Atualizamos apenas campos não-chave (ex.: endDate).
         const { businessEntityID, departmentID, shiftID, startDate } = keys;
         if (!businessEntityID || !departmentID || !shiftID || !startDate)
           throw new Error("Chaves do registo em falta.");
 
         const patchBody = {
-          // Ajusta conforme o teu DTO no servidor; aqui envio apenas endDate.
-          // Se o teu PATCH aceitar 'departmentID' ou 'shiftID', poderás incluir, mas isso geralmente implica mudança de chave.
           endDate: form.endDate ? form.endDate : null,
         };
 
@@ -282,11 +299,15 @@ export default function GestaoDepartmentHistories() {
           deptHistoryUrl(businessEntityID, departmentID, shiftID, startDate),
           {
             method: "PATCH",
-            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
             body: JSON.stringify(patchBody),
           }
         );
-        if (!resp.ok) throw new Error((await resp.text()) || "Falha ao editar registo.");
+        if (!resp.ok)
+          throw new Error((await resp.text()) || "Falha ao editar registo.");
       }
 
       await fetchData();
@@ -298,6 +319,43 @@ export default function GestaoDepartmentHistories() {
     }
   };
 
+  /* ---------- Util: derivar departamentos a partir dos histories ---------- */
+  function buildDerivedDepartments(list) {
+    const map = new Map();
+    list.forEach((h) => {
+      const id = getDepartmentID(h);
+      const name = getDepartmentName(h);
+      if (id) {
+        const key = String(id);
+        if (!map.has(key)) {
+          map.set(key, { departmentID: key, name });
+        } else {
+          // Se o nome vier vazio "—" numa entrada e noutra vier preenchido, atualiza
+          const existing = map.get(key);
+          if (
+            (!existing.name || existing.name === "—") &&
+            name &&
+            name !== "—"
+          ) {
+            map.set(key, { departmentID: key, name });
+          }
+        }
+      }
+    });
+    const derived = Array.from(map.values());
+    derived.sort((a, b) =>
+      String(a.name).localeCompare(String(b.name), "pt-PT", {
+        sensitivity: "base",
+      })
+    );
+    return derived;
+  }
+
+  const resolveDepartmentName = (id) => {
+    const dep = departments.find((d) => String(d.departmentID) === String(id));
+    return dep?.name ?? "—";
+  };
+
   /* =========================
    * UI
    * ========================= */
@@ -307,7 +365,7 @@ export default function GestaoDepartmentHistories() {
         <h1 className="h3 mb-1">Histórico de Departamentos</h1>
         {!loading && (
           <button className="btn btn-sm btn-primary" onClick={openCreate}>
-             Criar registo
+            Criar registo
           </button>
         )}
       </div>
@@ -325,7 +383,7 @@ export default function GestaoDepartmentHistories() {
             <input
               type="text"
               className="form-control"
-              placeholder="Procurar por ID (businessEntityID), colaborador, departamento, grupo ou data..."
+              placeholder="Procurar por ID, colaborador, departamento, grupo ou data..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               aria-label="Pesquisar histórico de departamentos"
@@ -367,23 +425,33 @@ export default function GestaoDepartmentHistories() {
                       const end = getEndDate(h);
 
                       // chave estável por linha
-                      const key = `${getBusinessEntityID(h)}|${getDepartmentID(h)}|${getShiftID(h)}|${start}`;
+                      const key = `${getBusinessEntityID(h)}|${getDepartmentID(
+                        h
+                      )}|${getShiftID(h)}|${start}`;
 
                       return (
                         <tr key={key}>
                           <td className="px-4 py-3">
                             {person.firstName} {person.lastName}
-                            <div className="small text-muted">ID: {employee.businessEntityID ?? "—"}</div>
+                            <div className="small text-muted">
+                              ID: {employee.businessEntityID ?? "—"}
+                            </div>
                           </td>
                           <td className="px-4 py-3">{deptName}</td>
                           <td className="px-4 py-3">{groupName}</td>
-                          <td className="px-4 py-3 text-muted">{formatDate(start)}</td>
-                          <td className="px-4 py-3 text-muted">{formatDate(end)}</td>
+                          <td className="px-4 py-3 text-muted">
+                            {formatDate(start)}
+                          </td>
+                          <td className="px-4 py-3 text-muted">
+                            {formatDate(end)}
+                          </td>
                           <td className="px-4 py-3 text-end">
-                            <button className="btn btn-sm btn-outline-primary" onClick={() => openEdit(h)}>
+                            <button
+                              className="btn btn-sm btn-outline-primary"
+                              onClick={() => openEdit(h)}
+                            >
                               Editar
                             </button>
-                            {/* Sem eliminar, porque ainda não tens DELETE na API */}
                           </td>
                         </tr>
                       );
@@ -399,12 +467,16 @@ export default function GestaoDepartmentHistories() {
                   const person = employee.person ?? {};
                   const start = getStartDate(h);
                   const end = getEndDate(h);
-                  const key = `${getBusinessEntityID(h)}|${getDepartmentID(h)}|${getShiftID(h)}|${start}`;
+                  const key = `${getBusinessEntityID(h)}|${getDepartmentID(
+                    h
+                  )}|${getShiftID(h)}|${start}`;
 
                   return (
                     <div key={key} className="border-bottom p-3">
                       <h6 className="mb-1">
-                        <strong>{person.firstName} {person.lastName}</strong>
+                        <strong>
+                          {person.firstName} {person.lastName}
+                        </strong>
                       </h6>
                       <p className="text-muted small mb-1">
                         <strong>ID:</strong> {employee.businessEntityID ?? "—"}
@@ -422,7 +494,10 @@ export default function GestaoDepartmentHistories() {
                         <strong>Fim:</strong> {formatDate(end)}
                       </p>
                       <div className="d-flex gap-2">
-                        <button className="btn btn-sm btn-outline-primary" onClick={() => openEdit(h)}>
+                        <button
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => openEdit(h)}
+                        >
                           Editar
                         </button>
                       </div>
@@ -435,12 +510,13 @@ export default function GestaoDepartmentHistories() {
               {!pageItems.length && (
                 <div className="p-4">
                   <p className="text-muted mb-0">
-                    Sem resultados para <strong>{rawSearch || "…"}</strong>. Tenta outro termo.
+                    Sem resultados para <strong>{rawSearch || "…"}</strong>.
+                    Tenta outro termo.
                   </p>
                 </div>
               )}
 
-              {/* Pagination + criar */}
+              {/* Pagination */}
               {!!pageItems.length && (
                 <div className="border-top p-3 d-flex flex-wrap gap-2 justify-content-between align-items-center">
                   <div className="d-flex align-items-center gap-2">
@@ -462,10 +538,6 @@ export default function GestaoDepartmentHistories() {
                       Próxima →
                     </button>
                   </div>
-
-                  <button className="btn btn-sm btn-primary" onClick={openCreate}>
-                    Criar registo
-                  </button>
                 </div>
               )}
             </>
@@ -473,7 +545,9 @@ export default function GestaoDepartmentHistories() {
         </div>
       </div>
 
-      {fetchError && <div className="alert alert-danger mt-3">{fetchError}</div>}
+      {fetchError && (
+        <div className="alert alert-danger mt-3">{fetchError}</div>
+      )}
 
       {/* Modal Create/Edit */}
       {action.open && (
@@ -488,50 +562,88 @@ export default function GestaoDepartmentHistories() {
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
-                  {action.mode === "create" ? "Criar novo registo" : "Editar registo"}
+                  {action.mode === "create"
+                    ? "Criar novo registo"
+                    : "Editar registo"}
                 </h5>
-                <button type="button" className="btn-close" onClick={closeAction} aria-label="Fechar" />
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={closeAction}
+                  aria-label="Fechar"
+                />
               </div>
               <div className="modal-body">
-                {action.error && <div className="alert alert-danger">{action.error}</div>}
+                {action.error && (
+                  <div className="alert alert-danger">{action.error}</div>
+                )}
 
                 <div className="row g-3">
                   {action.mode === "create" ? (
                     <>
                       <div className="col-6">
-                        <label className="form-label">BusinessEntityID</label>
+                        <label className="form-label">ID - Funcionário</label>
                         <input
                           type="number"
                           className="form-control"
                           value={action.form.businessEntityID}
                           onChange={(e) =>
-                            setAction((s) => ({ ...s, form: { ...s.form, businessEntityID: e.target.value } }))
-                          }
-                        />
-                      </div>
-                      <div className="col-6">
-                        <label className="form-label">DepartmentID</label>
-                        <input
-                          type="number"
-                          className="form-control"
-                          value={action.form.departmentID}
-                          onChange={(e) =>
-                            setAction((s) => ({ ...s, form: { ...s.form, departmentID: e.target.value } }))
+                            setAction((s) => ({
+                              ...s,
+                              form: {
+                                ...s.form,
+                                businessEntityID: e.target.value,
+                              },
+                            }))
                           }
                         />
                       </div>
 
+                      {/* DepartmentID como dropdown (derivado dos histories) */}
                       <div className="col-6">
-                        <label className="form-label">ShiftID</label>
-                        <input
-                          type="number"
-                          className="form-control"
+                        <label className="form-label">Departamento</label>
+                        <select
+                          className="form-select"
+                          value={action.form.departmentID}
+                          onChange={(e) =>
+                            setAction((s) => ({
+                              ...s,
+                              form: { ...s.form, departmentID: e.target.value },
+                            }))
+                          }
+                        >
+                          <option value="">— Seleciona departamento —</option>
+                          {departments.map((d) => (
+                            <option
+                              key={String(d.departmentID)}
+                              value={String(d.departmentID)}
+                            >
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* ShiftID como dropdown fixo */}
+                      <div className="col-6">
+                        <label className="form-label">Turno</label>
+                        <select
+                          className="form-select"
                           value={action.form.shiftID}
                           onChange={(e) =>
-                            setAction((s) => ({ ...s, form: { ...s.form, shiftID: e.target.value } }))
+                            setAction((s) => ({
+                              ...s,
+                              form: { ...s.form, shiftID: e.target.value },
+                            }))
                           }
-                        />
+                        >
+                          <option value="">— Seleciona turno —</option>
+                          <option value="1">Manhã</option>
+                          <option value="2">Tarde</option>
+                          <option value="3">Noite</option>
+                        </select>
                       </div>
+
                       <div className="col-6">
                         <label className="form-label">Data Início</label>
                         <input
@@ -539,19 +651,27 @@ export default function GestaoDepartmentHistories() {
                           className="form-control"
                           value={action.form.startDate}
                           onChange={(e) =>
-                            setAction((s) => ({ ...s, form: { ...s.form, startDate: e.target.value } }))
+                            setAction((s) => ({
+                              ...s,
+                              form: { ...s.form, startDate: e.target.value },
+                            }))
                           }
                         />
                       </div>
 
                       <div className="col-6">
-                        <label className="form-label">Data Fim (opcional)</label>
+                        <label className="form-label">
+                          Data Fim (opcional)
+                        </label>
                         <input
                           type="date"
                           className="form-control"
                           value={action.form.endDate}
                           onChange={(e) =>
-                            setAction((s) => ({ ...s, form: { ...s.form, endDate: e.target.value } }))
+                            setAction((s) => ({
+                              ...s,
+                              form: { ...s.form, endDate: e.target.value },
+                            }))
                           }
                         />
                       </div>
@@ -561,19 +681,51 @@ export default function GestaoDepartmentHistories() {
                       {/* Chaves (read-only) */}
                       <div className="col-6">
                         <label className="form-label">BusinessEntityID</label>
-                        <input className="form-control" value={action.keys.businessEntityID} disabled readOnly />
+                        <input
+                          className="form-control"
+                          value={action.keys.businessEntityID}
+                          disabled
+                          readOnly
+                        />
                       </div>
+                      
+
+                      {/* Mostrar nome do Departamento resolvido por ID */}
                       <div className="col-6">
-                        <label className="form-label">DepartmentID</label>
-                        <input className="form-control" value={action.keys.departmentID} disabled readOnly />
+                        <label className="form-label">Departamento</label>
+                        <input
+                          className="form-control"
+                          value={resolveDepartmentName(
+                            action.keys.departmentID
+                          )}
+                          disabled
+                          readOnly
+                        />
                       </div>
+
+                      
+
+                      {/* Mostrar label do Shift */}
                       <div className="col-6">
-                        <label className="form-label">ShiftID</label>
-                        <input className="form-control" value={action.keys.shiftID} disabled readOnly />
+                        <label className="form-label">Turno</label>
+                        <input
+                          className="form-control"
+                          value={resolveShiftLabel(action.keys.shiftID)}
+                          disabled
+                          readOnly
+                        />
                       </div>
+
                       <div className="col-6">
-                        <label className="form-label">Data Início (chave)</label>
-                        <input className="form-control" value={formatDate(action.keys.startDate)} disabled readOnly />
+                        <label className="form-label">
+                          Data Início
+                        </label>
+                        <input
+                          className="form-control"
+                          value={formatDate(action.keys.startDate)}
+                          disabled
+                          readOnly
+                        />
                       </div>
 
                       {/* Campo editável */}
@@ -582,11 +734,18 @@ export default function GestaoDepartmentHistories() {
                         <input
                           type="date"
                           className="form-control"
-                          value={action.form.endDate ? action.form.endDate.substring(0, 10) : ""}
+                          value={
+                            action.form.endDate
+                              ? action.form.endDate.substring(0, 10)
+                              : ""
+                          }
                           onChange={(e) =>
                             setAction((s) => ({
                               ...s,
-                              form: { ...s.form, endDate: dateInputToIsoMidnight(e.target.value) },
+                              form: {
+                                ...s.form,
+                                endDate: dateInputToIsoMidnight(e.target.value),
+                              },
                             }))
                           }
                         />
@@ -596,10 +755,21 @@ export default function GestaoDepartmentHistories() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button className="btn btn-outline-secondary" onClick={closeAction}>
+                <button
+                  className="btn btn-outline-secondary"
+                  onClick={closeAction}
+                >
                   Cancelar
                 </button>
-                <button className="btn btn-primary" onClick={submitAction} disabled={action.loading}>
+                <button
+                  className="btn btn-primary"
+                  onClick={submitAction}
+                  disabled={
+                    action.loading ||
+                    (action.mode === "create" &&
+                      (!action.form.departmentID || !action.form.shiftID))
+                  }
+                >
                   {action.loading
                     ? action.mode === "create"
                       ? "A criar..."
