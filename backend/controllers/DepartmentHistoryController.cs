@@ -106,5 +106,69 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             return Ok(_mapper.Map<DepartmentHistoryDto>(history));
         }
+
+
+        [HttpPost("{businessEntityId}")]
+        public async Task<IActionResult> CreateByEmployee(
+            int businessEntityId,
+            [FromBody] DepartmentHistoryDto dto)
+        {
+            // 1) Validar existência do Employee (FK)
+            var employeeExists = await _db.Employees.AnyAsync(e => e.BusinessEntityID == businessEntityId);
+            if (!employeeExists)
+                return NotFound(new { message = "Employee não encontrado", businessEntityId });
+
+            // 2) Validar existência do Department (FK) — opcional mas recomendado
+            if (dto.DepartmentId < short.MinValue || dto.DepartmentId > short.MaxValue)
+                return BadRequest(new { message = "DepartmentId fora do intervalo de short", dto.DepartmentId });
+
+            var deptExists = await _db.Departments.AnyAsync(d => d.DepartmentID == (short)dto.DepartmentId);
+            if (!deptExists)
+                return NotFound(new { message = "Department não encontrado", departmentId = dto.DepartmentId });
+
+            // 3) Garantir StartDate dentro do range de datetime (>= 1753-01-01)
+            var minSqlDate = new DateTime(1753, 1, 1);
+            if (dto.StartDate < minSqlDate)
+                return BadRequest(new { message = "StartDate inválida para SQL Server datetime", dto.StartDate });
+
+            // 4) Mapear DTO → Modelo e fixar BusinessEntityID
+            var history = _mapper.Map<DepartmentHistory>(dto);
+            history.BusinessEntityID = businessEntityId;
+            history.DepartmentID = (short)dto.DepartmentId;
+            history.ModifiedDate = DateTime.Now;
+
+            // 5) Evitar duplicado de PK composta (BusinessEntityID, DepartmentID, ShiftID, StartDate)
+            var exists = await _db.DepartmentHistories.AnyAsync(dh =>
+                dh.BusinessEntityID == history.BusinessEntityID &&
+                dh.DepartmentID == history.DepartmentID &&
+                dh.ShiftID == history.ShiftID &&
+                dh.StartDate == history.StartDate);
+
+            if (exists)
+                return Conflict(new
+                {
+                    message = "Registo de DepartmentHistory já existe",
+                    businessEntityId = history.BusinessEntityID,
+                    departmentId = history.DepartmentID,
+                    shiftId = history.ShiftID,
+                    startDate = history.StartDate
+                });
+
+            // 6) Inserir
+            _db.DepartmentHistories.Add(history);
+            await _db.SaveChangesAsync();
+
+            // 7) Responder com Location para GET composto
+            return CreatedAtAction(nameof(Get),
+                new
+                {
+                    businessEntityId = history.BusinessEntityID,
+                    departmentId = history.DepartmentID,
+                    shiftId = history.ShiftID,
+                    startDate = history.StartDate.ToString("o") // ISO 8601 para segurança
+                },
+                _mapper.Map<DepartmentHistoryDto>(history));
+
+        }
     }
 }

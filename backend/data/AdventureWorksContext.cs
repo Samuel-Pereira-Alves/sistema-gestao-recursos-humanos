@@ -14,6 +14,7 @@ namespace sistema_gestao_recursos_humanos.backend.data
         public DbSet<JobCandidate> JobCandidates { get; set; }
         public DbSet<Employee> Employees { get; set; }
         public DbSet<DepartmentHistory> DepartmentHistories { get; set; }
+        public DbSet<Department> Departments { get; set; }
         public DbSet<PayHistory> PayHistories { get; set; }
         public DbSet<Person> Persons { get; set; }
         public DbSet<SystemUser> SystemUsers { get; set; }
