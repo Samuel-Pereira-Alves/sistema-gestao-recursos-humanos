@@ -4,12 +4,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
-/* Helpers */
-function getNomeCompleto(f) {
-  const p = f?.person ?? {};
-  const partes = [p.firstName, p.middleName, p.lastName].filter(Boolean);
-  return partes.join(" ") || "Sem nome";
-}
 
 function getDepartamentoAtualNome(funcionario) {
   const historicos = funcionario?.departmentHistories ?? [];
@@ -169,7 +163,7 @@ export default function EmployeeProfile() {
               </span>
             </div>
             <div>
-              <div className="h6 mb-1 text-dark">{getNomeCompleto(employee)}</div>
+              <div className="h6 mb-1 text-dark">{employee.person?.firstName} {employee.person?.lastName}</div>
               <div className="text-muted small">{getDepartamentoAtualNome(employee)}</div>
             </div>
           </div>
