@@ -116,6 +116,9 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             // Strings
             if (!string.IsNullOrEmpty(employeeDto.LoginID)) employee.LoginID = employeeDto.LoginID;
             if (!string.IsNullOrEmpty(employeeDto.JobTitle)) employee.JobTitle = employeeDto.JobTitle;
+            if (!string.IsNullOrEmpty(employeeDto.Gender)) employee.Gender = employeeDto.Gender;
+            if (!string.IsNullOrEmpty(employeeDto.MaritalStatus)) employee.MaritalStatus = employeeDto.MaritalStatus;
+            if (!string.IsNullOrEmpty(employeeDto.NationalIDNumber)) employee.NationalIDNumber = employeeDto.NationalIDNumber;
 
             // Numerics and booleans: check if different from default
             if (employeeDto.VacationHours != default(short)) employee.VacationHours = employeeDto.VacationHours;
@@ -125,6 +128,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             // Dates
             if (employeeDto.HireDate != default(DateTime)) employee.HireDate = employeeDto.HireDate;
             if (employeeDto.BirthDate != default(DateTime)) employee.BirthDate = employeeDto.BirthDate;
+
+            //genero, estado civil, nationalidnumber
 
             employee.ModifiedDate = DateTime.Now;
             await _db.SaveChangesAsync();
