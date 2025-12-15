@@ -2,6 +2,8 @@ namespace sistema_gestao_recursos_humanos.backend.models.dtos
 {
     public class DepartmentHistoryDto
     {
+        public int BusinessEntityID { get; set; }
+
         public int DepartmentId { get; set; }
         public byte ShiftID { get; set; }
         public DateTime StartDate { get; set; }

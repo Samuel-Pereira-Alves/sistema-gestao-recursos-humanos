@@ -52,7 +52,44 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // POST: api/v1/departmenthistory
         [HttpPost]
         public async Task<IActionResult> Create(DepartmentHistoryDto dto)
+
         {
+            // 1) Validar Employee (FK)
+            var employeeExists = await _db.Employees.AnyAsync(e => e.BusinessEntityID == dto.BusinessEntityID);
+            if (!employeeExists)
+                return NotFound(new { message = "Employee não encontrado", businessEntityId = dto.BusinessEntityID });
+
+            // 2) Validar Department (FK)
+            if (dto.DepartmentId < short.MinValue || dto.DepartmentId > short.MaxValue)
+                return BadRequest(new { message = "DepartmentId fora do intervalo de short", departmentId = dto.DepartmentId });
+
+            var deptExists = await _db.Departments.AnyAsync(d => d.DepartmentID == (short)dto.DepartmentId);
+            if (!deptExists)
+                return NotFound(new { message = "Department não encontrado", departmentId = dto.DepartmentId });
+
+            // 3) Validar StartDate no range de SQL Server datetime
+            var minSqlDate = new DateTime(1753, 1, 1);
+            if (dto.StartDate < minSqlDate)
+                return BadRequest(new { message = "StartDate inválida para SQL Server datetime", dto.StartDate });
+
+            // 4) Evitar duplicado de PK composta (BusinessEntityID, DepartmentID, ShiftID, StartDate)
+            var exists = await _db.DepartmentHistories.AnyAsync(dh =>
+                dh.BusinessEntityID == dto.BusinessEntityID &&
+                dh.DepartmentID == (short)dto.DepartmentId &&
+                dh.ShiftID == dto.ShiftID &&
+                dh.StartDate == dto.StartDate);
+
+            if (exists)
+                return Conflict(new
+                {
+                    message = "Registo de DepartmentHistory já existe",
+                    businessEntityId = dto.BusinessEntityID,
+                    departmentId = dto.DepartmentId,
+                    shiftId = dto.ShiftID,
+                    startDate = dto.StartDate
+                });
+
+            // 5) Mapear e inserir
             var history = _mapper.Map<DepartmentHistory>(dto);
             history.ModifiedDate = DateTime.Now;
 
@@ -60,8 +97,15 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             await _db.SaveChangesAsync();
 
             return CreatedAtAction(nameof(Get),
-                new { businessEntityId = history.BusinessEntityID, departmentId = history.DepartmentID, shiftId = history.ShiftID, startDate = history.StartDate },
+                new
+                {
+                    businessEntityId = history.BusinessEntityID,
+                    departmentId = history.DepartmentID,
+                    shiftId = history.ShiftID,
+                    startDate = history.StartDate
+                },
                 _mapper.Map<DepartmentHistoryDto>(history));
+
         }
 
         // PUT: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
