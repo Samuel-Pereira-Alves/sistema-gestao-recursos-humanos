@@ -1,17 +1,20 @@
 
-// src/components/layout/Navbar.jsx
-// Se estiveres a usar Next.js App Router:
-// 'use client';
-
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
+import NotificationBell from "./components/NotificationBell";
+import { addNotification } from "./store/notificationBus";
 
 function Navbar() {
-  // Consideramos "logado" se existir businessEntityId (podes trocar por token/role)
+  const [open, setOpen] = useState(false);
+  const bellBtnRef = useRef(null);
+  const dropdownRef = useRef(null);
+
+  // Ajusta aqui o número do badge (pode vir de API no futuro)
+  const NOTIFICATION_COUNT = 3;
+
   const businessEntityId = localStorage.getItem("businessEntityId");
   const isLoggedIn = Boolean(businessEntityId);
 
-  // Estado para o nome (inicializa com localStorage para evitar flash)
   const [userName, setUserName] = useState(() => {
     const stored =
       localStorage.getItem("userName") ||
@@ -21,53 +24,41 @@ function Navbar() {
         .trim();
     return stored || "Utilizador";
   });
-
   const [loadingName, setLoadingName] = useState(false);
 
-  // Buscar nome pela API (opcional) quando logado
   useEffect(() => {
     let cancelled = false;
-
     async function loadUserName() {
       if (!isLoggedIn || !businessEntityId) return;
-
       try {
         setLoadingName(true);
         const res = await fetch(`http://localhost:5136/api/v1/employee/${businessEntityId}`);
         if (!res.ok) throw new Error(`Falha ao obter utilizador (HTTP ${res.status})`);
         const data = await res.json();
-
         const first = data?.person?.firstName || "";
         const middle = data?.person?.middleName || "";
         const last = data?.person?.lastName || "";
         const full = [first, middle, last].filter(Boolean).join(" ").trim() || "Utilizador";
-
         if (!cancelled) {
           setUserName(full);
-          // Guarda para arranques futuros rápidos
           localStorage.setItem("userName", full);
           if (first) localStorage.setItem("firstName", first);
           if (last) localStorage.setItem("lastName", last);
         }
       } catch (err) {
         console.error(err);
-        // Mantém fallback do localStorage; podes mostrar um toast se quiseres
       } finally {
         if (!cancelled) setLoadingName(false);
       }
     }
-
     loadUserName();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [isLoggedIn, businessEntityId]);
 
   const profileUrl = "/profile";
-
   const logout = () => {
     localStorage.clear();
-    window.location.href = "/"; // redireciona para home/login
+    window.location.href = "/";
   };
 
   const initials = (userName || "U")
@@ -77,15 +68,35 @@ function Navbar() {
     .join("")
     .toUpperCase();
 
+  // Fechar ao clicar fora / ESC (opcional mas recomendado)
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (!open) return;
+      const insideDropdown = dropdownRef.current?.contains(e.target);
+      const insideButton = bellBtnRef.current?.contains(e.target);
+      if (!insideDropdown && !insideButton) setOpen(false);
+    }
+    function handleEsc(e) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        bellBtnRef.current?.focus();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [open]);
+
   return (
     <nav className="navbar navbar-expand-lg navbar-light bg-light border-bottom shadow-sm fixed-top">
       <div className="container-fluid">
-        {/* Brand minimalista */}
         <Link className="navbar-brand fw-semibold text-dark" to="/">
           HR Management
         </Link>
 
-        {/* Toggler (mobile) */}
         <button
           className="navbar-toggler"
           type="button"
@@ -98,13 +109,18 @@ function Navbar() {
           <span className="navbar-toggler-icon"></span>
         </button>
 
-        {/* Itens de navegação (direita) */}
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto align-items-lg-center">
             {isLoggedIn ? (
               <>
-                {/* Bem-vindo + link para perfil */}
-                <li className="nav-item d-flex align-items-center me-lg-3">
+              <button onClick={() => addNotification("testee")}>
+                <p>Clica me</p>
+              </button>
+                {/* Sino + badge */}
+                <NotificationBell className="me-3" />
+
+                {/* Bem-vindo + perfil */}
+                <li className="nav-item d-flex align-items-center me-lg-3 ">
                   <span className="text-muted me-2 d-none d-md-inline">Bem-vindo,</span>
                   <Link
                     to={profileUrl}
@@ -120,7 +136,6 @@ function Navbar() {
                         {loadingName ? "…" : initials}
                       </span>
                     </div>
-                    
                   </Link>
                 </li>
 
@@ -136,7 +151,6 @@ function Navbar() {
                 </li>
               </>
             ) : (
-              // Não logado: apenas Login
               <li className="nav-item">
                 <Link className="nav-link" to="/login">
                   Login
@@ -147,7 +161,7 @@ function Navbar() {
         </div>
       </div>
     </nav>
-   );
+  );
 }
 
 

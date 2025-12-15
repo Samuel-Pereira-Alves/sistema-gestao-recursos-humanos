@@ -1,197 +1,150 @@
 
-// src/pages/FormPage.jsx
 import React, { useState } from "react";
 import Navbar from "./Navbar";
+import { addNotification } from "./store/notificationBus";
 
 function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
-  const [formData, setFormData] = useState({
-    nome: "",
-    email: "",
-    telefone: "",
-    vaga: "",
-    ficheiro: null,
-    confirmo: false,
-  });
-
+  const [ficheiro, setFicheiro] = useState(null);
   const [errors, setErrors] = useState({});
+  const [sending, setSending] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
 
-  const handleChange = (e) => {
-    const { name, value, files, type, checked } = e.target;
-    if (name === "ficheiro") {
-      setFormData({ ...formData, ficheiro: files?.[0] || null });
-    } else if (type === "checkbox") {
-      setFormData({ ...formData, [name]: checked });
-    } else {
-      setFormData({ ...formData, [name]: value });
+  const MAX_SIZE_MB = 5;
+  const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024;
+
+  const validateFile = (f) => {
+    const newErrors = {};
+    if (!f) {
+      newErrors.ficheiro = "O CV em PDF é obrigatório.";
+      return newErrors;
     }
-    setErrors((prev) => ({ ...prev, [name]: "" }));
-  };
-
-  const validateForm = () => {
-    let newErrors = {};
-    if (!formData.nome) newErrors.nome = "O nome é obrigatório.";
-    if (!formData.email) newErrors.email = "O email é obrigatório.";
-    else if (!/\S+@\S+\.\S+/.test(formData.email))
-      newErrors.email = "Formato de email inválido.";
-    if (!formData.telefone) newErrors.telefone = "O telefone é obrigatório.";
-    if (!formData.vaga) newErrors.vaga = "A vaga é obrigatória.";
-    if (!formData.ficheiro) newErrors.ficheiro = "O CV em PDF é obrigatório.";
-    if (!formData.confirmo)
-      newErrors.confirmo = "É necessário confirmar que os dados estão corretos.";
+    const isPdf = f.type === "application/pdf" || f.name?.toLowerCase().endsWith(".pdf");
+    if (!isPdf) newErrors.ficheiro = "Apenas ficheiros PDF são aceites.";
+    if (f.size > MAX_SIZE) newErrors.ficheiro = `O ficheiro excede ${MAX_SIZE_MB}MB.`;
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleChange = (e) => {
+    const f = e.target.files?.[0] || null;
+    setSuccessMsg("");
+    const newErrors = validateFile(f);
+    setErrors(newErrors);
+    setFicheiro(Object.keys(newErrors).length ? null : f);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const newErrors = validateForm();
+    setSuccessMsg("");
+    const newErrors = validateFile(ficheiro);
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    console.log("Dados submetidos:", formData);
-    alert("Formulário enviado com sucesso!");
 
-    
-    setFormData({
-      nome: "",
-      email: "",
-      telefone: "",
-      vaga: "",
-      ficheiro: null,
-      confirmo: false,
-    });
-    setErrors({});
+    try {
+      setSending(true);
+      const formData = new FormData();
+      formData.append("cv", ficheiro);
+      const resp = await fetch("http://localhost:5136/api/v1/jobcandidate/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!resp.ok) throw new Error("Falha ao enviar candidatura");
+      await new Promise((res) => setTimeout(res, 900));
+      addNotification("Nova candidatura! - Verifica o painel de administração.");
 
-   
-    if (variant === "embedded" && typeof onCancel === "function") {
-      onCancel();
+      setSuccessMsg("Candidatura enviada com sucesso! Obrigado.");
+      setFicheiro(null);
+      setErrors({});
+
+      if (variant === "embedded" && typeof onCancel === "function") {
+        setTimeout(() => onCancel(), 900);
+      }
+    } catch (err) {
+      console.error(err);
+      setErrors({ ficheiro: "Ocorreu um erro ao enviar. Tenta novamente." });
+    } finally {
+      setSending(false);
     }
   };
 
-  
-  if (variant === "embedded") {
-    return (
-      <div className="w-100" style={{ maxWidth: "600px" }}>
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="form-group mb-3">
-            <label htmlFor="nome">
-              Nome <span className="text-danger">*</span>
-            </label>
-            <input
-              type="text"
-              className={`form-control ${errors.nome ? "is-invalid" : ""}`}
-              id="nome"
-              name="nome"
-              value={formData.nome}
-              onChange={handleChange}
-              placeholder="Digite o seu nome"
-            />
-            {errors.nome && <div className="invalid-feedback">{errors.nome}</div>}
-          </div>
+  const UploadUI = (
+    <form onSubmit={handleSubmit} noValidate className="simple-form">
+      <header className="mb-3 text-center">
+        <h6 className="mb-1">Enviar CV (PDF)</h6>
+        <p className="text-muted small mb-0">
+          Seleciona o ficheiro em formato PDF. Limite: {MAX_SIZE_MB}MB.
+        </p>
+      </header>
 
-          <div className="form-group mb-3">
-            <label htmlFor="email">
-              Email <span className="text-danger">*</span>
-            </label>
-            <input
-              type="email"
-              className={`form-control ${errors.email ? "is-invalid" : ""}`}
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="Digite o seu email"
-            />
-            {errors.email && <div className="invalid-feedback">{errors.email}</div>}
-          </div>
+      {(errors.ficheiro || successMsg) && (
+        <div
+          className={`alert ${errors.ficheiro ? "alert-danger" : "alert-success"} py-2 px-3 mb-3`}
+          role="alert"
+        >
+          {errors.ficheiro || successMsg}
+        </div>
+      )}
 
-          <div className="form-group mb-3">
-            <label htmlFor="telefone">
-              Telefone <span className="text-danger">*</span>
-            </label>
-            <input
-              type="tel"
-              className={`form-control ${errors.telefone ? "is-invalid" : ""}`}
-              id="telefone"
-              name="telefone"
-              value={formData.telefone}
-              onChange={handleChange}
-              placeholder="Digite o seu telefone"
-            />
-            {errors.telefone && (
-              <div className="invalid-feedback">{errors.telefone}</div>
-            )}
-          </div>
+      <div className="mb-3">
+        <label htmlFor="cv-input" className="form-label fw-semibold">CV (PDF) <span className="text-danger">*</span></label>
+        <input
+          id="cv-input"
+          type="file"
+          accept=".pdf,application/pdf"
+          className={`form-control form-control-lg input-gray ${errors.ficheiro ? "is-invalid" : ""}`}
+          onChange={handleChange}
+        />
+        {errors.ficheiro && <div className="invalid-feedback">{errors.ficheiro}</div>}
+      </div>
 
-          <div className="form-group mb-3">
-            <label htmlFor="vaga">
-              Vaga Pretendida <span className="text-danger">*</span>
-            </label>
-            <input
-              type="text"
-              className={`form-control ${errors.vaga ? "is-invalid" : ""}`}
-              id="vaga"
-              name="vaga"
-              value={formData.vaga}
-              onChange={handleChange}
-              placeholder="Digite a vaga"
-            />
-            {errors.vaga && <div className="invalid-feedback">{errors.vaga}</div>}
-          </div>
-
-          <div className="form-group mb-3">
-            <label htmlFor="ficheiro">
-              Upload CV (PDF) <span className="text-danger">*</span>
-            </label>
-            <input
-              type="file"
-              className={`form-control ${errors.ficheiro ? "is-invalid" : ""}`}
-              id="ficheiro"
-              name="ficheiro"
-              accept="application/pdf"
-              onChange={handleChange}
-            />
-            {errors.ficheiro && (
-              <div className="invalid-feedback">{errors.ficheiro}</div>
-            )}
-          </div>
-
-          <div className="form-check mb-4">
-            <input
-              type="checkbox"
-              className={`form-check-input ${errors.confirmo ? "is-invalid" : ""}`}
-              id="confirmo"
-              name="confirmo"
-              checked={formData.confirmo}
-              onChange={handleChange}
-            />
-            <label className="form-check-label" htmlFor="confirmo">
-              Confirmo que os dados estão corretos <span className="text-danger">*</span>
-            </label>
-            {errors.confirmo && (
-              <div className="invalid-feedback d-block">{errors.confirmo}</div>
-            )}
-          </div>
-
-    
-          <div className="d-flex gap-2">
+      {ficheiro && (
+        <div className="selected-file my-2">
+          <div className="file-pill" title={ficheiro.name}>
+            <span className="file-name">{ficheiro.name}</span>
+           
             <button
               type="button"
-              className="btn btn-outline-secondary"
-              onClick={onCancel}
+              className="btn btn-sm btn-clear"
+              onClick={() => setFicheiro(null)}
+              aria-label="Remover ficheiro selecionado"
             >
-              Cancelar
-            </button>
-            <button type="submit" className="btn btn-primary">
-              Enviar Candidatura
+              ✕
             </button>
           </div>
-        </form>
+        </div>
+      )}
+
+      <div className="d-flex gap-2 mt-4">
+        <button
+          type="submit"
+          className="btn btn-dark flex-grow-1"
+          disabled={!ficheiro || sending}
+        >
+          {sending ? "A enviar..." : "Enviar candidatura"}
+        </button>
+        {typeof onCancel === "function" && (
+          <button
+            type="button"
+            className="btn btn-outline-secondary"
+            onClick={onCancel}
+            disabled={sending}
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
+    </form>
+  );
+
+  if (variant === "embedded") {
+    return (
+      <div className="candidatura-embedded w-100" style={{ maxWidth: "640px" }}>
+        {UploadUI}
       </div>
     );
   }
 
- 
   return (
     <div>
       {!hideNavbar && <Navbar />}
@@ -199,12 +152,16 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
         className="d-flex justify-content-center"
         style={{ minHeight: "100vh", paddingTop: "80px", paddingLeft: "1rem", paddingRight: "1rem" }}
       >
-        <div className="w-100" style={{ maxWidth: "600px" }}>
-          <h2 className="mb-4 text-center">Submissão de Candidatura</h2>
-
-          <form onSubmit={handleSubmit} noValidate>
-            
-          </form>
+        <div className="candidatura-full w-100" style={{ maxWidth: "720px" }}>
+          <div className="card candidatura-card border-0 shadow-sm">
+            <div className="card-body p-4 p-md-5">
+              <h2 className="mb-3 text-center">Submissão de Candidatura</h2>
+              <p className="text-muted text-center mb-4">
+                Carrega o teu CV em formato PDF para análise.
+              </p>
+              {UploadUI}
+            </div>
+          </div>
         </div>
       </main>
     </div>

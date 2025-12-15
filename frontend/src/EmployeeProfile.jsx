@@ -120,6 +120,8 @@ export default function EmployeeProfile() {
         const errorText = await response.text();
         throw new Error(`Erro ao atualizar: ${errorText}`);
       }
+      
+      addNotification("O funcionário");
 
       const refreshResponse = await fetch(`http://localhost:5136/api/v1/employee/${id}`);
       if (refreshResponse.ok) {
