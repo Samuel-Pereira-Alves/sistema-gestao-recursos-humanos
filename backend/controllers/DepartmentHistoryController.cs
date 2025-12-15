@@ -44,7 +44,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                                         && dh.StartDate == startDate);
 
             if (history == null) return NotFound();
-
             var dto = _mapper.Map<DepartmentHistoryDto>(history);
             return Ok(dto);
         }
@@ -105,7 +104,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     startDate = history.StartDate
                 },
                 _mapper.Map<DepartmentHistoryDto>(history));
-
         }
 
         // PUT: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
@@ -150,7 +148,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             return Ok(_mapper.Map<DepartmentHistoryDto>(history));
         }
-
 
         [HttpPost("{businessEntityId}")]
         public async Task<IActionResult> CreateByEmployee(
@@ -212,7 +209,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     startDate = history.StartDate.ToString("o") // ISO 8601 para segurança
                 },
                 _mapper.Map<DepartmentHistoryDto>(history));
-
         }
     }
 }

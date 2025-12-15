@@ -1,124 +1,115 @@
-// src/pages/Login.jsx
-import React, { useState, useContext, use } from "react";
+
+import React, { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { useNavigate } from "react-router-dom";
 
 function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const navigate = useNavigate();
-const handleSubmit = async (e) => {
-  e.preventDefault();
 
-  try {
-    // Chamada ao backend
-    const response = await fetch("http://localhost:5136/api/v1/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
-    });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setLoading(true);
 
-    if (!response.ok) {
-      console.error("Login falhou");
-      return;
+    try {
+      const response = await fetch("http://localhost:5136/api/v1/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!response.ok) {
+        setErrorMsg("Credenciais inválidas. Tente novamente.");
+        setLoading(false);
+        return;
+      }
+
+      const data = await response.json();
+
+      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("role", data.role);
+      localStorage.setItem("employeeId", data.employeeId);
+      localStorage.setItem("systemUserId", data.systemUserId);
+      localStorage.setItem("businessEntityId", data.businessEntityId);
+      localStorage.setItem("username", username);
+
+      navigate("/");
+    } catch (error) {
+      console.error("Erro no login:", error);
+      setErrorMsg("Ocorreu um erro ao conectar ao servidor.");
+    } finally {
+      setLoading(false);
     }
-
-    const data = await response.json();
-
-    // Guarda token e dados no localStorage
-    localStorage.setItem("authToken", data.token);
-    localStorage.setItem("role", data.role);
-    localStorage.setItem("employeeId", data.employeeId);
-    localStorage.setItem("systemUserId", data.systemUserId);
-    localStorage.setItem("businessEntityId", data.businessEntityId);
-    localStorage.setItem("username", username);
-
-    console.log("Login bem-sucedido:", data);
-    // Atualiza o contexto da app
-    //login(data.username, data.role, data.employeeId);
-    navigate("/");
-    // Redireciona para Home
-  } catch (error) {
-    console.error("Erro no login:", error);
-  }
-};
+  };
 
   return (
-    <div className="d-flex align-items-center justify-content-center vh-100 bg-gradient">
-      <div className="card shadow-lg border-0 rounded-4" style={{ width: "900px" }}>
-        <div className="row g-0">
-          {/* Formulário */}
-          <div className="col-md-6 bg-white rounded-start-4 d-flex flex-column justify-content-center align-items-center p-5">
-            <div className="welcome-message text-center mb-4 w-100">
-              <h3 className="fw-bold text-primary fade-in">
-                Sistema de Gestão de Recursos Humanos
-              </h3>
-              <p className="text-muted fade-in delay-1">
-                Aceda à sua conta para gerir colaboradores, processos e desempenho 📊
-              </p>
+    <div className="login-bg d-flex align-items-center justify-content-center min-vh-100">
+      <div className="login-card card border-0 shadow-sm">
+        <div className="card-body p-4 p-md-5">
+          <header className="text-center mb-4">
+            <h1 className="app-title mb-2">Gestão de Recursos Humanos</h1>
+            <p className="app-subtitle mb-0">
+              Inicie sessão para continuar
+            </p>
+          </header>
+
+          {errorMsg && (
+            <div className="alert alert-danger py-2 px-3 mb-4" role="alert">
+              {errorMsg}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="mb-3">
+              <label htmlFor="username" className="form-label fw-semibold">
+                Utilizador
+              </label>
+              <input
+                id="username"
+                type="text"
+                className="form-control form-control-lg input-gray"
+                placeholder="Nome"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                autoComplete="username"
+              />
             </div>
 
-            <form onSubmit={handleSubmit} className="w-100">
-              <div className="mb-3">
-                <label className="form-label fw-semibold">Username</label>
-                <div className="input-group input-group-lg">
-                  <span className="input-group-text">
-                    <i className="bi bi-person-fill"></i>
-                  </span>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Digite seu utilizador"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="mb-3">
-                <label className="form-label fw-semibold">Password</label>
-                <div className="input-group input-group-lg">
-                  <span className="input-group-text">
-                    <i className="bi bi-lock-fill"></i>
-                  </span>
-                  <input
-                    type="password"
-                    className="form-control"
-                    placeholder="Digite sua senha"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="form-check mb-3">
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                />
-                <label className="form-check-label">Lembrar-me</label>
-              </div>
-              <button
-                type="submit"
-                className="btn btn-primary btn-lg w-100 rounded-pill shadow-sm"
-              >
-                <i className="bi bi-box-arrow-in-right me-2"></i> Entrar
-              </button>
-            </form>
-          </div>
+            <div className="mb-3">
+              <label htmlFor="password" className="form-label fw-semibold">
+                Palavra-passe
+              </label>
+              <input
+                id="password"
+                type="password"
+                className="form-control form-control-lg input-gray"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </div>
 
-          {/* Imagem figurativa */}
-          <div className="col-md-6">
-            <img
-              src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=900&q=80"
-              alt="Login illustration"
-              className="img-fluid h-100 w-100 rounded-end-4 object-fit-cover"
-            />
-          </div>
+
+            <button
+              type="submit"spereira
+              className="btn btn-gray btn-lg w-100"
+              disabled={loading}
+            >
+              {loading ? "A entrar..." : "Entrar"}
+            </button>
+          </form>
+
+          <footer className="text-center mt-4 small text-muted">
+            © {new Date().getFullYear()} RH • Interface minimal
+          </footer>
         </div>
       </div>
     </div>
@@ -126,3 +117,4 @@ const handleSubmit = async (e) => {
 }
 
 export default Login;
+
