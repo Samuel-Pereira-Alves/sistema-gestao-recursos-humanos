@@ -123,5 +123,20 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             });
 
         }
+
+        // DELETE: api/v1/jobcandidate/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var jobcandidate = await _db.JobCandidates.FindAsync(id);
+            if (jobcandidate == null) return NotFound();
+
+            _db.JobCandidates.Remove(jobcandidate);
+            await _db.SaveChangesAsync();
+
+            //await _db.Database.ExecuteSqlRawAsync("EXEC HumanResources.uspDeletejobcandidate {0}", id);
+
+            return NoContent();
+        }
     }
 }
