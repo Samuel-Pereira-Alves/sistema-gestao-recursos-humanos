@@ -1,9 +1,5 @@
-
 import React, { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import "bootstrap/dist/css/bootstrap.min.css";
-import "bootstrap-icons/font/bootstrap-icons.css";
-
+import { useNavigate, useLocation } from "react-router-dom";
 
 function getDepartamentoAtualNome(funcionario) {
   const historicos = funcionario?.departmentHistories ?? [];
@@ -18,40 +14,50 @@ function getDepartamentoAtualNome(funcionario) {
 }
 
 export default function EmployeeProfile() {
-  
+  const navigate = useNavigate();
+  const location = useLocation();
+  const role = localStorage.getItem("role");
+  const canEdit = role == "admin" ? true : false;
+
+  const [departments, setDepartments] = useState([]);
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [fetchError, setFetchError] = useState(null);
+  const [saveError, setSaveError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
-  const navigate = useNavigate();
-  const location = useLocation();
 
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const res = await fetch("http://localhost:5136/api/v1/departmenthistory");
+        if (!res.ok) throw new Error("Erro ao carregar departamentos");
+        const data = await res.json();
+        setDepartments(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchDepartments();
+
+  }, []);
   const getEmployeeId = () => {
-    const params = new URLSearchParams(location.search);
-    const idFromQuery = params.get("id");
-    const idFromStorage = localStorage.getItem("businessEntityId");
-    return idFromQuery || idFromStorage || null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get("id") || "1";
   };
+
+  const controller = new AbortController();
 
   useEffect(() => {
     const id = getEmployeeId();
-
-    if (!id) {
-      setFetchError("ID do funcionário não encontrado.");
-      navigate("/funcionarios", { replace: true });
-      return;
-    }
-
-    const controller = new AbortController();
 
     const fetchEmployee = async () => {
       try {
         setLoading(true);
         setFetchError(null);
-        const response = await fetch(`http://localhost:5136/api/v1/employee/${id}`, {
-          signal: controller.signal,
-        });
+        const response = await fetch(`http://localhost:5136/api/v1/employee/${id}`, { signal: controller.signal });
         if (!response.ok)
           throw new Error(`Erro ao carregar funcionário (HTTP ${response.status})`);
         const data = await response.json();
@@ -66,8 +72,7 @@ export default function EmployeeProfile() {
     };
 
     fetchEmployee();
-    return () => controller.abort();
-  }, [location.search, navigate]);
+  }, [navigate, location.search]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -79,29 +84,55 @@ export default function EmployeeProfile() {
 
   const handleSave = async () => {
     const id = getEmployeeId();
-    if (!id) {
-      alert("ID do funcionário não encontrado.");
-      return;
-    }
+    setSaveError(null);
+    setSuccessMessage(null);
 
     try {
+      const payload = {
+        businessEntityID: employee.businessEntityID,
+        nationalIDNumber: employee.nationalIDNumber,
+        loginID: employee.loginID,
+        jobTitle: employee.jobTitle,
+        birthDate: employee.birthDate,
+        maritalStatus: employee.maritalStatus,
+        firstName: employee.person?.firstName,
+        middleName: employee.person?.middleName,
+        lastName: employee.person?.lastName,
+        gender: employee.gender,
+        hireDate: employee.hireDate,
+        salariedFlag: employee.salariedFlag,
+        vacationHours: parseInt(employee.vacationHours) || 0,
+        sickLeaveHours: parseInt(employee.sickLeaveHours) || 0,
+      };
+
+      console.log("Enviando payload:", payload);
+
       const response = await fetch(
-        `http://localhost:5136/api/v1/employee/${localStorage.getItem(
-          "businessEntityId"
-        )}`,
+        `http://localhost:5136/api/v1/employee/${id}`,
         {
-          method: "PUT",
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(employee),
+          body: JSON.stringify(payload),
         }
       );
-      if (!response.ok) throw new Error("Erro ao atualizar funcionário");
-      const updated = await response.json();
-      setEmployee(updated);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro ao atualizar: ${errorText}`);
+      }
+
+      const refreshResponse = await fetch(`http://localhost:5136/api/v1/employee/${id}`);
+      if (refreshResponse.ok) {
+        const updated = await refreshResponse.json();
+        setEmployee(updated);
+      }
+
       setEditing(false);
+      setSuccessMessage("Perfil atualizado com sucesso!");
+      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error) {
       console.error(error);
-      alert("Falha ao salvar alterações");
+      setSaveError(error.message || "Falha ao salvar alterações");
     }
   };
 
@@ -133,20 +164,23 @@ export default function EmployeeProfile() {
 
   return (
     <div className="container mt-4">
-      {/* Barra superior com seta */}
       <div className="d-flex align-items-center mb-3">
-  
         <h2 className="ms-2 h3">Perfil do Funcionário</h2>
       </div>
 
-      {/* Card principal em tons de cinza */}
+      {successMessage && (
+        <div className="alert alert-success alert-dismissible fade show" role="alert">
+          {successMessage}
+          <button type="button" className="btn-close" onClick={() => setSuccessMessage(null)}></button>
+        </div>
+      )}
+
       <div className="card border-0 shadow-sm rounded-4">
         <div className="card-header bg-light text-dark text-center rounded-top-4">
           <h5 className="mb-0">{employee.jobTitle}</h5>
         </div>
 
         <div className="card-body p-4">
-          {/* Cabeçalho com avatar simples */}
           <div className="d-flex align-items-center mb-4">
             <div
               className="rounded-circle bg-secondary bg-opacity-25 d-flex align-items-center justify-content-center me-3"
@@ -154,12 +188,7 @@ export default function EmployeeProfile() {
               aria-label="Avatar"
             >
               <span className="text-muted fw-bold">
-                {getNomeCompleto(employee)
-                  .split(" ")
-                  .map((p) => p[0])
-                  .slice(0, 2)
-                  .join("")
-                  .toUpperCase()}
+                {employee.person?.firstName?.charAt(0) ?? "?"}
               </span>
             </div>
             <div>
@@ -168,39 +197,137 @@ export default function EmployeeProfile() {
             </div>
           </div>
 
-          {/* Conteúdo */}
+          {saveError && (
+            <div className="alert alert-danger" role="alert">
+              {saveError}
+            </div>
+          )}
+
+
           {editing ? (
             <>
               <div className="row g-3">
                 <div className="col-md-6">
-                  <label className="form-label text-muted">Login</label>
+                  <label className="form-label text-muted">Primeiro Nome</label>
                   <input
                     type="text"
                     className="form-control"
-                    name="loginID"
-                    value={employee.loginID ?? ""}
+                    name="person.firstName"
+                    value={employee.person.firstName ?? ""}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label text-muted">Nome do Meio</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    name="person.firstName"
+                    value={employee.person.middleName ?? ""}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label text-muted">Último Nome</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    name="person.LastName"
+                    value={employee.person.lastName ?? ""}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label text-muted">Data de Nascimento</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    name="birthDate"
+                    value={employee.birthDate}
                     onChange={handleChange}
                   />
                 </div>
 
                 <div className="col-md-6">
                   <label className="form-label text-muted">Estado Civil</label>
+                  <select
+                    className="form-select"
+                    name="maritalStatus"
+                    value={employee.maritalStatus ?? ""}
+                    onChange={handleChange}
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="S">Solteiro(a)</option>
+                    <option value="M">Casado(a)</option>
+                  </select>
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label text-muted">Género</label>
+                  <select
+                    className="form-select"
+                    name="gender"
+                    value={employee.gender ?? ""}
+                    onChange={handleChange}
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="M">Masculino</option>
+                    <option value="F">Feminino</option>
+                  </select>
+                </div>
+                {canEdit
+                 && (
+                  <>
+                    <div className="col-md-6">
+                  <label className="form-label text-muted">Cargo</label>
                   <input
                     type="text"
                     className="form-control"
-                    name="maritalStatus"
-                    value={employee.maritalStatus ?? ""}
+                    name="jobTitle"
+                    value={employee.jobTitle ?? ""}
+                    onChange={handleChange}
+                  />
+                </div>
+
+
+
+
+
+                <div className="col-md-6">
+                  <label className="form-label text-muted">Cartão de Cidadão</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    name="nationalIDNumber"
+                    value={employee.nationalIDNumber ?? 0}
+                    onChange={handleChange}
+                  />
+                </div>
+
+
+
+
+                <div className="col-md-6">
+                  <label className="form-label text-muted">Horas de Férias</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    name="vacationHours"
+                    value={employee.vacationHours ?? 0}
                     onChange={handleChange}
                   />
                 </div>
 
                 <div className="col-md-6">
-                  <label className="form-label text-muted">Género</label>
+                  <label className="form-label text-muted">Horas de Baixa</label>
                   <input
-                    type="text"
+                    type="number"
                     className="form-control"
-                    name="gender"
-                    value={employee.gender ?? ""}
+                    name="sickLeaveHours"
+                    value={employee.sickLeaveHours ?? 0}
                     onChange={handleChange}
                   />
                 </div>
@@ -221,19 +348,20 @@ export default function EmployeeProfile() {
                   </div>
                 </div>
 
-                {/* Departamento (read-only) */}
-                <div className="col-md-12">
-                  <label className="form-label text-muted">Departamento (atual)</label>
+                 <div className="col-md-6">
+                  <label className="form-label text-muted">Departamento atual</label>
                   <input
                     type="text"
-                    className="form-control bg-light"
+                    className="form-control"
+                    name="departamento"
                     value={getDepartamentoAtualNome(employee)}
-                    readOnly
+                    disabled
                   />
                 </div>
-              </div>
+                  </>
+                )}
+                </div>
 
-              {/* Ações */}
               <div className="mt-4 text-center">
                 <button
                   className="btn btn-outline-dark me-2 px-4"
@@ -244,7 +372,10 @@ export default function EmployeeProfile() {
                 </button>
                 <button
                   className="btn btn-outline-secondary px-4"
-                  onClick={() => setEditing(false)}
+                  onClick={() => {
+                    setEditing(false);
+                    setSaveError(null);
+                  }}
                   type="button"
                 >
                   Cancelar
@@ -264,7 +395,10 @@ export default function EmployeeProfile() {
                       </span>
                     </p>
                     <p className="mb-1">
-                      <strong>Nome:</strong> {getNomeCompleto(employee)}
+                      <strong>Nome:</strong> {employee.person?.firstName} {employee.person?.lastName}
+                    </p>
+                    <p className="mb-1">
+                      <strong>Login:</strong> {employee.loginID}
                     </p>
                     <p className="mb-0">
                       <strong>Cartão de Cidadão:</strong> {employee.nationalIDNumber}
@@ -280,10 +414,33 @@ export default function EmployeeProfile() {
                       {new Date(employee.birthDate).toLocaleDateString("pt-PT")}
                     </p>
                     <p className="mb-1">
-                      <strong>Estado Civil:</strong> {employee.maritalStatus || "N/A"}
+                      <strong>Estado Civil:</strong>{" "}
+                      {employee.maritalStatus === "S" ? "Solteiro(a)" :
+                        employee.maritalStatus === "M" ? "Casado(a)" :
+                          employee.maritalStatus || "N/A"}
                     </p>
                     <p className="mb-0">
-                      <strong>Género:</strong> {employee.gender || "N/A"}
+                      <strong>Género:</strong>{" "}
+                      {employee.gender === "M" ? "Masculino" :
+                        employee.gender === "F" ? "Feminino" :
+                          employee.gender || "N/A"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="col-md-6">
+                  <div className="p-3 border rounded-3 bg-light">
+                    <p className="mb-2 text-muted small">Cargo e Salário</p>
+                    <p className="mb-1">
+                      <strong>Cargo:</strong> {employee.jobTitle}
+                    </p>
+                    <p className="mb-0">
+                      <strong>Com Salário:</strong>{" "}
+                      {employee.salariedFlag ? (
+                        <span className="badge bg-success">Sim</span>
+                      ) : (
+                        <span className="badge bg-secondary">Não</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -291,8 +448,10 @@ export default function EmployeeProfile() {
                 <div className="col-md-6">
                   <div className="p-3 border rounded-3 bg-light">
                     <p className="mb-2 text-muted small">Registos</p>
-                    <strong>Data de Contratação:</strong>{" "}
+                    <p className="mb-1">
+                      <strong>Data de Contratação:</strong>{" "}
                       {new Date(employee.hireDate).toLocaleDateString("pt-PT")}
+                    </p>
                     <p className="mb-1">
                       <strong>Horas de Férias:</strong> {employee.vacationHours}
                     </p>
@@ -308,7 +467,7 @@ export default function EmployeeProfile() {
 
                 <div className="col-12">
                   <div className="p-3 border rounded-3 bg-light">
-                    <p className="mb-2 text-muted small">Departamento</p>
+                    <p className="mb-2 text-muted small">Departamento Atual</p>
                     <p className="mb-0">{getDepartamentoAtualNome(employee)}</p>
                   </div>
                 </div>
