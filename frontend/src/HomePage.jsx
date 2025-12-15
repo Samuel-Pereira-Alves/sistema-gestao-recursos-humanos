@@ -51,7 +51,6 @@ function HomePage() {
 
       <main className="container" style={{ marginTop: "80px" }}>
         <h2 className="mt-4">Bem-vindo ao Sistema de Gestão de RH</h2>
-        <p className="lead">Escolhe uma opção no menu acima para começar.</p>
 
         <div className="my-5" />
 
@@ -130,22 +129,13 @@ function HomePage() {
           <section className="mt-4">
             <h5>Área de administração</h5>
             <div className="row g-3 mt-2">
-              <div className="col-md-4">
-                <div className="card h-100">
-                  <div className="card-body">
-                    <h6 className="card-title">Recursos Humanos</h6>
-                    <p className="card-text">Gestão de processos e políticas de RH.</p>
-                    <Link className="btn btn-outline-dark" to="/rh">Abrir RH</Link>
-                  </div>
-                </div>
-              </div>
-
+              
               <div className="col-md-4">
                 <div className="card h-100">
                   <div className="card-body">
                     <h6 className="card-title">Candidatos</h6>
                     <p className="card-text">Rever candidaturas e pipeline de recrutamento.</p>
-                    <Link className="btn btn-outline-dark" to="/candidates">Ver Candidatos</Link>
+                    <Link className="btn btn-outline-dark" to="/candidatos">Ver Candidatos</Link>
                   </div>
                 </div>
               </div>
@@ -164,8 +154,8 @@ function HomePage() {
                 <div className="card h-100 mt-3 mt-md-0">
                   <div className="card-body">
                     <h6 className="card-title">Pagamentos</h6>
-                    <p className="card-text">Processar e gerir pagamentos.</p>
-                    <Link className="btn btn-outline-dark" to="/gestao-pagamentos">Gestão de Pagamentos</Link>
+                    <p className="card-text">Historico de Pagamentos feitos aos Colaboradores.</p>
+                    <Link className="btn btn-outline-dark" to="/gestao-pagamentos">Gestão de Pagamentos Efetuados</Link>
                   </div>
                 </div>
               </div>
@@ -173,9 +163,9 @@ function HomePage() {
               <div className="col-md-4">
                 <div className="card h-100 mt-3 mt-md-0">
                   <div className="card-body">
-                    <h6 className="card-title">Movimentos</h6>
-                    <p className="card-text">Gerir movimentos financeiros e registos.</p>
-                    <Link className="btn btn-outline-dark" to="/gestao-movimentos">Gestão de Movimentos</Link>
+                    <h6 className="card-title">Movimentos de Departamento</h6>
+                    <p className="card-text">Gerir movimentos de Departamento.</p>
+                    <Link className="btn btn-outline-dark" to="/gestao-movimentos">Gestão de Movimentos de Departamento</Link>
                   </div>
                 </div>
               </div>

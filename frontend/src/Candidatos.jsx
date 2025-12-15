@@ -2,53 +2,53 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 
-// Badge por estado
-function EstadoBadge({ estado }) {
-  const normalized = (estado || "").toLowerCase();
-  const classes =
-    normalized === "aprovado"
-      ? "badge bg-success"
-      : normalized === "rejeitado"
-      ? "badge bg-danger"
-      : "badge bg-warning text-dark"; // pendente
-  return <span className={classes}>{estado || "Pendente"}</span>;
-}
-
 export default function Candidatos() {
   const [isLoading, setIsLoading] = useState(false);
-  const [candidatos, setCandidatos] = useState([
-    {
-      id: 1,
-      nome: "João Silva",
-      vaga: "Dev .NET",
-      estado: "Pendente",
-      email: "joao.silva@email.com",
-      telefone: "912345678",
-      cv: "/cvs/joao-silva.pdf",
-    },
-    {
-      id: 2,
-      nome: "Maria Costa",
-      vaga: "Frontend React",
-      estado: "Pendente",
-      email: "maria.costa@email.com",
-      telefone: "987654321",
-      cv: "/cvs/maria-costa.pdf",
-    },
-  ]);
+  const [candidatos, setCandidatos] = useState([]);
+  const [error, setError] = useState("");
 
+  // Base da API (ajusta conforme o teu ambiente)
+  const API_BASE = "http://localhost:5136";
+
+  //  Carregar candidatos da API
+  useEffect(() => {
+    const fetchCandidatos = async () => {
+      try {
+        setIsLoading(true);
+        setError("");
+        const res = await fetch(`${API_BASE}/api/v1/jobcandidate`);
+        if (!res.ok) throw new Error(`Falha ao obter candidatos (${res.status})`);
+        const data = await res.json();
+
+        // Mapeia o DTO: JobCandidateId, Resume (XML), ModifiedDate
+        const mapped = (data || []).map((d) => ({
+          id: d.jobCandidateId,
+          numero: d.jobCandidateId,
+          cvXml: d.resume || "", // conteúdo XML
+        }));
+
+        setCandidatos(mapped);
+      } catch (e) {
+        console.error(e);
+        setError("Não foi possível carregar os candidatos.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchCandidatos();
+  }, []);
+
+  //  Pesquisa (por número ou conteúdo do XML)
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // 🔍 Pesquisa (por nome, vaga, email)
   const filtered = useMemo(() => {
     const term = (searchTerm || "").toLowerCase().trim();
     return candidatos.filter(
       (c) =>
-        (c.nome || "").toLowerCase().includes(term) ||
-        (c.vaga || "").toLowerCase().includes(term) ||
-        (c.email || "").toLowerCase().includes(term)
+        String(c.numero || "").toLowerCase().includes(term) ||
+        String(c.cvXml || "").toLowerCase().includes(term)
     );
   }, [candidatos, searchTerm]);
 
@@ -62,19 +62,40 @@ export default function Candidatos() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  // Handlers (substitui alert por chamada real à API quando tiveres endpoint)
+  // Abrir CV (XML) numa nova aba usando Blob
+  const abrirCvXml = (xmlString, filename = "CV.xml") => {
+    if (!xmlString || typeof xmlString !== "string") return;
+    try {
+      const blob = new Blob([xmlString], { type: "application/xml" });
+      const url = URL.createObjectURL(blob);
+      // Abrir numa nova aba
+      const win = window.open(url, "_blank");
+      // (Opcional) definir nome de ficheiro via download (caso o browser não renderize inline)
+      if (!win) {
+        // fallback: criar link temporário
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      // Revogar o URL depois de algum tempo para libertar memória
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      console.error("Erro ao abrir CV XML:", err);
+      alert("Não foi possível abrir o CV.");
+    }
+  };
+
+  //  Aprovar candidato (simulação no frontend)
   const aprovarCandidato = async (id) => {
     try {
       setIsLoading(true);
-      // Exemplo de chamada real:
-      // const res = await fetch(`http://localhost:5136/api/v1/candidates/${id}/approve`, { method: "POST" });
+      // Exemplo real (quando tiveres o endpoint):
+      // const res = await fetch(`${API_BASE}/api/v1/jobcandidate/${id}/approve`, { method: "POST" });
       // if (!res.ok) throw new Error("Falha ao aprovar");
-      // const novoFuncionario = await res.json();
-
-      setCandidatos((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, estado: "Aprovado" } : c))
-      );
-      alert("Candidato aprovado e (exemplo) convertido em funcionário!");
+      alert("Candidato aprovado!");
     } catch (err) {
       console.error(err);
       alert("Erro ao aprovar candidato");
@@ -83,20 +104,19 @@ export default function Candidatos() {
     }
   };
 
-  const rejeitarCandidato = async (id) => {
+  //  Eliminar candidato (simulação no frontend)
+  const eliminarCandidato = async (id) => {
     try {
+      if (!confirm("Tens a certeza que queres eliminar este candidato?")) return;
       setIsLoading(true);
-      // Exemplo chamada real:
-      // const res = await fetch(`http://localhost:5136/api/v1/candidates/${id}/reject`, { method: "POST" });
-      // if (!res.ok) throw new Error("Falha ao rejeitar");
-
-      setCandidatos((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, estado: "Rejeitado" } : c))
-      );
-      alert("Candidato rejeitado.");
+      // Exemplo real:
+      // const res = await fetch(`${API_BASE}/api/v1/jobcandidate/${id}`, { method: "DELETE" });
+      // if (!res.ok) throw new Error("Falha ao eliminar");
+      setCandidatos((prev) => prev.filter((c) => c.id !== id));
+      alert("Candidato eliminado.");
     } catch (err) {
       console.error(err);
-      alert("Erro ao rejeitar candidato");
+      alert("Erro ao eliminar candidato");
     } finally {
       setIsLoading(false);
     }
@@ -107,7 +127,6 @@ export default function Candidatos() {
       {/* Header */}
       <div className="mb-4 d-flex justify-content-between align-items-center">
         <h1 className="mb-0 h3">Gestão de Candidatos</h1>
-        
         <span className="text-muted small">
           Total:{" "}
           <span className="badge bg-secondary bg-opacity-50 text-dark">
@@ -129,11 +148,12 @@ export default function Candidatos() {
             <input
               type="text"
               className="form-control"
-              placeholder="Procurar por nome, vaga ou email..."
+              placeholder="Procurar por Nº de candidato ou conteúdo do CV..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           )}
+          {error && <div className="text-danger small mt-2">{error}</div>}
         </div>
       </div>
 
@@ -155,59 +175,26 @@ export default function Candidatos() {
                 <table className="table table-hover mb-0">
                   <thead className="table-light">
                     <tr>
-                      <th className="px-4 py-3">Nome</th>
-                      <th className="px-4 py-3">Email</th>
-                      <th className="px-4 py-3">Telefone</th>
-                      <th className="px-4 py-3">Vaga</th>
+                      <th className="px-4 py-3" style={{ width: 140 }}>Nº Candidato</th>
                       <th className="px-4 py-3">CV</th>
-                      <th className="px-4 py-3">Estado</th>
-                      <th className="px-4 py-3 text-center">Ações</th>
+                      <th className="px-4 py-3 text-center" style={{ width: 220 }}>Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {current.map((c) => (
                       <tr key={c.id}>
                         <td className="px-4 py-3">
-                          <div className="d-flex align-items-center">
-                            <div
-                              className="rounded-circle bg-secondary bg-opacity-25 d-flex align-items-center justify-content-center me-2"
-                              style={{ width: 32, height: 32 }}
-                              aria-label="Avatar"
-                            >
-                              <span className="text-muted small fw-bold">
-                                {c.nome
-                                  .split(" ")
-                                  .map((p) => p[0])
-                                  .slice(0, 2)
-                                  .join("")
-                                  .toUpperCase()}
-                              </span>
-                            </div>
-                            <div>
-                              <div className="fw-semibold">{c.nome}</div>
-                              <div className="text-muted small">{c.vaga}</div>
-                            </div>
-                          </div>
+                          <span className="fw-semibold">{c.numero}</span>
                         </td>
-                        <td className="px-4 py-3 text-muted">
-                          <span className="text-truncate d-inline-block" style={{ maxWidth: 220 }}>
-                            {c.email}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-muted">{c.telefone}</td>
-                        <td className="px-4 py-3 text-muted">{c.vaga}</td>
                         <td className="px-4 py-3">
-                          <a
-                            href={c.cv}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
                             className="btn btn-sm btn-outline-secondary"
+                            onClick={() => abrirCvXml(c.cvXml, `CV_${c.numero}.xml`)}
+                            disabled={!c.cvXml}
+                            type="button"
                           >
                             Ver CV
-                          </a>
-                        </td>
-                        <td className="px-4 py-3">
-                          <EstadoBadge estado={c.estado} />
+                          </button>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div className="btn-group btn-group-sm" role="group">
@@ -221,11 +208,11 @@ export default function Candidatos() {
                             </button>
                             <button
                               className="btn btn-outline-danger"
-                              onClick={() => rejeitarCandidato(c.id)}
+                              onClick={() => eliminarCandidato(c.id)}
                               disabled={isLoading}
                               type="button"
                             >
-                              Rejeitar
+                              Eliminar
                             </button>
                           </div>
                         </td>
@@ -240,45 +227,20 @@ export default function Candidatos() {
                 {current.map((c) => (
                   <div key={c.id} className="border-bottom p-3">
                     <div className="d-flex align-items-center mb-2">
-                      <div
-                        className="rounded-circle bg-secondary bg-opacity-25 d-flex align-items-center justify-content-center me-2"
-                        style={{ width: 32, height: 32 }}
-                        aria-label="Avatar"
-                      >
-                        <span className="text-muted small fw-bold">
-                          {c.nome
-                            .split(" ")
-                            .map((p) => p[0])
-                            .slice(0, 2)
-                            .join("")
-                            .toUpperCase()}
-                        </span>
-                      </div>
                       <div className="flex-grow-1">
-                        <div className="fw-semibold">{c.nome}</div>
-                        <div className="text-muted small">{c.vaga}</div>
+                        <div className="fw-semibold">Nº {c.numero}</div>
                       </div>
-                      <EstadoBadge estado={c.estado} />
                     </div>
 
-                    <p className="text-muted small mb-1">
-                      <strong>Email:</strong>{" "}
-                      <span className="text-truncate d-inline-block" style={{ maxWidth: 220 }}>
-                        {c.email}
-                      </span>
-                    </p>
-                    <p className="text-muted small mb-2">
-                      <strong>Telefone:</strong> {c.telefone}
-                    </p>
                     <div className="d-flex gap-2">
-                      <a
-                        href={c.cv}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
                         className="btn btn-sm btn-outline-secondary flex-fill"
+                        onClick={() => abrirCvXml(c.cvXml, `CV_${c.numero}.xml`)}
+                        disabled={!c.cvXml}
+                        type="button"
                       >
                         Ver CV
-                      </a>
+                      </button>
                       <button
                         className="btn btn-sm btn-outline-success flex-fill"
                         onClick={() => aprovarCandidato(c.id)}
@@ -289,11 +251,11 @@ export default function Candidatos() {
                       </button>
                       <button
                         className="btn btn-sm btn-outline-danger flex-fill"
-                        onClick={() => rejeitarCandidato(c.id)}
+                        onClick={() => eliminarCandidato(c.id)}
                         disabled={isLoading}
                         type="button"
                       >
-                        Rejeitar
+                        Eliminar
                       </button>
                     </div>
                   </div>
@@ -318,7 +280,7 @@ export default function Candidatos() {
                     className="btn btn-sm btn-outline-secondary"
                     disabled={currentPage === totalPages}
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                       type="button"
+                    type="button"
                   >
                     Próxima →
                   </button>

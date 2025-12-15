@@ -20,10 +20,6 @@ function freqLabel(code) {
       return "Mensal";
     case 2:
       return "Semanal";
-    case 3:
-      return "Quinzenal";
-    case 4:
-      return "Anual";
     default:
       return code != null ? `Código ${code}` : "—";
   }
@@ -326,7 +322,7 @@ export default function GestaoPagamentos() {
       <div className="mb-4 d-flex align-items-center justify-content-between">
         <h1 className="h3 mb-1">Gestão de Pagamentos</h1>
 
-        {/* Botão Criar (também está no fim, mas aqui é atalho) */}
+        {/* Botão Criar */}
         {!loading && (
           <button
             className="btn btn-sm btn-primary"
@@ -518,15 +514,6 @@ export default function GestaoPagamentos() {
                     </button>
                   </div>
 
-                  <button
-                    className="btn btn-sm btn-primary"
-                    onClick={() => {
-                      setCreateError(null);
-                      setCreateOpen(true);
-                    }}
-                  >
-                    ➕ Criar registo
-                  </button>
                 </div>
               )}
             </>
@@ -565,7 +552,7 @@ export default function GestaoPagamentos() {
 
                 <div className="row g-3">
                   <div className="col-6">
-                    <label className="form-label">BusinessEntityID</label>
+                    <label className="form-label">ID - Funcionário</label>
                     <input
                       className="form-control"
                       value={editKeys.businessEntityID}
@@ -574,7 +561,7 @@ export default function GestaoPagamentos() {
                     />
                   </div>
                   <div className="col-6">
-                    <label className="form-label">RateChangeDate</label>
+                    <label className="form-label">Data Pagamento</label>
                     <input
                       className="form-control"
                       value={formatDate(editKeys.rateChangeDate)}
@@ -662,7 +649,7 @@ export default function GestaoPagamentos() {
 
                 <div className="row g-3">
                   <div className="col-6">
-                    <label className="form-label">BusinessEntityID</label>
+                    <label className="form-label">ID - Funcionário</label>
                     <input
                       type="number"
                       className="form-control"
@@ -676,7 +663,7 @@ export default function GestaoPagamentos() {
                     />
                   </div>
                   <div className="col-6">
-                    <label className="form-label">Data (RateChangeDate)</label>
+                    <label className="form-label">Data Pagamento</label>
                     <input
                       type="date"
                       className="form-control"
