@@ -133,7 +133,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
 
-
         // Extra: Histórico de pagamentos
         [HttpGet("{id}/payhistory")]
         public async Task<IActionResult> GetPayHistory(int id)
@@ -161,7 +160,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var deptHistoryDto = _mapper.Map<List<DepartmentHistoryDto>>(employee.DepartmentHistories);
             return Ok(deptHistoryDto);
         }
-
 
         //Secção de Aprovação de candidatura
         private static string GenerateUsername(Employee employee)
