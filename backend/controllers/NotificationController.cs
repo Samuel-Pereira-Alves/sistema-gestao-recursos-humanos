@@ -124,16 +124,16 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             return NoContent();
         }
 
-        // // DELETE: api/v1/notification/{id}
-        // [HttpDelete("{id:int}")]
-        // public async Task<IActionResult> DeleteById(int id)
-        // {
-        //     var notification = await _db.Notifications.FindAsync(id);
-        //     if (notification == null) return NotFound();
+        // DELETE: api/v1/notification/{id}
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> DeleteById(int id)
+        {
+            var notification = await _db.Notifications.FindAsync(id);
+            if (notification == null) return NotFound();
 
-        //     _db.Notifications.Remove(notification);
-        //     await _db.SaveChangesAsync();
-        //     return NoContent();
-        // }
+            _db.Notifications.Remove(notification);
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
     }
 }

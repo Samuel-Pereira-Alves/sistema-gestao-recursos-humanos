@@ -111,8 +111,6 @@ const getEmployeeId = () => {
         sickLeaveHours: parseInt(employee.sickLeaveHours) || 0,
       };
 
-      console.log("Enviando payload:", payload);
-
       const response = await fetch(
         `http://localhost:5136/api/v1/employee/${id}`,
         {
@@ -127,10 +125,11 @@ const getEmployeeId = () => {
         throw new Error(`Erro ao atualizar: ${errorText}`);
       }
       
-      
-addNotification(
-  `[admin] O funcionário ${employee?.person?.firstName ?? ""} ${employee?.person?.lastName ?? ""} atualizou o perfil.`
-);
+    
+      addNotification(
+        `O perfil do funcionário ${employee.person?.firstName} ${employee.person?.lastName} foi atualizado.`,
+        "admin"
+      );
 
       const refreshResponse = await fetch(`http://localhost:5136/api/v1/employee/${id}`);
       if (refreshResponse.ok) {

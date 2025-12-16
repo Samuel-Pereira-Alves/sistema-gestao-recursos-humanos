@@ -54,50 +54,10 @@ export default function NotificationBell() {
     const unsub = subscribe((list) => {
       const safeList = Array.isArray(list) ? list : [];
       setAllItems(safeList);
-      console.debug("[NotificationBell] bus update, items=", safeList);
     });
     return unsub;
   }, []);
 
-  // Helpers de parsing/filtragem (agora a msg vem de n.message)
-  function isVisible(n) {
-    if (!n || typeof n !== "object") return false;
-    const raw = String(n.message || "");
-    const s = raw.trim().toLowerCase();
-    const uid = String(userId || "").trim().toLowerCase();
-
-    console.log(`Filtering message for userId='${uid}' role='${role}': ${s}`);
-
-    // 1) Mensagens dirigidas a este user: aceita espaços antes de [
-    const m = s.match(/^\s*\[user:([^\]]+)\]/i);
-    if (m) {
-      const target = String(m[1] || "").trim().toLowerCase();
-      const ok = uid && target === uid;
-      console.log("user-target match?", { uid, target, ok, id: n.id, msg: n.message });
-      if (ok) return true;
-    }
-
-    // 2) Mensagens por role
-    if (role === "admin") {
-      if (s.startsWith("[admin]")) return true;
-    } else {
-      if (s.startsWith("[employee]")) return true;
-    }
-
-    // 3) Mensagens para todos
-    if (s.startsWith("[all]")) return true;
-
-    return false;
-  }
-
-  function stripPrefix(msg) {
-    if (typeof msg !== "string") return "";
-    // Remove [user:xxx], [admin], [employee] ou [all] do início
-    return msg.replace(/^\s*\[(user:[^\]]+|admin|employee|all)\]\s*/i, "");
-  }
-
-  const filteredItems = allItems.filter(isVisible);
-  const count = filteredItems.length;
 
   // Fecha ao clicar fora
   useEffect(() => {
@@ -128,12 +88,12 @@ export default function NotificationBell() {
       >
         <i className="bi bi-bell fs-5" aria-hidden="true"></i>
 
-        {count > 0 && (
+        {allItems.length > 0 && (
           <span
             className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
             style={{ fontSize: "0.70rem" }}
           >
-            {count > 99 ? "99+" : count}
+            {allItems.length > 99 ? "99+" : allItems.length}
             <span className="visually-hidden">notificações não lidas</span>
           </span>
         )}
@@ -147,20 +107,20 @@ export default function NotificationBell() {
       >
         <div className="px-3 py-2 border-bottom d-flex justify-content-between align-items-center">
           <strong>Notificações</strong>
-          {count > 0 && (
+          {allItems.length > 0 && (
             <button className="btn btn-sm btn-outline-secondary" onClick={clearNotifications}>
               Limpar
             </button>
           )}
         </div>
 
-        {count === 0 ? (
+        {allItems.length === 0 ? (
           <div className="px-3 py-3 text-muted">Sem notificações.</div>
         ) : (
           <ul className="list-unstyled mb-0">
-            {filteredItems.map((n) => (
+            {allItems.map((n) => (
               <li key={`${n.id}`} className="px-3 py-2 border-bottom">
-                <div className="text-wrap">{stripPrefix(String(n.message || ""))}</div>
+                <div className="text-wrap">{n.message}</div>
               </li>
             ))}
           </ul>
