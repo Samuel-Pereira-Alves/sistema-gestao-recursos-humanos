@@ -72,5 +72,34 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             return NoContent();
         }
+
+
+        // POST: api/v1/notification/{role}
+        [HttpPost("{role}")]
+        public async Task<IActionResult> CreateForRole(string role, [FromBody] NotificationDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(role))
+                return BadRequest("Role is required.");
+
+            var notification = _mapper.Map<Notification>(dto);
+
+            var users = await _db.SystemUsers.Where(u => u.Role == role.ToLower()).ToListAsync();
+            foreach (var user in users)
+            {
+                var notif = new Notification
+                {
+                    Message = dto.Message,
+                    BusinessEntityID = user.BusinessEntityID
+                };
+                _db.Notifications.Add(notif);
+            }
+
+            await _db.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(Get),
+                new { id = notification.ID },
+                _mapper.Map<NotificationDto>(notification));
+        }
+
     }
 }

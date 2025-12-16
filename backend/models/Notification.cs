@@ -11,5 +11,6 @@ namespace sistema_gestao_recursos_humanos.backend.models
         public int ID { get; set; }
 
         public string Message { get; set; } = string.Empty;
+        public int BusinessEntityID { get; set; }
     }
 }

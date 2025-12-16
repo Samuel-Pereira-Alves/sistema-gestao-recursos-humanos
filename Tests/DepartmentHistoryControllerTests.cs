@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -224,7 +223,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var mapperMock = MapperMockFactory.CreateDepartmentHistoryMapperMock();
             var controller = new DepartmentHistoryController(ctx, mapperMock.Object);
 
-            var result = await controller.Delete(100, 1, 1, start, new DepartmentHistoryDto());
+            var result = await controller.Delete(100, 1, 1, start);
 
             Assert.IsType<NoContentResult>(result);
             Assert.Null(await ctx.DepartmentHistories
