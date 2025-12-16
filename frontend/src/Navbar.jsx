@@ -113,9 +113,6 @@ function Navbar() {
           <ul className="navbar-nav ms-auto align-items-lg-center">
             {isLoggedIn ? (
               <>
-              <button onClick={() => addNotification("testee")}>
-                <p>Clica me</p>
-              </button>
                 {/* Sino + badge */}
                 <NotificationBell className="me-3" />
 
