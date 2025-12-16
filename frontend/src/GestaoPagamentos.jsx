@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import { addNotification } from "./store/notificationBus";
 
 /* Utils de apresentação */
 function formatDate(dateStr) {
@@ -203,7 +204,9 @@ export default function GestaoPagamentos() {
         const text = await resp.text();
         throw new Error(text || "Falha ao editar registo.");
       }
-
+       console.log(`${businessEntityID}`);
+           
+      addNotification(`[user:${String(businessEntityID).trim()}] O seu registo de pagamento foi atualizado.`);
       await fetchPagamentos(); 
       setEditOpen(false);
     } catch (e) {

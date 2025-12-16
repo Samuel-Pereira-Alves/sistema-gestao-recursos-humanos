@@ -51,7 +51,7 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
       });
       if (!resp.ok) throw new Error("Falha ao enviar candidatura");
       await new Promise((res) => setTimeout(res, 900));
-      addNotification("Nova candidatura! - Verifica o painel de administração.");
+      addNotification("[admin] Nova candidatura! - Verifica o painel de administração.");
 
       setSuccessMsg("Candidatura enviada com sucesso! Obrigado.");
       setFicheiro(null);

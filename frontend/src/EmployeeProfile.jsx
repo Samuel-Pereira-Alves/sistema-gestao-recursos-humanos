@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { addNotification } from "./store/notificationBus";
 
 function getDepartamentoAtualNome(funcionario) {
   const historicos = funcionario?.departmentHistories ?? [];
@@ -121,7 +122,10 @@ export default function EmployeeProfile() {
         throw new Error(`Erro ao atualizar: ${errorText}`);
       }
       
-      addNotification("O funcionário");
+      
+addNotification(
+  `[admin] O funcionário ${employee?.person?.firstName ?? ""} ${employee?.person?.lastName ?? ""} atualizou o perfil.`
+);
 
       const refreshResponse = await fetch(`http://localhost:5136/api/v1/employee/${id}`);
       if (refreshResponse.ok) {
