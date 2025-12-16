@@ -107,11 +107,15 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // PATCH: api/v1/employee/{id}
         [HttpPatch("{id}")]
-        public async Task<IActionResult> Patch(int id, EmployeeDto employeeDto)
+        public async Task<IActionResult> Patch(int id, [FromBody] EmployeeDto employeeDto)
         {
             if (id != employeeDto.BusinessEntityID) return BadRequest();
 
-            var employee = await _db.Employees.FirstOrDefaultAsync(e => e.BusinessEntityID == id);
+            // Load Employee + Person (via navigation)
+            var employee = await _db.Employees
+                .Include(e => e.Person)
+                .FirstOrDefaultAsync(e => e.BusinessEntityID == id);
+
             if (employee == null) return NotFound();
 
             // Strings
@@ -130,9 +134,24 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (employeeDto.HireDate != default(DateTime)) employee.HireDate = employeeDto.HireDate;
             if (employeeDto.BirthDate != default(DateTime)) employee.BirthDate = employeeDto.BirthDate;
 
-            //genero, estado civil, nationalidnumber
-
             employee.ModifiedDate = DateTime.Now;
+
+            // ---Update Person(only if dto.Person present) ---
+            if (employee.Person is not null && employeeDto.Person is not null)
+            {
+                var p = employee.Person;
+                var pd = employeeDto.Person;
+
+                if (!string.IsNullOrWhiteSpace(pd.FirstName)) p.FirstName = pd.FirstName;
+                if (!string.IsNullOrWhiteSpace(pd.LastName)) p.LastName = pd.LastName;
+
+                if (pd.MiddleName != null) p.MiddleName = string.IsNullOrWhiteSpace(pd.MiddleName) ? null : pd.MiddleName;
+                if (pd.Title != null) p.Title = string.IsNullOrWhiteSpace(pd.Title) ? null : pd.Title;
+                if (pd.Suffix != null) p.Suffix = string.IsNullOrWhiteSpace(pd.Suffix) ? null : pd.Suffix;
+
+                p.ModifiedDate = DateTime.Now;
+            }
+
             await _db.SaveChangesAsync();
 
             return Ok(_mapper.Map<EmployeeDto>(employee));
@@ -258,9 +277,15 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 // (C) Mapear Employee (usar o mesmo BusinessEntityID)
                 var employee = _mapper.Map<Employee>(request.Employee);
                 employee.BusinessEntityID = beId;
-                employee.HireDate = employee.HireDate.Year < 1753 ? now : employee.HireDate;  // garantir range válido por causa das constrains do SQL
+                employee.VacationHours = 0;
+                employee.SickLeaveHours = 0;
+                employee.SalariedFlag = true;
+                employee.JobTitle = "Cargo não atribuido";
+                employee.HireDate = now;
                 employee.ModifiedDate = now;
-                employee.Person = person; // ligar navegação
+                employee.PayHistories = new List<PayHistory>();
+                employee.DepartmentHistories = new List<DepartmentHistory>();
+                employee.Person = person;
 
                 _db.Employees.Add(employee);
                 await _db.SaveChangesAsync();
@@ -284,7 +309,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 var hashed = HashWithBcrypt(tempPassword);
 
                 // (F) Criar SystemUser
-                var role = string.IsNullOrWhiteSpace(request.Role) ? "Employee" : request.Role!.Trim();
+                var role = "employee";
 
                 var sysUser = new SystemUser
                 {
