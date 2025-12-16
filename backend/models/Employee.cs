@@ -21,6 +21,7 @@ namespace sistema_gestao_recursos_humanos.backend.models
         public short VacationHours { get; set; }
         public short SickLeaveHours { get; set; }
         public DateTime ModifiedDate { get; set; }
+        public byte CurrentFlag {get; set;}
 
         // Navigation properties
         public List<DepartmentHistory> DepartmentHistories { get; set; } = new();
