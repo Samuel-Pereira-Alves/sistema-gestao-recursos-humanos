@@ -110,7 +110,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 BusinessEntityId = null,
                 Resume = resumeXml,
-                ModifiedDate = now
+                ModifiedDate = now,
+                CvFileUrl = relativeUrl
             };
 
             _db.JobCandidates.Add(jc);
