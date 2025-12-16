@@ -7,10 +7,10 @@ export default function Candidatos() {
   const [candidatos, setCandidatos] = useState([]);
   const [error, setError] = useState("");
 
-  // Base da API (ajusta conforme o teu ambiente)
+  // Ajusta conforme o teu ambiente
   const API_BASE = "http://localhost:5136";
 
-  //  Carregar candidatos da API
+  // Carregar candidatos da API
   useEffect(() => {
     const fetchCandidatos = async () => {
       try {
@@ -20,11 +20,12 @@ export default function Candidatos() {
         if (!res.ok) throw new Error(`Falha ao obter candidatos (${res.status})`);
         const data = await res.json();
 
-        // Mapeia o DTO: JobCandidateId, Resume (XML), ModifiedDate
+        // Mapeia também o URL do PDF
         const mapped = (data || []).map((d) => ({
           id: d.jobCandidateId,
           numero: d.jobCandidateId,
-          cvXml: d.resume || "", // conteúdo XML
+          cvXml: d.resume || "",
+          cvPdfUrl: d.cvFileUrl ? `${API_BASE}${d.cvFileUrl}` : "" // constrói URL absoluto
         }));
 
         setCandidatos(mapped);
@@ -38,7 +39,7 @@ export default function Candidatos() {
     fetchCandidatos();
   }, []);
 
-  //  Pesquisa (por número ou conteúdo do XML)
+  // Pesquisa
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -62,39 +63,27 @@ export default function Candidatos() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  // Abrir CV (XML) numa nova aba usando Blob
-  const abrirCvXml = (xmlString, filename = "CV.xml") => {
-    if (!xmlString || typeof xmlString !== "string") return;
-    try {
-      const blob = new Blob([xmlString], { type: "application/xml" });
-      const url = URL.createObjectURL(blob);
-      // Abrir numa nova aba
-      const win = window.open(url, "_blank");
-      // (Opcional) definir nome de ficheiro via download (caso o browser não renderize inline)
-      if (!win) {
-        // fallback: criar link temporário
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-      // Revogar o URL depois de algum tempo para libertar memória
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (err) {
-      console.error("Erro ao abrir CV XML:", err);
-      alert("Não foi possível abrir o CV.");
+  // Abrir PDF numa nova aba (com fallback se o popup for bloqueado)
+  const abrirCvPdf = (url) => {
+    if (!url) return alert("CV PDF não disponível.");
+    const win = window.open(url, "_blank", "noopener,noreferrer");
+    if (!win) {
+      // Fallback: criar link temporário caso o browser bloqueie window.open
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
   };
 
-  //  Aprovar candidato (simulação no frontend)
+  // Aprovar candidato (simulação)
   const aprovarCandidato = async (id) => {
     try {
       setIsLoading(true);
-      // Exemplo real (quando tiveres o endpoint):
-      // const res = await fetch(`${API_BASE}/api/v1/jobcandidate/${id}/approve`, { method: "POST" });
-      // if (!res.ok) throw new Error("Falha ao aprovar");
+      // TODO: integrar com endpoint real quando existir
       alert("Candidato aprovado!");
     } catch (err) {
       console.error(err);
@@ -104,14 +93,12 @@ export default function Candidatos() {
     }
   };
 
-  //  Eliminar candidato (simulação no frontend)
+  // Eliminar candidato (simulação)
   const eliminarCandidato = async (id) => {
     try {
       if (!confirm("Tens a certeza que queres eliminar este candidato?")) return;
       setIsLoading(true);
-      // Exemplo real:
-      // const res = await fetch(`${API_BASE}/api/v1/jobcandidate/${id}`, { method: "DELETE" });
-      // if (!res.ok) throw new Error("Falha ao eliminar");
+      // TODO: integrar com endpoint real quando existir
       setCandidatos((prev) => prev.filter((c) => c.id !== id));
       alert("Candidato eliminado.");
     } catch (err) {
@@ -188,12 +175,12 @@ export default function Candidatos() {
                         </td>
                         <td className="px-4 py-3">
                           <button
-                            className="btn btn-sm btn-outline-secondary"
-                            onClick={() => abrirCvXml(c.cvXml, `CV_${c.numero}.xml`)}
-                            disabled={!c.cvXml}
+                            className="btn btn-sm btn-outline-primary"
+                            onClick={() => abrirCvPdf(c.cvPdfUrl)}
+                            disabled={!c.cvPdfUrl}
                             type="button"
                           >
-                            Ver CV
+                            Ver CV (PDF)
                           </button>
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -234,12 +221,12 @@ export default function Candidatos() {
 
                     <div className="d-flex gap-2">
                       <button
-                        className="btn btn-sm btn-outline-secondary flex-fill"
-                        onClick={() => abrirCvXml(c.cvXml, `CV_${c.numero}.xml`)}
-                        disabled={!c.cvXml}
+                        className="btn btn-sm btn-outline-primary flex-fill"
+                        onClick={() => abrirCvPdf(c.cvPdfUrl)}
+                        disabled={!c.cvPdfUrl}
                         type="button"
                       >
-                        Ver CV
+                        Ver CV (PDF)
                       </button>
                       <button
                         className="btn btn-sm btn-outline-success flex-fill"
@@ -289,7 +276,7 @@ export default function Candidatos() {
             </>
           )}
         </div>
+      </div>      
       </div>
-    </div>
-  );
-}
+       
+  );}

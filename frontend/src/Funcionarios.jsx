@@ -167,12 +167,6 @@ function getDepartamentoAtualNome(funcionario) {
                             <button className="btn btn-sm btn-outline-secondary me-2" onClick={() => viewProfile(f.businessEntityID)}>
                               Ver Perfil
                             </button>
-                            <button
-                              className="btn btn-sm btn-outline-dark"
-                              onClick={() => handleEditClick(f)}
-                            >
-                              Editar
-                            </button>
                           </td>
                         </tr>
                       ))}
