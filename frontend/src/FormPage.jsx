@@ -4,58 +4,141 @@ import Navbar from "./Navbar";
 import { addNotification } from "./store/notificationBus";
 
 function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
+  // --- Estado dos campos do formulário ---
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [nationalIDNumber, setNationalIDNumber] = useState("");
+  const [birthDate, setBirthDate] = useState("");          // "YYYY-MM-DD"
+  const [maritalStatus, setMaritalStatus] = useState("");  // AdventureWorks: "S" | "M"
+  const [gender, setGender] = useState("");                // AdventureWorks: "M" | "F"
+
+  // Ficheiro PDF
   const [ficheiro, setFicheiro] = useState(null);
+
+  // UI
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Limites
   const MAX_SIZE_MB = 5;
   const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024;
 
+  // --- Helpers de validação ---
   const validateFile = (f) => {
     const newErrors = {};
     if (!f) {
       newErrors.ficheiro = "O CV em PDF é obrigatório.";
       return newErrors;
     }
-    const isPdf = f.type === "application/pdf" || f.name?.toLowerCase().endsWith(".pdf");
+    const isPdf =
+      f.type === "application/pdf" || f.name?.toLowerCase().endsWith(".pdf");
     if (!isPdf) newErrors.ficheiro = "Apenas ficheiros PDF são aceites.";
     if (f.size > MAX_SIZE) newErrors.ficheiro = `O ficheiro excede ${MAX_SIZE_MB}MB.`;
     return newErrors;
   };
 
-  const handleChange = (e) => {
+  const validateForm = () => {
+    const newErrors = {};
+
+    // firstName / lastName obrigatórios
+    if (!firstName.trim()) newErrors.firstName = "Primeiro nome é obrigatório.";
+    if (!lastName.trim()) newErrors.lastName = "Apelido é obrigatório.";
+
+    // nationalIDNumber: 9 dígitos
+    const nid = nationalIDNumber.trim();
+    if (!nid) {
+      newErrors.nationalIDNumber = "Número de identificação nacional é obrigatório.";
+    } else if (!/^\d{9}$/.test(nid)) {
+      newErrors.nationalIDNumber = "Deve conter exatamente 9 dígitos.";
+    }
+
+    // birthDate: obrigatório (input date já ajuda no formato)
+    if (!birthDate) newErrors.birthDate = "Data de nascimento é obrigatória.";
+    // (Opcional) impedir datas futuras
+    const bd = new Date(birthDate);
+    if (birthDate && bd > new Date()) {
+      newErrors.birthDate = "Data futura não é válida.";
+    }
+
+    // maritalStatus: AdventureWorks exige "S" ou "M"
+    if (!["S", "M"].includes(maritalStatus)) {
+      newErrors.maritalStatus = "Seleciona estado civil: Solteiro (S) ou Casado (M).";
+    }
+
+    // gender: AdventureWorks exige "M" ou "F"
+    if (!["M", "F"].includes(gender)) {
+      newErrors.gender = "Seleciona género: Masculino (M) ou Feminino (F).";
+    }
+
+    // ficheiro
+    const fileErrors = validateFile(ficheiro);
+    Object.assign(newErrors, fileErrors);
+
+    return newErrors;
+  };
+
+  // --- Handlers ---
+  const handleFileChange = (e) => {
     const f = e.target.files?.[0] || null;
     setSuccessMsg("");
     const newErrors = validateFile(f);
-    setErrors(newErrors);
+    setErrors((prev) => ({ ...prev, ...newErrors }));
     setFicheiro(Object.keys(newErrors).length ? null : f);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSuccessMsg("");
-    const newErrors = validateFile(ficheiro);
+    const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      return;
+      return; // validação falhou → mostra erros e não envia
     }
 
     try {
       setSending(true);
+
+      // Normalizar birthDate para "YYYY-MM-DDT00:00:00" (se o backend preferir ISO com hora)
+      const birthDateIso = `${birthDate}T00:00:00`;
+
       const formData = new FormData();
-      formData.append("cv", ficheiro);
-      const resp = await fetch("http://localhost:5136/api/v1/jobcandidate/upload", {
-        method: "POST",
-        body: formData,
-      });
+      formData.append("cv", ficheiro); // campo do ficheiro
+
+      // Campos AdventureWorks + teus
+      formData.append("firstName", firstName.trim());
+      formData.append("lastName", lastName.trim());
+      formData.append("nationalIDNumber", nationalIDNumber.trim());
+      formData.append("birthDate", birthDateIso);   // ou só YYYY-MM-DD, confirma com backend
+      formData.append("maritalStatus", maritalStatus); // "S" | "M"
+      formData.append("gender", gender); 
+      formData.append("tempPassword", "DevOnly!234")              // "M" | "F"
+
+      const resp = await fetch(
+        "http://localhost:5136/api/v1/jobcandidate/upload",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
       if (!resp.ok) throw new Error("Falha ao enviar candidatura");
-      await new Promise((res) => setTimeout(res, 900));
-      addNotification("[admin] Nova candidatura! - Verifica o painel de administração.");
+
+      addNotification(
+        `Nova candidatura: ${firstName} ${lastName} – verifica o painel.`,
+        "admin"
+      );
 
       setSuccessMsg("Candidatura enviada com sucesso! Obrigado.");
       setFicheiro(null);
       setErrors({});
+
+      // Limpar campos do formulário
+      setFirstName("");
+      setLastName("");
+      setNationalIDNumber("");
+      setBirthDate("");
+      setMaritalStatus("");
+      setGender("");
 
       if (variant === "embedded" && typeof onCancel === "function") {
         setTimeout(() => onCancel(), 900);
@@ -68,12 +151,13 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
     }
   };
 
+  // --- UI ---
   const UploadUI = (
     <form onSubmit={handleSubmit} noValidate className="simple-form">
       <header className="mb-3 text-center">
-        <h6 className="mb-1">Enviar CV (PDF)</h6>
+        <h6 className="mb-1">Dados do candidato &amp; CV (PDF)</h6>
         <p className="text-muted small mb-0">
-          Seleciona o ficheiro em formato PDF. Limite: {MAX_SIZE_MB}MB.
+          Preenche os teus dados e seleciona o ficheiro em formato PDF. Limite: {MAX_SIZE_MB}MB.
         </p>
       </header>
 
@@ -86,14 +170,123 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
         </div>
       )}
 
-      <div className="mb-3">
-        <label htmlFor="cv-input" className="form-label fw-semibold">CV (PDF) <span className="text-danger">*</span></label>
+      {/* Campos de texto */}
+      <div className="row g-3">
+        <div className="col-md-6">
+          <label htmlFor="firstName" className="form-label fw-semibold">
+            Primeiro nome <span className="text-danger">*</span>
+          </label>
+          <input
+            id="firstName"
+            type="text"
+            className={`form-control input-gray ${errors.firstName ? "is-invalid" : ""}`}
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            autoComplete="given-name"
+          />
+          {errors.firstName && <div className="invalid-feedback">{errors.firstName}</div>}
+        </div>
+
+        <div className="col-md-6">
+          <label htmlFor="lastName" className="form-label fw-semibold">
+            Apelido <span className="text-danger">*</span>
+          </label>
+          <input
+            id="lastName"
+            type="text"
+            className={`form-control input-gray ${errors.lastName ? "is-invalid" : ""}`}
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            autoComplete="family-name"
+          />
+          {errors.lastName && <div className="invalid-feedback">{errors.lastName}</div>}
+        </div>
+
+        <div className="col-md-6">
+          <label htmlFor="nationalIDNumber" className="form-label fw-semibold">
+            Nº Identificação Nacional <span className="text-danger">*</span>
+          </label>
+          <input
+            id="nationalIDNumber"
+            type="text"
+            inputMode="numeric"
+            pattern="\d{9}"
+            maxLength={9}
+            className={`form-control input-gray ${errors.nationalIDNumber ? "is-invalid" : ""}`}
+            value={nationalIDNumber}
+            onChange={(e) => {
+              const onlyDigits = e.target.value.replace(/\D/g, "").slice(0, 9);
+              setNationalIDNumber(onlyDigits);
+            }}
+            placeholder="123456789"
+            autoComplete="off"
+          />
+          {errors.nationalIDNumber && (
+            <div className="invalid-feedback">{errors.nationalIDNumber}</div>
+          )}
+        </div>
+
+        <div className="col-md-6">
+          <label htmlFor="birthDate" className="form-label fw-semibold">
+            Data de nascimento <span className="text-danger">*</span>
+          </label>
+          <input
+            id="birthDate"
+            type="date"
+            className={`form-control input-gray ${errors.birthDate ? "is-invalid" : ""}`}
+            value={birthDate}
+            onChange={(e) => setBirthDate(e.target.value)}
+            placeholder="YYYY-MM-DD"
+          />
+          {errors.birthDate && <div className="invalid-feedback">{errors.birthDate}</div>}
+        </div>
+
+        <div className="col-md-6">
+          <label htmlFor="maritalStatus" className="form-label fw-semibold">
+            Estado civil <span className="text-danger">*</span>
+          </label>
+          <select
+            id="maritalStatus"
+            className={`form-select input-gray ${errors.maritalStatus ? "is-invalid" : ""}`}
+            value={maritalStatus}
+            onChange={(e) => setMaritalStatus(e.target.value)}
+          >
+            <option value="">Seleciona…</option>
+            <option value="S">Solteiro(a) (S)</option>
+            <option value="M">Casado(a) (M)</option>
+          </select>
+          {errors.maritalStatus && <div className="invalid-feedback">{errors.maritalStatus}</div>}
+        </div>
+
+        <div className="col-md-6">
+          <label htmlFor="gender" className="form-label fw-semibold">
+            Género <span className="text-danger">*</span>
+          </label>
+          <select
+            id="gender"
+            className={`form-select input-gray ${errors.gender ? "is-invalid" : ""}`}
+            value={gender}
+            onChange={(e) => setGender(e.target.value)}
+          >
+            <option value="">Seleciona…</option>
+            <option value="M">Masculino (M)</option>
+            <option value="F">Feminino (F)</option>
+          </select>
+          {errors.gender && <div className="invalid-feedback">{errors.gender}</div>}
+        </div>
+      </div>
+
+      {/* Upload do CV */}
+      <div className="mt-3">
+        <label htmlFor="cv-input" className="form-label fw-semibold">
+          CV (PDF) <span className="text-danger">*</span>
+        </label>
         <input
           id="cv-input"
           type="file"
           accept=".pdf,application/pdf"
           className={`form-control form-control-lg input-gray ${errors.ficheiro ? "is-invalid" : ""}`}
-          onChange={handleChange}
+          onChange={handleFileChange}
         />
         {errors.ficheiro && <div className="invalid-feedback">{errors.ficheiro}</div>}
       </div>
@@ -102,7 +295,6 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
         <div className="selected-file my-2">
           <div className="file-pill" title={ficheiro.name}>
             <span className="file-name">{ficheiro.name}</span>
-           
             <button
               type="button"
               className="btn btn-sm btn-clear"
@@ -115,11 +307,12 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
         </div>
       )}
 
+      {/* Botões */}
       <div className="d-flex gap-2 mt-4">
         <button
           type="submit"
           className="btn btn-dark flex-grow-1"
-          disabled={!ficheiro || sending}
+          disabled={sending}   // ✅ só desativa enquanto está a enviar
         >
           {sending ? "A enviar..." : "Enviar candidatura"}
         </button>
@@ -137,12 +330,9 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
     </form>
   );
 
+  // --- Layouts (embedded vs full) ---
   if (variant === "embedded") {
-    return (
-      <div className="candidatura-embedded w-100" style={{ maxWidth: "640px" }}>
-        {UploadUI}
-      </div>
-    );
+    return <div className="candidatura-embedded w-100" style={{ maxWidth: "640px" }}>{UploadUI}</div>;
   }
 
   return (
@@ -157,10 +347,10 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
             <div className="card-body p-4 p-md-5">
               <h2 className="mb-3 text-center">Submissão de Candidatura</h2>
               <p className="text-muted text-center mb-4">
-                Carrega o teu CV em formato PDF para análise.
+                Preenche os teus dados e carrega o teu CV em formato PDF.
               </p>
               {UploadUI}
-            </div>
+                       </div>
           </div>
         </div>
       </main>

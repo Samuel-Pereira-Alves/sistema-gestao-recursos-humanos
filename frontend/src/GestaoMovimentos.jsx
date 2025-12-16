@@ -219,6 +219,66 @@ export default function GestaoDepartmentHistories() {
     });
   };
 
+  
+function formatDateForRoute(input) {
+  // Aceita string (ex.: "2020-02-29") ou Date
+  const d = (input instanceof Date) ? input : new Date(input);
+
+  // Validação rigorosa
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
+    throw new Error("StartDate inválida. Use uma data existente (ex.: 2020-02-29).");
+  }
+
+  // Partes com zero à esquerda
+  const pad = (n) => String(n).padStart(2, "0");
+
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  const seconds = pad(d.getSeconds());
+
+  // "YYYY-MM-DDTHH:mm:ss" (sem milissegundos e timezone)
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
+
+const openDelete = async (h) => {
+  
+    try {
+      
+      const ok = window.confirm('Tem a certeza que deseja apagar este registo?');
+      if (!ok) return;
+
+      const beid = getBusinessEntityID(h);
+      const depId = getDepartmentID(h);
+      const shId  = getShiftID(h);
+      const date  = getStartDate(h);
+      const formatDate = formatDateForRoute(date);
+
+      const url =
+        `http://localhost:5136/api/v1/departmenthistory/${beid}/${depId}/${shId}/${formatDate}`;
+
+      const resp = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(text || `Falha ao apagar registo (HTTP ${resp.status}).`);
+      }
+      await fetchData(); 
+    } catch (e) {
+      window.alert("Erro", e.message || "Erro ao apagar registo.", "error");
+    }
+  };
+
+
   const openEdit = (h) => {
     const beid = getBusinessEntityID(h);
     const depId = getDepartmentID(h);
@@ -310,7 +370,8 @@ export default function GestaoDepartmentHistories() {
           throw new Error((await resp.text()) || "Falha ao editar registo.");
       }
 
-      addNotification(`[user:${businessEntityID}] O seu registo foi atualizado com sucesso.`);
+
+      addNotificationForUser("O seu registo foi atualizado com sucesso.", businessEntityID);
 
       await fetchData();
       closeAction();
@@ -454,6 +515,12 @@ export default function GestaoDepartmentHistories() {
                             >
                               Editar
                             </button>
+                            <button
+                              className="btn btn-sm btn-outline-danger ms-2"
+                              onClick={() => openDelete(h)}
+                            >
+                              Apagar
+                            </button>
                           </td>
                         </tr>
                       );
@@ -502,6 +569,12 @@ export default function GestaoDepartmentHistories() {
                         >
                           Editar
                         </button>
+                         <button
+                              className="btn btn-sm btn-outline-danger ms-2"
+                              onClick={() => openDelete(h)}
+                            >
+                              Apagar
+                            </button>
                       </div>
                     </div>
                   );

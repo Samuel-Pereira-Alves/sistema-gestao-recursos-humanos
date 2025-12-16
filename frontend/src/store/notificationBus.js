@@ -8,41 +8,64 @@ let _subscribers = new Set();
  * Adiciona uma notificação (string simples).
  * Ex.: addNotification("teste");
  */
-export function addNotification(message) {
-  const text = String(message ?? "").trim();
-  if (!text) return;
-
-  _notifications = [..._notifications, text];
-  fetch('http://localhost:5136/api/v1/notification', {
+export function addNotification(message, role) {
+  fetch(`http://localhost:5136/api/v1/notification/${role}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: text }),
+    body: JSON.stringify({ message }),
   }).catch((err) => {
     console.error('Failed to send notification to server:', err);
   });
+
+  syncNotificationsFromServer();
+  _emit();
+}
+
+export function addNotificationForUser(message, id) {
+  fetch(`http://localhost:5136/api/v1/notification/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, businessEntityId: id }),
+  }).catch((err) => {
+    console.error('Failed to send notification to server:', err);
+  });
+
+  syncNotificationsFromServer();
   _emit();
 }
 
 /** Limpa todas as notificações */
-export function clearNotifications() {
+export async function clearNotifications() {
+  for (const n of _notifications) {
+    await fetch(`http://localhost:5136/api/v1/notification/${n.id}`, {
+      method: 'DELETE',
+    }).catch((err) => {
+      console.error('Failed to delete notification from server:', err);
+    });
+  }
   _notifications = [];
   _emit();
 }
 
 /** (Opcional) remove por índice */
-export function removeNotificationAt(index) {
-  if (index < 0 || index >= _notifications.length) return;
-  _notifications = _notifications.filter((_, i) => i !== index);
+export async function removeNotifications() {
+  
+  const id = localStorage.getItem('businessEntityId') || '';
+  await fetch(`http://localhost:5136/api/v1/notification/by-entity/${id}`, {
+    method: 'DELETE',
+  }).catch((err) => {
+    console.error('Failed to delete notification from server:', err);
+  });
   _emit();
 }
 
 
 export async function syncNotificationsFromServer() {
   try {
-    const res = await fetch('http://localhost:5136/api/v1/notification');
-    const data = await res.json(); // <- espera Array<{id, message}>
+    const id = localStorage.getItem('businessEntityId') || '';
+    const res = await fetch(`http://localhost:5136/api/v1/notification/by-entity/${id}`);
+    const data = await res.json(); 
     _notifications = Array.isArray(data) ? data : [];
-    console.debug('Notifications synced from server:', _notifications);
     _emit();
   } catch (err) {
     console.error('Failed to fetch notifications from server:', err);
