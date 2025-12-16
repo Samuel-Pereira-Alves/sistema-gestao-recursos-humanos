@@ -212,7 +212,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         [HttpDelete("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
-        public async Task<IActionResult> Delete(int businessEntityId, short departmentId, byte shiftId, DateTime startDate, DepartmentHistoryDto dto)
+        public async Task<IActionResult> Delete(int businessEntityId, short departmentId, byte shiftId, DateTime startDate)
         {
             var history = await _db.DepartmentHistories
                 .FirstOrDefaultAsync(dh => dh.BusinessEntityID == businessEntityId

@@ -87,6 +87,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 text = PdfTextExtractor.ExtractAllText(parseStream);
             }
+            //Console.WriteLine("${text}");
 
             // 2) Parse into structured data (your heuristics)
             var resumeData = ResumeParser.ParseFromText(text);

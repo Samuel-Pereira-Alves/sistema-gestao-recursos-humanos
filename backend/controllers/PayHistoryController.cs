@@ -112,7 +112,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // DELETE: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
         [HttpDelete("{businessEntityId}/{rateChangeDate}")]
-        public async Task<IActionResult> Delete(int businessEntityId, DateTime rateChangeDate, PayHistoryDto dto)
+        public async Task<IActionResult> Delete(int businessEntityId, DateTime rateChangeDate)
         {
             var payhistory = await _db.PayHistories
                 .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
