@@ -13,10 +13,10 @@ function Funcionarios() {
   const itemsPerPage = 10;
 
 
-const viewProfile = (funcionarioId) => {
-  const id = funcionarioId;
-  navigate(`/profile?id=${id}`);
-};
+  const viewProfile = (funcionarioId) => {
+    const id = funcionarioId;
+    navigate(`/profile?id=${id}`);
+  };
 
 
   useEffect(() => {
@@ -29,7 +29,7 @@ const viewProfile = (funcionarioId) => {
         setFuncionarios(data);
       } catch (error) {
         console.error(error);
-      }finally {
+      } finally {
         setLoading(false);
       }
     };
@@ -65,7 +65,7 @@ const viewProfile = (funcionarioId) => {
       //   }
       // );
       // if (!response.ok) throw new Error("Erro ao atualizar funcionário");
-     
+
       setFuncionarios(
         funcionarios.map((f) =>
           f.id === selectedFuncionario.id ? selectedFuncionario : f
@@ -78,31 +78,37 @@ const viewProfile = (funcionarioId) => {
     }
   };
 
-  const filteredFuncionarios = funcionarios.filter(f =>
-    getNomeCompleto(f).toLowerCase().includes(searchTerm.toLowerCase()) ||
-    f.jobTitle.toLowerCase().includes(searchTerm.toLowerCase()) 
-  );
-  
-function getNomeCompleto(f) {
-  if (f?.nome) return f.nome; 
-  const p = f?.person ?? {};
-  const partes = [p.firstName,p.middleName, p.lastName].filter(Boolean);
-  return partes.join(" ") || "Sem nome";
-}
+  const isCurrent = (f) => {
+    return f?.currentFlag === true
+  }
 
-  
-function getDepartamentoAtualNome(funcionario) {
-  const historicos = funcionario?.departmentHistories ?? [];
-  if (historicos.length === 0) return "Sem departamento";
+  const filteredFuncionarios = funcionarios
+    .filter(isCurrent)
+    .filter(f =>
+      getNomeCompleto(f).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      f.jobTitle.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-  const atual = historicos.find(h => h.endDate == null);
+  function getNomeCompleto(f) {
+    if (f?.nome) return f.nome;
+    const p = f?.person ?? {};
+    const partes = [p.firstName, p.middleName, p.lastName].filter(Boolean);
+    return partes.join(" ") || "Sem nome";
+  }
 
-  const escolhido = atual ?? historicos
-    .slice()
-    .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
 
-  return escolhido?.department?.name ?? "Departamento desconhecido";
-}
+  function getDepartamentoAtualNome(funcionario) {
+    const historicos = funcionario?.departmentHistories ?? [];
+    if (historicos.length === 0) return "Sem departamento";
+
+    const atual = historicos.find(h => h.endDate == null);
+
+    const escolhido = atual ?? historicos
+      .slice()
+      .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
+
+    return escolhido?.department?.name ?? "Departamento desconhecido";
+  }
 
 
   // Paginação
@@ -114,7 +120,7 @@ function getDepartamentoAtualNome(funcionario) {
   return (
     <>
       <div className="container mt-4">
-       
+
         {/* Header */}
         <div className="mb-4">
           <h1 className="h3 mb-1">Gestão de Funcionários</h1>
@@ -274,7 +280,7 @@ function getDepartamentoAtualNome(funcionario) {
                     <input
                       type="text"
                       className="form-control"
-                      name="departamento"      
+                      name="departamento"
                       value={getDepartamentoAtualNome(selectedFuncionario)}
                       readOnly
 
