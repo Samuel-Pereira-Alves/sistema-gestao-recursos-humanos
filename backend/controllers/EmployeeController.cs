@@ -95,7 +95,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var employee = await _db.Employees.FindAsync(id);
             if (employee == null) return NotFound();
 
-            _db.Employees.Remove(employee);
+            employee.CurrentFlag = false;
+            employee.ModifiedDate = DateTime.Now;
             await _db.SaveChangesAsync();
 
             //await _db.Database.ExecuteSqlRawAsync("EXEC HumanResources.uspDeleteEmployee {0}", id);
