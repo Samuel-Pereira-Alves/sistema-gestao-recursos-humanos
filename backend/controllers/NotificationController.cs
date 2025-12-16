@@ -1,11 +1,10 @@
+
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Xml.Linq;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
-using sistema_gestao_recursos_humanos.backend.models.tools;
 
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
@@ -24,18 +23,79 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             _env = env;
         }
 
-        // GET: api/v1/notification
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
+        // POST: api/v1/notification
+        // Creates a single notification (for a specific BusinessEntityID from the body)
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] NotificationDto dto)
         {
-            var notifications = await _db.Notifications.ToListAsync();
+            if (dto is null) return BadRequest("Body is required.");
+            if (string.IsNullOrWhiteSpace(dto.Message)) return BadRequest("Message is required.");
+            if (dto.BusinessEntityID <= 0) return BadRequest("BusinessEntityID must be a positive integer.");
+
+            var notification = _mapper.Map<Notification>(dto);
+
+            _db.Notifications.Add(notification);
+            await _db.SaveChangesAsync();
+
+            // Return the resource by ID
+            return CreatedAtAction(nameof(GetById),
+                new { id = notification.ID },
+                _mapper.Map<NotificationDto>(notification));
+        }
+
+        // POST: api/v1/notification/{role}
+        // Creates one notification per user that has the given role
+        [HttpPost("{role}")]
+        public async Task<IActionResult> CreateForRole(string role, [FromBody] NotificationDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(role)) return BadRequest("Role is required.");
+            if (dto is null) return BadRequest("Body is required.");
+            if (string.IsNullOrWhiteSpace(dto.Message)) return BadRequest("Message is required.");
+
+            // Fetch users matching role (case-insensitive)
+            var users = await _db.SystemUsers
+                .Where(u => u.Role.ToLower() == role.ToLower()).ToListAsync();
+
+            if (users.Count == 0)
+            {
+                return NotFound($"No users found for role '{role}'.");
+            }
+
+            // Create notifications for each user
+            var created = new List<Notification>();
+            foreach (var user in users)
+            {
+                var notif = new Notification
+                {
+                    Message = dto.Message,
+                    BusinessEntityID = user.BusinessEntityID
+                };
+                created.Add(notif);
+                _db.Notifications.Add(notif);
+            }
+            await _db.SaveChangesAsync();
+
+            var createdDtos = _mapper.Map<List<NotificationDto>>(created);
+            return Created("", createdDtos);
+        }
+
+        // GET: api/v1/notification/by-entity/{businessEntityId}
+        [HttpGet("by-entity/{businessEntityId}")]
+        public async Task<IActionResult> GetByBusinessEntityID(int businessEntityId)
+        {
+            if (businessEntityId <= 0) return BadRequest("BusinessEntityID must be a positive integer.");
+
+            var notifications = await _db.Notifications
+                .Where(notif => notif.BusinessEntityID == businessEntityId)
+                .ToListAsync();
+
             var dto = _mapper.Map<List<NotificationDto>>(notifications);
             return Ok(dto);
         }
 
         // GET: api/v1/notification/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> Get(int id)
+        public async Task<IActionResult> GetById(int id)
         {
             var notification = await _db.Notifications
                 .FirstOrDefaultAsync(notif => notif.ID == id);
@@ -46,60 +106,34 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             return Ok(dto);
         }
 
-        // POST: api/v1/notification
-        [HttpPost]
-        public async Task<IActionResult> Create(NotificationDto dto)
+        // DELETE: api/v1/notification/by-entity/{businessEntityId}
+        [HttpDelete("by-entity/{businessEntityId}")]
+        public async Task<IActionResult> DeleteByBusinessEntityID(int businessEntityId)
         {
-            var notification = _mapper.Map<Notification>(dto);
+            if (businessEntityId <= 0) return BadRequest("BusinessEntityID must be a positive integer.");
 
-            _db.Notifications.Add(notification);
-            await _db.SaveChangesAsync();
+            var notifications = await _db.Notifications
+                .Where(notif => notif.BusinessEntityID == businessEntityId)
+                .ToListAsync();
 
-            return CreatedAtAction(nameof(Get),
-                new { id = notification.ID },
-                _mapper.Map<NotificationDto>(notification));
-        }
+            if (notifications.Count == 0) return NotFound();
 
-        // DELETE: api/v1/notification/{id}
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
-        {
-            var notification = await _db.Notifications.FindAsync(id);
-            if (notification == null) return NotFound();
-
-            _db.Notifications.Remove(notification);
+            _db.Notifications.RemoveRange(notifications);
             await _db.SaveChangesAsync();
 
             return NoContent();
         }
 
+        // // DELETE: api/v1/notification/{id}
+        // [HttpDelete("{id:int}")]
+        // public async Task<IActionResult> DeleteById(int id)
+        // {
+        //     var notification = await _db.Notifications.FindAsync(id);
+        //     if (notification == null) return NotFound();
 
-        // POST: api/v1/notification/{role}
-        [HttpPost("{role}")]
-        public async Task<IActionResult> CreateForRole(string role, [FromBody] NotificationDto dto)
-        {
-            if (string.IsNullOrWhiteSpace(role))
-                return BadRequest("Role is required.");
-
-            var notification = _mapper.Map<Notification>(dto);
-
-            var users = await _db.SystemUsers.Where(u => u.Role == role.ToLower()).ToListAsync();
-            foreach (var user in users)
-            {
-                var notif = new Notification
-                {
-                    Message = dto.Message,
-                    BusinessEntityID = user.BusinessEntityID
-                };
-                _db.Notifications.Add(notif);
-            }
-
-            await _db.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(Get),
-                new { id = notification.ID },
-                _mapper.Map<NotificationDto>(notification));
-        }
-
+        //     _db.Notifications.Remove(notification);
+        //     await _db.SaveChangesAsync();
+        //     return NoContent();
+        // }
     }
 }
