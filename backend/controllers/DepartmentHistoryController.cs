@@ -210,5 +210,22 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 },
                 _mapper.Map<DepartmentHistoryDto>(history));
         }
+
+        [HttpDelete("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
+        public async Task<IActionResult> Delete(int businessEntityId, short departmentId, byte shiftId, DateTime startDate, DepartmentHistoryDto dto)
+        {
+            var history = await _db.DepartmentHistories
+                .FirstOrDefaultAsync(dh => dh.BusinessEntityID == businessEntityId
+                                        && dh.DepartmentID == departmentId
+                                        && dh.ShiftID == shiftId
+                                        && dh.StartDate == startDate);
+
+            if (history == null) return NotFound();
+
+            _db.DepartmentHistories.Remove(history);
+            await _db.SaveChangesAsync();
+
+            return NoContent();
+        }
     }
 }

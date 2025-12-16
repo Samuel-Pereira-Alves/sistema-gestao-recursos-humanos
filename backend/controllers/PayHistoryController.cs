@@ -109,5 +109,18 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             return Ok(_mapper.Map<PayHistoryDto>(history));
         }
+
+        // DELETE: api/v1/payhistory/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var payhistory = await _db.PayHistories.FindAsync(id);
+            if (payhistory == null) return NotFound();
+
+            _db.PayHistories.Remove(payhistory);
+            await _db.SaveChangesAsync();
+
+            return NoContent();
+        }
     }
 }

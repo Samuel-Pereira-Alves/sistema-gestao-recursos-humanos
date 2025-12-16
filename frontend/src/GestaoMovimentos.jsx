@@ -310,6 +310,8 @@ export default function GestaoDepartmentHistories() {
           throw new Error((await resp.text()) || "Falha ao editar registo.");
       }
 
+      addNotification(`[user:${businessEntityID}] O seu registo foi atualizado com sucesso.`);
+
       await fetchData();
       closeAction();
     } catch (e) {
