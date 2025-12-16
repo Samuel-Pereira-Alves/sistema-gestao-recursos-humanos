@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 
@@ -17,7 +16,8 @@ export default function Candidatos() {
         setIsLoading(true);
         setError("");
         const res = await fetch(`${API_BASE}/api/v1/jobcandidate`);
-        if (!res.ok) throw new Error(`Falha ao obter candidatos (${res.status})`);
+        if (!res.ok)
+          throw new Error(`Falha ao obter candidatos (${res.status})`);
         const data = await res.json();
 
         // Mapeia também o URL do PDF
@@ -25,7 +25,7 @@ export default function Candidatos() {
           id: d.jobCandidateId,
           numero: d.jobCandidateId,
           cvXml: d.resume || "",
-          cvPdfUrl: d.cvFileUrl ? `${API_BASE}${d.cvFileUrl}` : "" // constrói URL absoluto
+          cvPdfUrl: d.cvFileUrl ? `${API_BASE}${d.cvFileUrl}` : "", 
         }));
 
         setCandidatos(mapped);
@@ -48,8 +48,12 @@ export default function Candidatos() {
     const term = (searchTerm || "").toLowerCase().trim();
     return candidatos.filter(
       (c) =>
-        String(c.numero || "").toLowerCase().includes(term) ||
-        String(c.cvXml || "").toLowerCase().includes(term)
+        String(c.numero || "")
+          .toLowerCase()
+          .includes(term) ||
+        String(c.cvXml || "")
+          .toLowerCase()
+          .includes(term)
     );
   }, [candidatos, searchTerm]);
 
@@ -93,17 +97,35 @@ export default function Candidatos() {
     }
   };
 
-  // Eliminar candidato (simulação)
+ 
   const eliminarCandidato = async (id) => {
     try {
-      if (!confirm("Tens a certeza que queres eliminar este candidato?")) return;
+      if (!confirm("Tens a certeza que queres eliminar este candidato?"))
+        return;
       setIsLoading(true);
-      // TODO: integrar com endpoint real quando existir
+      setError("");
+
+      const res = await fetch(`${API_BASE}/api/v1/jobcandidate/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        let details = "";
+        try {
+          const txt = await res.text();
+          details = txt ? ` Detalhes: ${txt}` : "";
+        } catch {}
+        throw new Error(`Falha ao eliminar (HTTP ${res.status}).${details}`);
+      }
+
+      // Atualiza a lista local removendo o candidato
       setCandidatos((prev) => prev.filter((c) => c.id !== id));
-      alert("Candidato eliminado.");
+
+      // Feedback ao utilizador
+      alert("Candidato eliminado com sucesso.");
     } catch (err) {
       console.error(err);
-      alert("Erro ao eliminar candidato");
+      setError("Erro ao eliminar candidato. Tenta novamente.");
+      alert("Erro ao eliminar candidato.");
     } finally {
       setIsLoading(false);
     }
@@ -162,9 +184,16 @@ export default function Candidatos() {
                 <table className="table table-hover mb-0">
                   <thead className="table-light">
                     <tr>
-                      <th className="px-4 py-3" style={{ width: 140 }}>Nº Candidato</th>
+                      <th className="px-4 py-3" style={{ width: 140 }}>
+                        Nº Candidato
+                      </th>
                       <th className="px-4 py-3">CV</th>
-                      <th className="px-4 py-3 text-center" style={{ width: 220 }}>Ações</th>
+                      <th
+                        className="px-4 py-3 text-center"
+                        style={{ width: 220 }}
+                      >
+                        Ações
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -266,7 +295,9 @@ export default function Candidatos() {
                   <button
                     className="btn btn-sm btn-outline-secondary"
                     disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
                     type="button"
                   >
                     Próxima →
@@ -276,7 +307,7 @@ export default function Candidatos() {
             </>
           )}
         </div>
-      </div>      
       </div>
-       
-  );}
+    </div>
+  );
+}
