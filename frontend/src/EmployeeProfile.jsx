@@ -44,10 +44,15 @@ export default function EmployeeProfile() {
     fetchDepartments();
 
   }, []);
-  const getEmployeeId = () => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("id") || "1";
-  };
+  
+const getEmployeeId = () => {
+  const params = new URLSearchParams(location.search);
+  const fromQuery = params.get("id");
+  
+  const fromStorage = localStorage.getItem("businessEntityId");
+  return fromQuery ?? fromStorage ?? null; 
+};
+
 
   const controller = new AbortController();
 
