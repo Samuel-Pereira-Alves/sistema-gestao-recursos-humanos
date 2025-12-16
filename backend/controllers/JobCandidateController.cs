@@ -134,8 +134,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             _db.JobCandidates.Remove(jobcandidate);
             await _db.SaveChangesAsync();
 
-            //await _db.Database.ExecuteSqlRawAsync("EXEC HumanResources.uspDeletejobcandidate {0}", id);
-
             return NoContent();
         }
     }
