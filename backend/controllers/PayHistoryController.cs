@@ -110,11 +110,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             return Ok(_mapper.Map<PayHistoryDto>(history));
         }
 
-        // DELETE: api/v1/payhistory/{id}
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        // DELETE: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
+        [HttpDelete("{businessEntityId}/{rateChangeDate}")]
+        public async Task<IActionResult> Delete(int businessEntityId, DateTime rateChangeDate, PayHistoryDto dto)
         {
-            var payhistory = await _db.PayHistories.FindAsync(id);
+            var payhistory = await _db.PayHistories
+                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
+                                        && ph.RateChangeDate == rateChangeDate);
+
             if (payhistory == null) return NotFound();
 
             _db.PayHistories.Remove(payhistory);
