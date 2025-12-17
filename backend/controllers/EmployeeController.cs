@@ -158,19 +158,16 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         //Secção de Aprovação de candidatura
-        private static string GenerateUsername(Employee employee)
+        private static string GenerateUsername(Person person)
         {
-            if (!string.IsNullOrWhiteSpace(employee.LoginID))
-                return employee.LoginID.ToLowerInvariant();
-
-            if (employee.Person != null &&
-                !string.IsNullOrWhiteSpace(employee.Person.FirstName) &&
-                !string.IsNullOrWhiteSpace(employee.Person.LastName))
+            if (person != null &&
+                !string.IsNullOrWhiteSpace(person.FirstName) &&
+                !string.IsNullOrWhiteSpace(person.LastName))
             {
-                return $"{employee.Person.FirstName}.{employee.Person.LastName}@emailnadainventado.com".ToLowerInvariant();
+                return $"{person.FirstName}.{person.LastName}@emailnadainventado.com".ToLowerInvariant();
             }
 
-            return $"emp{employee.BusinessEntityID}";
+            return $"emp{person?.BusinessEntityID}";
         }
 
 
@@ -208,11 +205,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
 
-        [HttpPost("approve")]
-        public async Task<IActionResult> ApproveCandidate([FromBody] ApproveCandidateDTO request)
+        [HttpPost("approve/{jobCandidateId}")]
+        public async Task<IActionResult> ApproveCandidate(int jobCandidateId)
         {
-            if (request?.Employee == null)
-                return BadRequest(new { message = "Employee é obrigatório" });
+            var candidate = await _db.JobCandidates
+                .FirstOrDefaultAsync(jc => jc.JobCandidateId == jobCandidateId);
 
             await using var transaction = await _db.Database.BeginTransactionAsync();
 
@@ -230,38 +227,16 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 var person = new Person
                 {
                     BusinessEntityID = beId,
-                    FirstName = request.Employee.Person?.FirstName ?? "",
-                    LastName = request.Employee.Person?.LastName ?? "",
-                    MiddleName = request.Employee.Person?.MiddleName,
-                    Title = request.Employee.Person?.Title,
-                    Suffix = request.Employee.Person?.Suffix,
+                    FirstName = candidate?.FirstName ?? "",
+                    LastName = candidate?.LastName ?? "",
                     EmailPromotion = 0,
                     ModifiedDate = now,
                     PersonType = "EM"
                 };
                 _db.Persons.Add(person);
                 await _db.SaveChangesAsync();
-
-                // (C) Mapear Employee (usar o mesmo BusinessEntityID)
-                var employee = _mapper.Map<Employee>(request.Employee);
-                employee.BusinessEntityID = beId;
-                employee.VacationHours = 0;
-                employee.SickLeaveHours = 0;
-                employee.SalariedFlag = true;
-                employee.JobTitle = "Cargo não atribuido";
-                employee.HireDate = now;
-                employee.ModifiedDate = now;
-                employee.PayHistories = new List<PayHistory>();
-                employee.DepartmentHistories = new List<DepartmentHistory>();
-                employee.Person = person;
-
-                _db.Employees.Add(employee);
-                await _db.SaveChangesAsync();
-
-                // (D) Username
-                var username = string.IsNullOrWhiteSpace(request.Username)
-                    ? GenerateUsername(employee)
-                    : request.Username.Trim().ToLowerInvariant();
+                
+                var username = GenerateUsername(person);
 
                 var usernameExists = await _db.SystemUsers.AnyAsync(u => u.Username == username);
                 if (usernameExists)
@@ -270,10 +245,31 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     return Conflict(new { message = "Username já existe", username });
                 }
 
+                var employee = new Employee
+                {
+                    BusinessEntityID = beId,
+                    VacationHours = 0,
+                    LoginID = username,
+                    SickLeaveHours = 0,
+                    SalariedFlag = true,
+                    BirthDate = candidate!.BirthDate,
+                    MaritalStatus = candidate.MaritalStatus,
+                    Gender = candidate.Gender,
+                    JobTitle = "Cargo não atribuido",
+                    HireDate = now,
+                    ModifiedDate = now,
+                    PayHistories = new List<PayHistory>(),
+                    DepartmentHistories = new List<DepartmentHistory>(),
+                    Person = person
+                };
+
+                _db.Employees.Add(employee);
+                await _db.SaveChangesAsync();
+
                 // (E) Password temporária + hash
-                var tempPassword = string.IsNullOrWhiteSpace(request.TempPassword)
+                var tempPassword = string.IsNullOrWhiteSpace(candidate?.PasswordHash)
                     ? GenerateTempPassword()
-                    : request.TempPassword!;
+                    : candidate.PasswordHash;
                 var hashed = HashWithBcrypt(tempPassword);
 
                 // (F) Criar SystemUser
