@@ -164,7 +164,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 !string.IsNullOrWhiteSpace(person.FirstName) &&
                 !string.IsNullOrWhiteSpace(person.LastName))
             {
-                return $"{person.FirstName}.{person.LastName}@emailnadainventado.com".ToLowerInvariant();
+                return $"{person.FirstName}.{person.LastName}{person.BusinessEntityID}@emailnadainventado.com".ToLowerInvariant();
             }
 
             return $"emp{person?.BusinessEntityID}";
@@ -252,10 +252,12 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     LoginID = username,
                     SickLeaveHours = 0,
                     SalariedFlag = true,
+                    NationalIDNumber = candidate!.NationalIDNumber,
                     BirthDate = candidate!.BirthDate,
                     MaritalStatus = candidate.MaritalStatus,
                     Gender = candidate.Gender,
                     JobTitle = "Cargo não atribuido",
+                    CurrentFlag = true,
                     HireDate = now,
                     ModifiedDate = now,
                     PayHistories = new List<PayHistory>(),
