@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using sistema_gestao_recursos_humanos.backend.data;
@@ -22,6 +23,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // GET: api/v1/payhistory
         [HttpGet]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> GetAll()
         {
             var histories = await _db.PayHistories.ToListAsync();
