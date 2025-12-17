@@ -109,7 +109,8 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
       formData.append("NationalIDNumber", nationalIDNumber.trim());
       formData.append("BirthDate", birthDate);           // "YYYY-MM-DD"
       formData.append("MaritalStatus", maritalStatus);   // "S" | "M"
-      formData.append("Gender", gender);        
+      formData.append("Gender", gender); 
+            
       
       
 console.group('FormData payload');
@@ -121,8 +122,6 @@ for (const [k, v] of formData.entries()) {
   }
 }
 
-
-      // ❌ Não definir Content-Type manualmente; o browser define multipart/form-data com boundary
       const resp = await fetch("http://localhost:5136/api/v1/jobcandidate/upload", {
         method: "POST",
         body: formData,

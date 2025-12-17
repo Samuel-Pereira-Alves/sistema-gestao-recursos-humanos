@@ -20,7 +20,7 @@ namespace sistema_gestao_recursos_humanos.backend.models
         public string Gender { get; set; } = string.Empty;
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
-        public string PasswordHash { get; set; } = string.Empty;
+        public string? PasswordHash { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
     }
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { addNotificationForUser } from "./store/notificationBus.js";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "./components/BackButton";
 
@@ -371,8 +372,8 @@ const openDelete = async (h) => {
           throw new Error((await resp.text()) || "Falha ao editar registo.");
       }
 
-
-      addNotificationForUser("O seu registo foi atualizado com sucesso.", businessEntityID);
+      const BusinessEntityID = localStorage.getItem("businessEntityId") || "";
+      addNotificationForUser("O seu registo foi atualizado com sucesso.", BusinessEntityID);
 
       await fetchData();
       closeAction();
