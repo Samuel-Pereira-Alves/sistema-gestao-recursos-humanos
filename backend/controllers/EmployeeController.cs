@@ -164,7 +164,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 !string.IsNullOrWhiteSpace(person.FirstName) &&
                 !string.IsNullOrWhiteSpace(person.LastName))
             {
-                return $"{person.FirstName}.{person.LastName}@emailnadainventado.com".ToLowerInvariant();
+                return $"{person.FirstName}.{person.LastName}{person.BusinessEntityID}@emailnadainventado.com".ToLowerInvariant();
             }
 
             return $"emp{person?.BusinessEntityID}";
