@@ -83,9 +83,7 @@ namespace sistema_gestao_recursos_humanos.backend.data
                 })
                 .HasKey(p => p.BusinessEntityID);
 
-            modelBuilder.Entity<Person>()
-                .Property(e => e.ModifiedDate)
-                .HasDefaultValueSql("GETDATE()");
+            
 
             // -----------------------------
             // PayHistory
