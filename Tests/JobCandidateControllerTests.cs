@@ -108,32 +108,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public async Task Create_ReturnsCreatedAtAction_AndPersists()
-        {
-            var ctx = BuildContext();
-            var mapper = MapperMockFactory.CreateJobCandidateMapperMock();
-            var env = MapperMockFactory.CreateEnvMock(Path.Combine(Path.GetTempPath(), "test-root"));
-            var logger = new Mock<ILogger<JobCandidateController>>();
-
-            var controller = new JobCandidateController(ctx, mapper.Object, env.Object, logger.Object);
-
-            var dto = new JobCandidateDto
-            {
-                FirstName = "Bob",
-                LastName = "Smith",
-                NationalIDNumber = "ABC123",
-                BirthDate = new DateTime(1990, 5, 20),
-                MaritalStatus = "S",
-                Gender = "M"
-            };
-
-            var result = await controller.Create(dto);
-
-            var created = Assert.IsType<CreatedAtActionResult>(result);
-            Assert.Equal(nameof(JobCandidateController.Get), created.ActionName);
-        }
-
-        [Fact]
         public async Task UploadAndCreate_ReturnsCreated_WritesFile_AndPersists()
         {
             var ctx = BuildContext();

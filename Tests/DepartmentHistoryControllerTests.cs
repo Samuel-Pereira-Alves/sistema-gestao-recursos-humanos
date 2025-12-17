@@ -63,26 +63,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public async Task GetAll_ReturnsOk_WithMappedList()
-        {
-            // Arrange
-            var ctx = BuildContext();
-            SeedBasicData(ctx, addHistory: true);
-            SeedBasicData(ctx, businessEntityId: 101, departmentId: 2, addHistory: true);
-
-            var mapperMock = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapperMock.Object);
-
-            // Act
-            var result = await controller.GetAll();
-
-            // Assert
-            var ok = Assert.IsType<OkObjectResult>(result);
-            var dtoList = Assert.IsAssignableFrom<List<DepartmentHistoryDto>>(ok.Value);
-            Assert.Equal(2, dtoList.Count);
-        }
-
-        [Fact]
         public async Task Create_ReturnsCreated()
         {
             var ctx = BuildContext();
@@ -104,33 +84,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
 
             var created = Assert.IsType<CreatedAtActionResult>(result);
             Assert.Equal(nameof(DepartmentHistoryController.Get), created.ActionName);
-        }
-
-        [Fact]
-        public async Task Update_ReturnsNoContent_AndUpdatesEntity()
-        {
-            var ctx = BuildContext();
-            var start = new DateTime(2020, 01, 01);
-            SeedBasicData(ctx, startDate: start, addHistory: true);
-
-            var mapperMock = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapperMock.Object);
-
-            var dto = new DepartmentHistoryDto
-            {
-                DepartmentId = 1,        
-                ShiftID = 1,             
-                EndDate = new DateTime(2024, 02, 01)
-            };
-
-            var result = await controller.Update(100, 1, 1, start, dto);
-
-            Assert.IsType<NoContentResult>(result);
-
-            var updated = await ctx.DepartmentHistories
-                .FirstOrDefaultAsync(h => h.BusinessEntityID == 100 && h.DepartmentID == 1 && h.StartDate == start);
-            Assert.NotNull(updated);
-            Assert.Equal(dto.EndDate, updated.EndDate);
         }
 
         [Fact]

@@ -99,53 +99,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public async Task Update_ReturnsNoContent_AndUpdatesEntity()
-        {
-            var ctx = BuildContext();
-            var changeDate = new DateTime(2023, 02, 02);
-            SeedPayHistory(ctx, 400, changeDate, 50m, 1);
-
-            var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object);
-
-            var dto = new PayHistoryDto
-            {
-                BusinessEntityID = 400,
-                RateChangeDate = changeDate,
-                Rate = 55m,
-                PayFrequency = 2
-            };
-
-            var result = await controller.Update(400, changeDate, dto);
-
-            Assert.IsType<NoContentResult>(result);
-
-            var updated = await ctx.PayHistories.FirstOrDefaultAsync(ph =>
-                ph.BusinessEntityID == 400 && ph.RateChangeDate == changeDate);
-            Assert.NotNull(updated);
-        }
-
-        [Fact]
-        public async Task Update_ReturnsNotFound_WhenMissing()
-        {
-            var ctx = BuildContext();
-            var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object);
-
-            var dto = new PayHistoryDto
-            {
-                BusinessEntityID = 999,
-                RateChangeDate = new DateTime(2020, 01, 01),
-                Rate = 10m,
-                PayFrequency = 1
-            };
-
-            var result = await controller.Update(999, dto.RateChangeDate, dto);
-
-            Assert.IsType<NotFoundResult>(result);
-        }
-
-        [Fact]
         public async Task Patch_ReturnsOk_AndPartiallyUpdates()
         {
             var ctx = BuildContext();

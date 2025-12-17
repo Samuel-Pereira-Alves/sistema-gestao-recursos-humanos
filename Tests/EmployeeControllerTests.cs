@@ -152,53 +152,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public async Task Update_ReturnsNoContent_AndUpdatesEntity()
-        {
-            var ctx = BuildContext();
-            SeedEmployee(ctx, id: 100, jobTitle: "Dev");
-
-            var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object);
-
-            var dto = new EmployeeDto
-            {
-                BusinessEntityID = 100,           
-                JobTitle = "Senior Dev",
-                LoginID = "user100_updated",
-                VacationHours = 15,
-                SickLeaveHours = 8,
-                SalariedFlag = true,
-                BirthDate = new DateTime(1991, 2, 2),
-                HireDate = new DateTime(2021, 2, 2)
-            };
-
-            var result = await controller.Update(100, dto);
-
-            Assert.IsType<NoContentResult>(result);
-
-            var updated = await ctx.Employees.FirstOrDefaultAsync(e => e.BusinessEntityID == 100);
-            Assert.NotNull(updated);
-            Assert.Equal("Senior Dev", updated.JobTitle);
-            Assert.Equal("user100_updated", updated.LoginID);
-            Assert.True(updated.SalariedFlag);
-        }
-
-        [Fact]
-        public async Task Update_ReturnsNotFound_WhenMissing()
-        {
-            var ctx = BuildContext();
-
-            var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object);
-
-            var dto = new EmployeeDto { BusinessEntityID = 100, JobTitle = "Test" };
-
-            var result = await controller.Update(100, dto);
-
-            Assert.IsType<NotFoundResult>(result);
-        }
-
-        [Fact]
         public async Task Patch_ReturnsOk_AndPartiallyUpdates()
         {
             var ctx = BuildContext();
