@@ -93,26 +93,25 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      return; // validação falhou → mostra erros e não envia
+      return;
     }
 
     try {
       setSending(true);
 
-      // Normalizar birthDate para "YYYY-MM-DDT00:00:00" (se o backend preferir ISO com hora)
+      // Normalizar birthDate para "YYYY-MM-DDT00:00:00" 
       const birthDateIso = `${birthDate}T00:00:00`;
 
       const formData = new FormData();
-      formData.append("cv", ficheiro); // campo do ficheiro
+      formData.append("cv", ficheiro);
 
-      // Campos AdventureWorks + teus
       formData.append("firstName", firstName.trim());
       formData.append("lastName", lastName.trim());
       formData.append("nationalIDNumber", nationalIDNumber.trim());
-      formData.append("birthDate", birthDateIso);   // ou só YYYY-MM-DD, confirma com backend
-      formData.append("maritalStatus", maritalStatus); // "S" | "M"
-      formData.append("gender", gender); 
-      formData.append("tempPassword", "DevOnly!234")              // "M" | "F"
+      formData.append("birthDate", birthDateIso);
+      formData.append("maritalStatus", maritalStatus);
+      formData.append("gender", gender);
+      formData.append("tempPassword", "DevOnly!234")
 
       const resp = await fetch(
         "http://localhost:5136/api/v1/jobcandidate/upload",
@@ -151,11 +150,10 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
     }
   };
 
-  // --- UI ---
   const UploadUI = (
     <form onSubmit={handleSubmit} noValidate className="simple-form">
       <header className="mb-3 text-center">
-        <h6 className="mb-1">Dados do candidato &amp; CV (PDF)</h6>
+        <h6 className="mb-1">Dados do candidato e CV (PDF)</h6>
         <p className="text-muted small mb-0">
           Preenche os teus dados e seleciona o ficheiro em formato PDF. Limite: {MAX_SIZE_MB}MB.
         </p>
@@ -330,14 +328,13 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
     </form>
   );
 
-  // --- Layouts (embedded vs full) ---
   if (variant === "embedded") {
     return <div className="candidatura-embedded w-100" style={{ maxWidth: "640px" }}>{UploadUI}</div>;
   }
 
   return (
     <div>
-      {!hideNavbar && <Navbar />}
+      {<Navbar />}
       <main
         className="d-flex justify-content-center"
         style={{ minHeight: "100vh", paddingTop: "80px", paddingLeft: "1rem", paddingRight: "1rem" }}
@@ -350,7 +347,7 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
                 Preenche os teus dados e carrega o teu CV em formato PDF.
               </p>
               {UploadUI}
-                       </div>
+            </div>
           </div>
         </div>
       </main>

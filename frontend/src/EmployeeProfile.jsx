@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { addNotification } from "./store/notificationBus";
+import BackButton from "./components/BackButton";
 
 function getDepartamentoAtualNome(funcionario) {
   const historicos = funcionario?.departmentHistories ?? [];
@@ -174,6 +175,7 @@ const getEmployeeId = () => {
 
   return (
     <div className="container mt-4">
+      <BackButton />
       <div className="d-flex align-items-center mb-3">
         <h2 className="ms-2 h3">Perfil do Funcionário</h2>
       </div>
@@ -406,9 +408,6 @@ const getEmployeeId = () => {
                     </p>
                     <p className="mb-1">
                       <strong>Nome:</strong> {employee.person?.firstName} {employee.person?.lastName}
-                    </p>
-                    <p className="mb-1">
-                      <strong>Login:</strong> {employee.loginID}
                     </p>
                     <p className="mb-0">
                       <strong>Cartão de Cidadão:</strong> {employee.nationalIDNumber}
