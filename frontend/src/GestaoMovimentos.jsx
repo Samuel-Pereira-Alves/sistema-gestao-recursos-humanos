@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import BackButton from "./components/BackButton";
 
 /* =========================
  * Utils
@@ -424,6 +425,7 @@ const openDelete = async (h) => {
    * ========================= */
   return (
     <div className="container mt-4">
+      <BackButton />
       <div className="mb-4 d-flex align-items-center justify-content-between">
         <h1 className="h3 mb-1">Histórico de Departamentos</h1>
         {!loading && (

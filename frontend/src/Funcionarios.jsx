@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import BackButton from "./components/BackButton";
 
 function Funcionarios() {
   const navigate = useNavigate();
@@ -120,6 +121,7 @@ function Funcionarios() {
   return (
     <>
       <div className="container mt-4">
+        <BackButton />
 
         {/* Header */}
         <div className="mb-4">

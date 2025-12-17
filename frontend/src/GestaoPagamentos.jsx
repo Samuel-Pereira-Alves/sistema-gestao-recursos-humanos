@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { addNotificationForUser } from "./store/notificationBus";
+import BackButton from "./components/BackButton";
 
 /* Utils de apresentação */
 function formatDate(dateStr) {
@@ -290,7 +291,7 @@ export default function GestaoPagamentos() {
 
       const body = {
         businessEntityID: Number(createForm.businessEntityID),
-        rateChangeDate: dateInputToIsoMidnight(createForm.rateChangeDate), // "yyyy-MM-ddT00:00:00"
+        rateChangeDate: dateInputToIsoMidnight(createForm.rateChangeDate), 
         rate: Number(createForm.rate),
         payFrequency: Number(createForm.payFrequency),
       };
@@ -323,6 +324,7 @@ export default function GestaoPagamentos() {
 
   return (
     <div className="container mt-4">
+      <BackButton />
       <div className="mb-4 d-flex align-items-center justify-content-between">
         <h1 className="h3 mb-1">Gestão de Pagamentos</h1>
 

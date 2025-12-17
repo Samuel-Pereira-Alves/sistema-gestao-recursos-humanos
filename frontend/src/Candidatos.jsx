@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import BackButton from "./components/BackButton";
 
 export default function Candidatos() {
   const [isLoading, setIsLoading] = useState(false);
@@ -133,6 +134,7 @@ export default function Candidatos() {
 
   return (
     <div className="container mt-4">
+      <BackButton />
       {/* Header */}
       <div className="mb-4 d-flex justify-content-between align-items-center">
         <h1 className="mb-0 h3">Gestão de Candidatos</h1>

@@ -1,6 +1,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import { Button } from "bootstrap";
+import BackButton from "./components/BackButton";
 
 /* Utils */
 function formatDate(dateStr) {
@@ -107,6 +109,7 @@ export default function DepartmentHistoryList() {
   return (
     <>
       <div className="container mt-4">
+        <BackButton />
         {/* Header */}
         <div className="mb-4 d-flex justify-content-between align-items-center">
           <h1 className="h3 mb-0">Histórico de Departamentos</h1>
