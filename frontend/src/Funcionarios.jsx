@@ -33,7 +33,6 @@ function Funcionarios() {
   };
 
   useEffect(() => {
-    // Chama a função reutilizável
     fetchFuncionarios();
   }, []);
 
@@ -89,17 +88,6 @@ function Funcionarios() {
 
   const handleSave = async () => {
     try {
-      // Para usar com API real, descomente:
-      // const response = await fetch(
-      //   `http://localhost:5136/api/v1/employee/${selectedFuncionario.id}`,
-      //   {
-      //     method: "PUT",
-      //     headers: { "Content-Type": "application/json" },
-      //     body: JSON.stringify(selectedFuncionario),
-      //   }
-      // );
-      // if (!response.ok) throw new Error("Erro ao atualizar funcionário");
-
       setFuncionarios(
         funcionarios.map((f) =>
           f.id === selectedFuncionario.id ? selectedFuncionario : f
