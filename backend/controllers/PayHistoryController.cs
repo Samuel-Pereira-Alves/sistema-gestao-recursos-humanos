@@ -32,17 +32,17 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         // GET: api/v1/payhistory/{businessEntityId}
-        [HttpGet("{businessEntityId}")]
-        public async Task<IActionResult> GetAllByEmployee(int businessEntityId)
-        {
-            var histories = await _db.PayHistories
-                .Where(ph => ph.BusinessEntityID == businessEntityId)
-                .OrderByDescending(ph => ph.RateChangeDate)
-                .ToListAsync();
+        // [HttpGet("{businessEntityId}")]
+        // public async Task<IActionResult> GetAllByEmployee(int businessEntityId)
+        // {
+        //     var histories = await _db.PayHistories
+        //         .Where(ph => ph.BusinessEntityID == businessEntityId)
+        //         .OrderByDescending(ph => ph.RateChangeDate)
+        //         .ToListAsync();
 
-            var dtos = _mapper.Map<List<PayHistoryDto>>(histories);
-            return Ok(dtos);
-        }
+        //     var dtos = _mapper.Map<List<PayHistoryDto>>(histories);
+        //     return Ok(dtos);
+        // }
 
 
         // GET: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
@@ -75,23 +75,23 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         // PUT: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
-        [HttpPut("{businessEntityId}/{rateChangeDate}")]
-        public async Task<IActionResult> Update(int businessEntityId, DateTime rateChangeDate, PayHistoryDto dto)
-        {
-            var history = await _db.PayHistories
-                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
-                                        && ph.RateChangeDate == rateChangeDate);
+        // [HttpPut("{businessEntityId}/{rateChangeDate}")]
+        // public async Task<IActionResult> Update(int businessEntityId, DateTime rateChangeDate, PayHistoryDto dto)
+        // {
+        //     var history = await _db.PayHistories
+        //         .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
+        //                                 && ph.RateChangeDate == rateChangeDate);
 
-            if (history == null) return NotFound();
+        //     if (history == null) return NotFound();
 
-            _mapper.Map(dto, history);
-            history.ModifiedDate = DateTime.Now;
+        //     _mapper.Map(dto, history);
+        //     history.ModifiedDate = DateTime.Now;
 
-            _db.Entry(history).State = EntityState.Modified;
-            await _db.SaveChangesAsync();
+        //     _db.Entry(history).State = EntityState.Modified;
+        //     await _db.SaveChangesAsync();
 
-            return NoContent();
-        }
+        //     return NoContent();
+        // }
 
         // PATCH: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
         [HttpPatch("{businessEntityId}/{rateChangeDate}")]

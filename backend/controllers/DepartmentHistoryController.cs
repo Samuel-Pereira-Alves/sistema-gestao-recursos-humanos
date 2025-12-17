@@ -21,16 +21,16 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         // GET: api/v1/departmenthistory
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
-        {
-            var histories = await _db.DepartmentHistories
-                .Include(dh => dh.Department)
-                .ToListAsync();
+        //[HttpGet]
+        // public async Task<IActionResult> GetAll()
+        // {
+        //     var histories = await _db.DepartmentHistories
+        //         .Include(dh => dh.Department)
+        //         .ToListAsync();
 
-            var dto = _mapper.Map<List<DepartmentHistoryDto>>(histories);
-            return Ok(dto);
-        }
+        //     var dto = _mapper.Map<List<DepartmentHistoryDto>>(histories);
+        //     return Ok(dto);
+        // }
 
         // GET: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
         [HttpGet("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
@@ -51,7 +51,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // POST: api/v1/departmenthistory
         [HttpPost]
         public async Task<IActionResult> Create(DepartmentHistoryDto dto)
-
         {
             // 1) Validar Employee (FK)
             var employeeExists = await _db.Employees.AnyAsync(e => e.BusinessEntityID == dto.BusinessEntityID);
@@ -88,6 +87,16 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     startDate = dto.StartDate
                 });
 
+            var lastMovements = await _db.DepartmentHistories
+                                        .Where(dh => dh.BusinessEntityID == dto.BusinessEntityID &&
+                                        dh.EndDate == null
+                                        ).ToListAsync();
+
+            foreach (var movement in lastMovements)
+            {
+                movement.EndDate = DateTime.Now;
+                movement.ModifiedDate = DateTime.Now;
+            }
             // 5) Mapear e inserir
             var history = _mapper.Map<DepartmentHistory>(dto);
             history.ModifiedDate = DateTime.Now;
@@ -107,25 +116,25 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         // PUT: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
-        [HttpPut("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
-        public async Task<IActionResult> Update(int businessEntityId, short departmentId, byte shiftId, DateTime startDate, DepartmentHistoryDto dto)
-        {
-            var history = await _db.DepartmentHistories
-                .FirstOrDefaultAsync(dh => dh.BusinessEntityID == businessEntityId
-                                        && dh.DepartmentID == departmentId
-                                        && dh.ShiftID == shiftId
-                                        && dh.StartDate == startDate);
+        // [HttpPut("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
+        // public async Task<IActionResult> Update(int businessEntityId, short departmentId, byte shiftId, DateTime startDate, DepartmentHistoryDto dto)
+        // {
+        //     var history = await _db.DepartmentHistories
+        //         .FirstOrDefaultAsync(dh => dh.BusinessEntityID == businessEntityId
+        //                                 && dh.DepartmentID == departmentId
+        //                                 && dh.ShiftID == shiftId
+        //                                 && dh.StartDate == startDate);
 
-            if (history == null) return NotFound();
+        //     if (history == null) return NotFound();
 
-            _mapper.Map(dto, history);
-            history.ModifiedDate = DateTime.Now;
+        //     _mapper.Map(dto, history);
+        //     history.ModifiedDate = DateTime.Now;
 
-            _db.Entry(history).State = EntityState.Modified;
-            await _db.SaveChangesAsync();
+        //     _db.Entry(history).State = EntityState.Modified;
+        //     await _db.SaveChangesAsync();
 
-            return NoContent();
-        }
+        //     return NoContent();
+        // }
 
         // PATCH: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
         [HttpPatch("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
@@ -139,8 +148,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             if (history == null) return NotFound();
 
-            if (dto.DepartmentId != default(short)) history.DepartmentID = (short)dto.DepartmentId;
-            if (dto.ShiftID != default(byte)) history.ShiftID = dto.ShiftID;
+            // if (dto.DepartmentId != default(short)) history.DepartmentID = (short)dto.DepartmentId;
+            // if (dto.ShiftID != default(byte)) history.ShiftID = dto.ShiftID;
             if (dto.EndDate.HasValue) history.EndDate = dto.EndDate;
 
             history.ModifiedDate = DateTime.Now;

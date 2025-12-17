@@ -71,22 +71,22 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         // PUT: api/v1/employee/{id}
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, EmployeeDto employeeDto)
-        {
-            if (id != employeeDto.BusinessEntityID) return BadRequest();
+        // [HttpPut("{id}")]
+        // public async Task<IActionResult> Update(int id, EmployeeDto employeeDto)
+        // {
+        //     if (id != employeeDto.BusinessEntityID) return BadRequest();
 
-            var employee = await _db.Employees.FirstOrDefaultAsync(e => e.BusinessEntityID == id);
-            if (employee == null) return NotFound();
+        //     var employee = await _db.Employees.FirstOrDefaultAsync(e => e.BusinessEntityID == id);
+        //     if (employee == null) return NotFound();
 
-            _mapper.Map(employeeDto, employee);
-            employee.ModifiedDate = DateTime.Now;
+        //     _mapper.Map(employeeDto, employee);
+        //     employee.ModifiedDate = DateTime.Now;
 
-            _db.Entry(employee).State = EntityState.Modified;
-            await _db.SaveChangesAsync();
+        //     _db.Entry(employee).State = EntityState.Modified;
+        //     await _db.SaveChangesAsync();
 
-            return NoContent();
-        }
+        //     return NoContent();
+        // }
 
         // DELETE: api/v1/employee/{id}
         [HttpDelete("{id}")]
