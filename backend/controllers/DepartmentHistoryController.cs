@@ -51,7 +51,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // POST: api/v1/departmenthistory
         [HttpPost]
         public async Task<IActionResult> Create(DepartmentHistoryDto dto)
-
         {
             // 1) Validar Employee (FK)
             var employeeExists = await _db.Employees.AnyAsync(e => e.BusinessEntityID == dto.BusinessEntityID);
@@ -88,6 +87,16 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     startDate = dto.StartDate
                 });
 
+            var lastMovements = await _db.DepartmentHistories
+                                        .Where(dh => dh.BusinessEntityID == dto.BusinessEntityID &&
+                                        dh.EndDate == null
+                                        ).ToListAsync();
+
+            foreach (var movement in lastMovements)
+            {
+                movement.EndDate = DateTime.Now;
+                movement.ModifiedDate = DateTime.Now;
+            }
             // 5) Mapear e inserir
             var history = _mapper.Map<DepartmentHistory>(dto);
             history.ModifiedDate = DateTime.Now;
@@ -139,8 +148,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             if (history == null) return NotFound();
 
-            if (dto.DepartmentId != default(short)) history.DepartmentID = (short)dto.DepartmentId;
-            if (dto.ShiftID != default(byte)) history.ShiftID = dto.ShiftID;
+            // if (dto.DepartmentId != default(short)) history.DepartmentID = (short)dto.DepartmentId;
+            // if (dto.ShiftID != default(byte)) history.ShiftID = dto.ShiftID;
             if (dto.EndDate.HasValue) history.EndDate = dto.EndDate;
 
             history.ModifiedDate = DateTime.Now;
