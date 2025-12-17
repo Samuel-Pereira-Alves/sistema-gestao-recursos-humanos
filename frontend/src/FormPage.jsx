@@ -9,8 +9,8 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
   const [lastName, setLastName] = useState("");
   const [nationalIDNumber, setNationalIDNumber] = useState("");
   const [birthDate, setBirthDate] = useState("");          // "YYYY-MM-DD"
-  const [maritalStatus, setMaritalStatus] = useState("");  // AdventureWorks: "S" | "M"
-  const [gender, setGender] = useState("");                // AdventureWorks: "M" | "F"
+  const [maritalStatus, setMaritalStatus] = useState("");  // "S" | "M"
+  const [gender, setGender] = useState("");                // "M" | "F"
 
   // Ficheiro PDF
   const [ficheiro, setFicheiro] = useState(null);
@@ -61,12 +61,12 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
       newErrors.birthDate = "Data futura não é válida.";
     }
 
-    // maritalStatus: AdventureWorks exige "S" ou "M"
+    // maritalStatus: exige "S" ou "M"
     if (!["S", "M"].includes(maritalStatus)) {
       newErrors.maritalStatus = "Seleciona estado civil: Solteiro (S) ou Casado (M).";
     }
 
-    // gender: AdventureWorks exige "M" ou "F"
+    // gender: exige "M" ou "F"
     if (!["M", "F"].includes(gender)) {
       newErrors.gender = "Seleciona género: Masculino (M) ou Feminino (F).";
     }
@@ -99,28 +99,39 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
     try {
       setSending(true);
 
-      // Normalizar birthDate para "YYYY-MM-DDT00:00:00" 
-      const birthDateIso = `${birthDate}T00:00:00`;
-
+      // ⚠️ Enviar BirthDate como "YYYY-MM-DD" simples (sem T00:00:00)
       const formData = new FormData();
       formData.append("cv", ficheiro);
 
-      formData.append("firstName", firstName.trim());
-      formData.append("lastName", lastName.trim());
-      formData.append("nationalIDNumber", nationalIDNumber.trim());
-      formData.append("birthDate", birthDateIso);
-      formData.append("maritalStatus", maritalStatus);
-      formData.append("gender", gender);
-      formData.append("tempPassword", "DevOnly!234")
+      // ✅ Nomes das chaves exatamente como o backend espera (case-sensitive)
+      formData.append("FirstName", firstName.trim());
+      formData.append("LastName", lastName.trim());
+      formData.append("NationalIDNumber", nationalIDNumber.trim());
+      formData.append("BirthDate", birthDate);           // "YYYY-MM-DD"
+      formData.append("MaritalStatus", maritalStatus);   // "S" | "M"
+      formData.append("Gender", gender);        
+      
+      
+console.group('FormData payload');
+for (const [k, v] of formData.entries()) {
+  if (v instanceof File) {
+    console.log(k, { name: v.name, size: v.size, type: v.type });
+  } else {
+    console.log(k, v);
+  }
+}
 
-      const resp = await fetch(
-        "http://localhost:5136/api/v1/jobcandidate/upload",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-      if (!resp.ok) throw new Error("Falha ao enviar candidatura");
+
+      // ❌ Não definir Content-Type manualmente; o browser define multipart/form-data com boundary
+      const resp = await fetch("http://localhost:5136/api/v1/jobcandidate/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(text || "Falha ao enviar candidatura");
+      }
 
       addNotification(
         `Nova candidatura: ${firstName} ${lastName} – verifica o painel.`,
@@ -144,7 +155,7 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
       }
     } catch (err) {
       console.error(err);
-      setErrors({ ficheiro: "Ocorreu um erro ao enviar. Tenta novamente." });
+      setErrors({ ficheiro: err.message || "Ocorreu um erro ao enviar. Tenta novamente." });
     } finally {
       setSending(false);
     }
@@ -310,7 +321,7 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
         <button
           type="submit"
           className="btn btn-dark flex-grow-1"
-          disabled={sending}   // ✅ só desativa enquanto está a enviar
+          disabled={sending}
         >
           {sending ? "A enviar..." : "Enviar candidatura"}
         </button>
@@ -334,7 +345,7 @@ function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
 
   return (
     <div>
-      {<Navbar />}
+      {!hideNavbar && <Navbar />}
       <main
         className="d-flex justify-content-center"
         style={{ minHeight: "100vh", paddingTop: "80px", paddingLeft: "1rem", paddingRight: "1rem" }}
