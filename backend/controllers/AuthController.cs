@@ -41,13 +41,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             return Ok(new { token, role = user.Role, systemUserId = user.SystemUserId, businessEntityId = user.BusinessEntityID });
         }
 
-
         private bool VerifyPassword(string password, string storedHash)
         {
             if (string.IsNullOrWhiteSpace(storedHash)) return false;
             return BCrypt.Net.BCrypt.Verify(password, storedHash);
         }
-
 
         private string GenerateJwtToken(SystemUser user)
         {
@@ -76,10 +74,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 expires: DateTime.Now.AddHours(2),
                 signingCredentials: creds
             );
-
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
-
     }
-
 }

@@ -30,7 +30,9 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var candidates = await _db.JobCandidates.ToListAsync();
+            var candidates = await _db.JobCandidates
+            .OrderByDescending(c => c.ModifiedDate)
+            .ToListAsync();
             var dto = _mapper.Map<List<JobCandidateDto>>(candidates);
             return Ok(dto);
         }
@@ -65,7 +67,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
 
         // POST: api/v1/jobcandidates/upload
-
         [HttpPost("upload")]
         [Consumes("multipart/form-data")]
         [RequestSizeLimit(50_000_000)]
