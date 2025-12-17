@@ -157,35 +157,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             return Ok(_mapper.Map<EmployeeDto>(employee));
         }
 
-
-        // Extra: Histórico de pagamentos
-        [HttpGet("{id}/payhistory")]
-        public async Task<IActionResult> GetPayHistory(int id)
-        {
-            var employee = await _db.Employees
-                .Include(e => e.PayHistories)
-                .FirstOrDefaultAsync(e => e.BusinessEntityID == id);
-
-            if (employee == null) return NotFound();
-
-            var payHistoryDto = _mapper.Map<List<PayHistoryDto>>(employee.PayHistories);
-            return Ok(payHistoryDto);
-        }
-
-        // Extra: Histórico de departamentos
-        [HttpGet("{id}/departmenthistory")]
-        public async Task<IActionResult> GetDepartmentHistory(int id)
-        {
-            var employee = await _db.Employees
-                .Include(e => e.DepartmentHistories)
-                .FirstOrDefaultAsync(e => e.BusinessEntityID == id);
-
-            if (employee == null) return NotFound();
-
-            var deptHistoryDto = _mapper.Map<List<DepartmentHistoryDto>>(employee.DepartmentHistories);
-            return Ok(deptHistoryDto);
-        }
-
         //Secção de Aprovação de candidatura
         private static string GenerateUsername(Employee employee)
         {
@@ -222,7 +193,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 chars[i] = all[bytes[i] % all.Length];
             }
 
-            // Garantir pelo menos um de cada tipo (opcional)
+            // Garantir pelo menos um de cada tipo
             chars[0] = upper[bytes[0] % upper.Length];
             chars[1] = lower[bytes[1] % lower.Length];
             chars[2] = digits[bytes[2] % digits.Length];
@@ -235,9 +206,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             return BCrypt.Net.BCrypt.HashPassword(plain, workFactor: 11);
         }
-
-
-
 
 
         [HttpPost("approve")]
