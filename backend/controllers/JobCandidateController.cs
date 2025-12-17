@@ -51,19 +51,19 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         // POST: api/v1/jobcandidate
-        [HttpPost]
-        public async Task<IActionResult> Create(JobCandidateDto dto)
-        {
-            var candidate = _mapper.Map<JobCandidate>(dto);
-            candidate.ModifiedDate = DateTime.Now;
+        // [HttpPost]
+        // public async Task<IActionResult> Create(JobCandidateDto dto)
+        // {
+        //     var candidate = _mapper.Map<JobCandidate>(dto);
+        //     candidate.ModifiedDate = DateTime.Now;
 
-            _db.JobCandidates.Add(candidate);
-            await _db.SaveChangesAsync();
+        //     _db.JobCandidates.Add(candidate);
+        //     await _db.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(Get),
-                new { id = candidate.JobCandidateId },
-                _mapper.Map<JobCandidateDto>(candidate));
-        }
+        //     return CreatedAtAction(nameof(Get),
+        //         new { id = candidate.JobCandidateId },
+        //         _mapper.Map<JobCandidateDto>(candidate));
+        // }
 
 
         // POST: api/v1/jobcandidates/upload

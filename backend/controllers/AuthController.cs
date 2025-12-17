@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -24,6 +25,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             _config = config;
         }
 
+        [AllowAnonymous]
         // POST: api/v1/login
         [HttpPost("login")]
         public IActionResult Login([FromBody] SystemUsersDTO request)
