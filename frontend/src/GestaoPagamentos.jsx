@@ -206,9 +206,7 @@ export default function GestaoPagamentos() {
         throw new Error(text || "Falha ao editar registo.");
       }
     
-           
-       addNotificationForUser("O seu registo foi atualizado com sucesso.", businessEntityID);
-
+      
       await fetchPagamentos(); 
       setEditOpen(false);
     } catch (e) {
@@ -309,6 +307,8 @@ export default function GestaoPagamentos() {
         const text = await resp.text();
         throw new Error(text || "Falha ao criar registo.");
       }
+      
+      addNotificationForUser("O seu registo foi atualizado com sucesso.", editKeys.businessEntityID);
 
       await fetchPagamentos();
       setCreateOpen(false);

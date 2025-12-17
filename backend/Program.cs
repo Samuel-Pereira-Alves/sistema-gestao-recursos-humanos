@@ -37,7 +37,7 @@ builder.Services
             ValidateIssuerSigningKey = true,
             ValidIssuer   = issuer,
             ValidAudience = audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key!)),
             ClockSkew = TimeSpan.Zero // tokens expiram exatamente no horário
         };
     });

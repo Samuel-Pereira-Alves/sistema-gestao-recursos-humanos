@@ -372,8 +372,7 @@ const openDelete = async (h) => {
           throw new Error((await resp.text()) || "Falha ao editar registo.");
       }
 
-      const BusinessEntityID = localStorage.getItem("businessEntityId") || "";
-      addNotificationForUser("O seu registo foi atualizado com sucesso.", BusinessEntityID);
+      addNotificationForUser("O seu registo foi atualizado com sucesso.", form.businessEntityID);
 
       await fetchData();
       closeAction();

@@ -50,12 +50,9 @@ export default function Candidatos() {
     const term = (searchTerm || "").toLowerCase().trim();
     return candidatos.filter(
       (c) =>
-        String(c.numero || "")
+        String(c.nome || "")
           .toLowerCase()
-          .includes(term) ||
-        String(c.cvXml || "")
-          .toLowerCase()
-          .includes(term)
+          .includes(term) 
     );
   }, [candidatos, searchTerm]);
 
@@ -127,7 +124,7 @@ export default function Candidatos() {
         // Atualiza a lista local removendo o candidato
         setCandidatos((prev) => prev.filter((c) => c.id !== id));
 
-        // Feedback ao utilizador
+   
         alert("Candidato eliminado com sucesso.");
       } catch (err) {
         console.error(err);
@@ -164,7 +161,7 @@ export default function Candidatos() {
             ) : (
               <input
                 type="text"
-                className="form-control"
+                className="form-control"    
                 placeholder="Procurar por Nº de candidato ou conteúdo do CV..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -192,16 +189,16 @@ export default function Candidatos() {
                   <table className="table table-hover mb-0">
                     <thead className="table-light">
                       <tr>
-                        <th className="px-4 py-3" style={{ width: 140 }}>
+                        <th className="px-4 py-3 text-center" >
                           Nº Candidato
                         </th>
-                        <th className="px-4 py-3" style={{ width: 140 }}>
+                        <th className="px-4 py-3 text-center" >
                           Nome
                         </th>
-                        <th className="px-4 py-3">CV</th>
+                        <th className="px-4 py-3 text-center">CV</th>
                         <th
                           className="px-4 py-3 text-center"
-                          style={{ width: 220 }}
+                         
                         >
                           Ações
                         </th>
@@ -210,15 +207,15 @@ export default function Candidatos() {
                     <tbody>
                       {current.map((c) => (
                         <tr key={c.id}>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-center">
                             <span className="fw-semibold">{c.numero}</span>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-center">
                             <span className="fw-semibold">{c.nome}</span>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-center">
                             <button
-                              className="btn btn-sm btn-outline-primary"
+                              className="btn btn-sm btn-outline-primary text-center"
                               onClick={() => abrirCvPdf(c.cvPdfUrl)}
                               disabled={!c.cvPdfUrl}
                               type="button"
@@ -262,6 +259,11 @@ export default function Candidatos() {
                       <div className="d-flex align-items-center mb-2">
                         <div className="flex-grow-1">
                           <div className="fw-semibold">Nº {c.numero}</div>
+                        </div>
+                      </div>
+                      <div className="d-flex align-items-center mb-2">
+                        <div className="flex-grow-1">
+                          <div className="fw-semibold">{c.nome}</div>
                         </div>
                       </div>
 
