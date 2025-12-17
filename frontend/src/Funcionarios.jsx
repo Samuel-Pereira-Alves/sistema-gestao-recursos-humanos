@@ -13,33 +13,66 @@ function Funcionarios() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-
   const viewProfile = (funcionarioId) => {
     const id = funcionarioId;
     navigate(`/profile?id=${id}`);
   };
 
+  const fetchFuncionarios = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("http://localhost:5136/api/v1/employee/");
+      if (!response.ok) throw new Error("Erro ao carregar funcionários");
+      const data = await response.json();
+      setFuncionarios(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchFuncionarios = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch("http://localhost:5136/api/v1/employee/");
-        if (!response.ok) throw new Error("Erro ao carregar funcionários");
-        const data = await response.json();
-        setFuncionarios(data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Chama a função reutilizável
     fetchFuncionarios();
   }, []);
 
   const handleEditClick = (funcionario) => {
     setSelectedFuncionario(funcionario);
     setShowModal(true);
+  };
+
+  // Eliminar
+  const [deleteLoadingId, setDeleteLoadingId] = useState(null);
+
+  const handleDelete = async (p) => {
+    const businessEntityID =
+      p.businessEntityID ?? p.employee?.businessEntityID ?? "";
+
+    const confirm = window.confirm("Deseja mesmo eliminar este Funcionário?");
+    if (!confirm) return;
+
+    const url = `http://localhost:5136/api/v1/employee/${encodeURIComponent(
+      businessEntityID
+    )}`;
+
+    try {
+      setDeleteLoadingId(String(businessEntityID));
+
+      const resp = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      await fetchFuncionarios();
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Erro ao eliminar colaborador.");
+    } finally {
+      setDeleteLoadingId(null);
+    }
   };
 
   const closeModal = () => {
@@ -80,14 +113,15 @@ function Funcionarios() {
   };
 
   const isCurrent = (f) => {
-    return f?.currentFlag === true
-  }
+    return f?.currentFlag === true;
+  };
 
   const filteredFuncionarios = funcionarios
     .filter(isCurrent)
-    .filter(f =>
-      getNomeCompleto(f).toLowerCase().includes(searchTerm.toLowerCase()) ||
-      f.jobTitle.toLowerCase().includes(searchTerm.toLowerCase())
+    .filter(
+      (f) =>
+        getNomeCompleto(f).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        f.jobTitle.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
   function getNomeCompleto(f) {
@@ -97,25 +131,28 @@ function Funcionarios() {
     return partes.join(" ") || "Sem nome";
   }
 
-
   function getDepartamentoAtualNome(funcionario) {
     const historicos = funcionario?.departmentHistories ?? [];
     if (historicos.length === 0) return "Sem departamento";
 
-    const atual = historicos.find(h => h.endDate == null);
+    const atual = historicos.find((h) => h.endDate == null);
 
-    const escolhido = atual ?? historicos
-      .slice()
-      .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
+    const escolhido =
+      atual ??
+      historicos
+        .slice()
+        .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
 
     return escolhido?.department?.name ?? "Departamento desconhecido";
   }
 
-
   // Paginação
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
-  const currentFuncionarios = filteredFuncionarios.slice(indexOfFirst, indexOfLast);
+  const currentFuncionarios = filteredFuncionarios.slice(
+    indexOfFirst,
+    indexOfLast
+  );
   const totalPages = Math.ceil(filteredFuncionarios.length / itemsPerPage);
 
   return (
@@ -166,18 +203,42 @@ function Funcionarios() {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentFuncionarios.map((f) => (
-                        <tr key={f.id}>
-                          <td className="px-4 py-3">{getNomeCompleto(f)}</td>
-                          <td className="px-4 py-3 text-muted">{f.jobTitle}</td>
-                          <td className="px-4 py-3 text-muted">{getDepartamentoAtualNome(f)}</td>
-                          <td className="px-4 py-3 text-center">
-                            <button className="btn btn-sm btn-outline-secondary me-2" onClick={() => viewProfile(f.businessEntityID)}>
-                              Ver Perfil
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {currentFuncionarios.map((f) => {
+                        const id = f.businessEntityID ?? f.id; // usa o ID que estiver disponível
+                        const isDeleting =
+                          String(deleteLoadingId) === String(id);
+
+                        return (
+                          <tr key={id}>
+                            <td className="px-4 py-3">{getNomeCompleto(f)}</td>
+                            <td className="px-4 py-3 text-muted">
+                              {f.jobTitle}
+                            </td>
+                            <td className="px-4 py-3 text-muted">
+                              {getDepartamentoAtualNome(f)}
+                            </td>
+
+                            <td className="px-4 py-3 text-end">
+                              <div className="btn-group btn-group-sm">
+                                <button
+                                  className="btn btn-sm btn-outline-secondary flex-fill"
+                                  onClick={() =>
+                                    viewProfile(f.businessEntityID)
+                                  }
+                                >
+                                  Ver Perfil
+                                </button>
+                                <button
+                                  className="btn btn-outline-danger"
+                                  onClick={() => handleDelete(f)}
+                                >
+                                  Eliminar
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -188,16 +249,22 @@ function Funcionarios() {
                     <div key={f.id} className="border-bottom p-3">
                       <h6 className="mb-1">{getNomeCompleto(f)}</h6>
                       <p className="text-muted small mb-1">{f.jobTitle}</p>
-                      <p className="text-muted small mb-3">{getDepartamentoAtualNome(f)}</p>
+                      <p className="text-muted small mb-3">
+                        {getDepartamentoAtualNome(f)}
+                      </p>
                       <div className="d-flex gap-2">
-                        <button className="btn btn-sm btn-outline-secondary flex-fill" onClick={() => viewProfile(f.businessEntityID)}>
+                        <button
+                          className="btn btn-sm btn-outline-secondary flex-fill"
+                          onClick={() => viewProfile(f.businessEntityID)}
+                        >
                           Ver Perfil
                         </button>
+
                         <button
-                          className="btn btn-sm btn-outline-primary flex-fill"
-                          onClick={() => handleEditClick(f)}
+                          className="btn btn-outline-danger"
+                          onClick={() => handleDelete(f)}
                         >
-                          Editar
+                          Eliminar
                         </button>
                       </div>
                     </div>
@@ -264,7 +331,6 @@ function Funcionarios() {
                       name="nome"
                       value={getNomeCompleto(selectedFuncionario)}
                       readOnly
-
                     />
                   </div>
                   <div className="mb-3">
@@ -285,7 +351,6 @@ function Funcionarios() {
                       name="departamento"
                       value={getDepartamentoAtualNome(selectedFuncionario)}
                       readOnly
-
                     />
                   </div>
                 </div>
@@ -315,3 +380,4 @@ function Funcionarios() {
 }
 
 export default Funcionarios;
+``;
