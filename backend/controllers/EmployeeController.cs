@@ -205,39 +205,47 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
 
+
         [HttpPost("approve/{jobCandidateId}")]
         public async Task<IActionResult> ApproveCandidate(int jobCandidateId)
         {
+            // (0) Carregar candidato
             var candidate = await _db.JobCandidates
                 .FirstOrDefaultAsync(jc => jc.JobCandidateId == jobCandidateId);
+
+            // Se não existir, 404
+            if (candidate is null)
+            {
+                return NotFound(new { message = "Candidato não encontrado", jobCandidateId });
+            }
 
             await using var transaction = await _db.Database.BeginTransactionAsync();
 
             try
             {
-                var now = DateTime.Now;
+                var now = DateTime.UtcNow;
 
                 // (A) Criar BusinessEntity para obter o ID
                 var be = new BusinessEntity { RowGuid = Guid.NewGuid(), ModifiedDate = now };
                 _db.BusinessEntities.Add(be);
-                await _db.SaveChangesAsync();               // ID gerado aqui
+                await _db.SaveChangesAsync(); // ID gerado aqui
                 var beId = be.BusinessEntityID;
 
-                // (B) Mapear Person (a partir do DTO)
+                // (B) Mapear Person
                 var person = new Person
                 {
                     BusinessEntityID = beId,
-                    FirstName = candidate?.FirstName ?? "",
-                    LastName = candidate?.LastName ?? "",
+                    FirstName = candidate.FirstName ?? "",
+                    LastName = candidate.LastName ?? "",
                     EmailPromotion = 0,
                     ModifiedDate = now,
                     PersonType = "EM"
                 };
                 _db.Persons.Add(person);
                 await _db.SaveChangesAsync();
-                
-                var username = GenerateUsername(person);
 
+                // (C) Gerar username e validar unicidade
+                var username = GenerateUsername(person);
                 var usernameExists = await _db.SystemUsers.AnyAsync(u => u.Username == username);
                 if (usernameExists)
                 {
@@ -245,6 +253,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     return Conflict(new { message = "Username já existe", username });
                 }
 
+                // (D) Criar Employee
                 var employee = new Employee
                 {
                     BusinessEntityID = beId,
@@ -252,8 +261,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     LoginID = username,
                     SickLeaveHours = 0,
                     SalariedFlag = true,
-                    NationalIDNumber = candidate!.NationalIDNumber,
-                    BirthDate = candidate!.BirthDate,
+                    NationalIDNumber = candidate.NationalIDNumber,
+                    BirthDate = candidate.BirthDate,
                     MaritalStatus = candidate.MaritalStatus,
                     Gender = candidate.Gender,
                     JobTitle = "Cargo não atribuido",
@@ -269,7 +278,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 await _db.SaveChangesAsync();
 
                 // (E) Password temporária + hash
-                var tempPassword = string.IsNullOrWhiteSpace(candidate?.PasswordHash)
+                var tempPassword = string.IsNullOrWhiteSpace(candidate.PasswordHash)
                     ? GenerateTempPassword()
                     : candidate.PasswordHash;
                 var hashed = HashWithBcrypt(tempPassword);
@@ -286,8 +295,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 };
 
                 _db.SystemUsers.Add(sysUser);
-                await _db.SaveChangesAsync();
 
+                // (G) Remover o candidato aprovado
+                _db.JobCandidates.Remove(candidate);
+
+                await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 return CreatedAtAction(nameof(GetEmployee),
