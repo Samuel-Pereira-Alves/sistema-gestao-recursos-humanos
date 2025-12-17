@@ -1,10 +1,9 @@
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using AutoMapper;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 using Moq;
-
+using sistema_gestao_recursos_humanos.backend.controllers;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
 
@@ -12,8 +11,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Utils
 {
     public static class MapperMockFactory
     {
-        // ----------------- DepartmentHistory -----------------
-
         private static DepartmentHistoryDto MapDepartmentHistoryToDto(DepartmentHistory s)
         {
             if (s == null) return null!;
@@ -39,8 +36,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Utils
                 EndDate = s.EndDate,
             };
         }
-
-        // ----------------- Employee -----------------
 
         private static EmployeeDto MapEmployeeToDto(Employee e)
         {
@@ -127,8 +122,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Utils
             return e;
         }
 
-        // ----------------- Fábricas de mocks -----------------
-
         public static Mock<IMapper> CreateDepartmentHistoryMapperMock()
         {
             var m = new Mock<IMapper>(MockBehavior.Strict);
@@ -209,29 +202,157 @@ namespace sistema_gestao_recursos_humanos.Tests.Utils
         {
             var m = new Mock<IMapper>(MockBehavior.Strict);
 
-            m.Setup(x => x.Map<NotificationDto>(It.IsAny<Notification>()))
-             .Returns((Notification n) => n == null ? null! : new NotificationDto
-             {
-                 ID = n.ID,
-                 // Message = n.Message, // se existir
-             });
-
+            // Map<List<NotificationDto>>(List<Notification>)
             m.Setup(x => x.Map<List<NotificationDto>>(It.IsAny<List<Notification>>()))
              .Returns((List<Notification> src) => src?.Select(n => new NotificationDto
              {
                  ID = n.ID,
-                 // Message = n.Message,
+                 BusinessEntityID = n.BusinessEntityID,
+                 Message = n.Message
              }).ToList() ?? new List<NotificationDto>());
 
+            // Map<NotificationDto>(Notification)
+            m.Setup(x => x.Map<NotificationDto>(It.IsAny<Notification>()))
+             .Returns((Notification n) => new NotificationDto
+             {
+                 ID = n.ID,
+                 BusinessEntityID = n.BusinessEntityID,
+                 Message = n.Message
+             });
+
+            // Map<Notification>(NotificationDto)
             m.Setup(x => x.Map<Notification>(It.IsAny<NotificationDto>()))
-             .Returns((NotificationDto d) => d == null ? null! : new Notification
+             .Returns((NotificationDto d) => new Notification
              {
                  ID = d.ID,
-                 // Message = d.Message,
+                 BusinessEntityID = d.BusinessEntityID,
+                 Message = d.Message
              });
 
             return m;
         }
 
+        public static Mock<IMapper> CreatePayHistoryMapperMock()
+        {
+            var m = new Mock<IMapper>(MockBehavior.Strict);
+
+            // Map<List<PayHistoryDto>>(List<PayHistory>)
+            m.Setup(x => x.Map<List<PayHistoryDto>>(It.IsAny<List<PayHistory>>()))
+             .Returns((List<PayHistory> src) => src?.Select(ph => new PayHistoryDto
+             {
+                 BusinessEntityID = ph.BusinessEntityID,
+                 RateChangeDate = ph.RateChangeDate,
+                 Rate = ph.Rate,
+                 PayFrequency = ph.PayFrequency
+             }).ToList() ?? new List<PayHistoryDto>());
+
+            // Map<PayHistoryDto>(PayHistory)
+            m.Setup(x => x.Map<PayHistoryDto>(It.IsAny<PayHistory>()))
+             .Returns((PayHistory ph) => new PayHistoryDto
+             {
+                 BusinessEntityID = ph.BusinessEntityID,
+                 RateChangeDate = ph.RateChangeDate,
+                 Rate = ph.Rate,
+                 PayFrequency = ph.PayFrequency
+             });
+
+            // Map<PayHistory>(PayHistoryDto)
+            m.Setup(x => x.Map<PayHistory>(It.IsAny<PayHistoryDto>()))
+             .Returns((PayHistoryDto dto) => new PayHistory
+             {
+                 BusinessEntityID = dto.BusinessEntityID,
+                 RateChangeDate = dto.RateChangeDate,
+                 Rate = dto.Rate,
+                 PayFrequency = dto.PayFrequency
+                 // ModifiedDate setado no controller
+             });
+
+            // Map(source, destination) → PUT
+            m.Setup(x => x.Map(It.IsAny<PayHistoryDto>(), It.IsAny<PayHistory>()))
+             .Returns((PayHistoryDto src, PayHistory dest) =>
+             {
+                 if (src != null && dest != null)
+                 {
+                     // NÃO alterar chave composta
+                     if (src.Rate != default(decimal)) dest.Rate = src.Rate;
+                     if (src.PayFrequency != default(byte)) dest.PayFrequency = src.PayFrequency;
+                 }
+                 return dest!;
+             });
+
+            return m;
+        }
+
+        public static Mock<IMapper> CreateJobCandidateMapperMock()
+        {
+            var m = new Mock<IMapper>(MockBehavior.Strict);
+
+            // Map<List<JobCandidateDto>>(List<JobCandidate>)
+            m.Setup(x => x.Map<List<JobCandidateDto>>(It.IsAny<List<JobCandidate>>()))
+             .Returns((List<JobCandidate> src) =>
+                 src?.Select(c => new JobCandidateDto
+                 {
+                     JobCandidateId = c.JobCandidateId,
+                     Resume = c.Resume!,
+                     CvFileUrl = c.CvFileUrl!,
+                     ModifiedDate = c.ModifiedDate,
+                     FirstName = c.FirstName,
+                     LastName = c.LastName,
+                     NationalIDNumber = c.NationalIDNumber,
+                     BirthDate = c.BirthDate,
+                     MaritalStatus = c.MaritalStatus,
+                     Gender = c.Gender
+                 }).ToList() ?? new List<JobCandidateDto>());
+
+            // Map<JobCandidateDto>(JobCandidate)
+            m.Setup(x => x.Map<JobCandidateDto>(It.IsAny<JobCandidate>()))
+             .Returns((JobCandidate c) => new JobCandidateDto
+             {
+                 JobCandidateId = c.JobCandidateId,
+                 Resume = c.Resume!,
+                 CvFileUrl = c.CvFileUrl!,
+                 ModifiedDate = c.ModifiedDate,
+                 FirstName = c.FirstName,
+                 LastName = c.LastName,
+                 NationalIDNumber = c.NationalIDNumber,
+                 BirthDate = c.BirthDate,
+                 MaritalStatus = c.MaritalStatus,
+                 Gender = c.Gender
+             });
+
+            // Map<JobCandidate>(JobCandidateDto)
+            m.Setup(x => x.Map<JobCandidate>(It.IsAny<JobCandidateDto>()))
+             .Returns((JobCandidateDto d) => new JobCandidate
+             {
+                 JobCandidateId = d.JobCandidateId,
+                 Resume = d.Resume,
+                 CvFileUrl = d.CvFileUrl,
+                 ModifiedDate = d.ModifiedDate,
+                 FirstName = d.FirstName,
+                 LastName = d.LastName,
+                 NationalIDNumber = d.NationalIDNumber,
+                 BirthDate = d.BirthDate,
+                 MaritalStatus = d.MaritalStatus,
+                 Gender = d.Gender,
+                 PasswordHash = "DevOnly!234",
+                 Role = "employee"
+             });
+
+            return m;
+        }
+
+        public static Mock<IWebHostEnvironment> CreateEnvMock(string root)
+        {
+            Directory.CreateDirectory(root); 
+            var env = new Mock<IWebHostEnvironment>(MockBehavior.Strict);
+            env.SetupGet(x => x.WebRootPath).Returns(root);
+            env.SetupGet(x => x.ContentRootPath).Returns(root);
+            return env;
+        }
+
+        public static Mock<ILogger<JobCandidateController>> CreateLoggerMock()
+        {
+            return new Mock<ILogger<JobCandidateController>>(MockBehavior.Loose);
+        }
     }
 }

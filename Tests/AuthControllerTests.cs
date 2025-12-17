@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
+﻿using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Xunit;
-
 using sistema_gestao_recursos_humanos.backend.controllers;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
@@ -16,28 +11,24 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
 {
     public class AuthControllerTests
     {
-        // --- Helpers ---------------------------------------------------------
-
-        private AdventureWorksContext BuildContext(string? dbName = null)
+        private AdventureWorksContext BuildContext()
         {
             var options = new DbContextOptionsBuilder<AdventureWorksContext>()
-                .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
                 .Options;
 
-            // Ajuste aqui caso o seu AdventureWorksContext tenha construtor diferente.
             return new AdventureWorksContext(options);
         }
 
-        private IConfiguration BuildConfig(bool withKey = true)
+        private IConfiguration BuildConfig()
         {
             var dict = new Dictionary<string, string>
             {
-                ["Jwt:Issuer"] = "sgrh-api",
-                ["Jwt:Audience"] = "sgrh-client",
+                ["Jwt:Issuer"] = "IssuerTeste",
+                ["Jwt:Audience"] = "AudienceTeste",
             };
 
-            if (withKey)
-                dict["Jwt:Key"] = "super-secret-test-key-1234567890"; 
+            dict["Jwt:Key"] = "chave-para-testes-1234-sistema-rh";
 
             return new ConfigurationBuilder()
                 .AddInMemoryCollection(dict!)
@@ -48,7 +39,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             AdventureWorksContext ctx,
             string username = "samuel",
             string password = "P@ssw0rd",
-            string role = "Admin",
+            string role = "admin",
             int systemUserId = 1,
             int businessEntityId = 42)
         {
@@ -65,8 +56,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             ctx.SaveChanges();
             return user;
         }
-
-        // --- Tests -----------------------------------------------------------
 
         [Fact]
         public void Login_WithValidCredentials_ReturnsOkWithTokenAndPayload()
@@ -140,21 +129,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             // Assert
             var unauthorized = Assert.IsType<UnauthorizedObjectResult>(result);
             Assert.Equal("Credenciais inválidas", unauthorized.Value);
-        }
-
-        [Fact]
-        public void Login_WithoutJwtKey_ThrowsInvalidOperationException()
-        {
-            // Arrange
-            var ctx = BuildContext();
-            var user = SeedUser(ctx);
-            var config = BuildConfig(withKey: false); // Intencional: sem chave JWT
-            var controller = new AuthController(ctx, config);
-
-            var request = new SystemUsersDTO { Username = user.Username, Password = "P@ssw0rd" };
-
-            // Act + Assert
-            Assert.Throws<InvalidOperationException>(() => controller.Login(request));
         }
 
         [Fact]

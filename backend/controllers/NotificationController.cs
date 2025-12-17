@@ -14,13 +14,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
     {
         private readonly AdventureWorksContext _db;
         private readonly IMapper _mapper;
-        private readonly IWebHostEnvironment _env;
 
-        public NotificationController(AdventureWorksContext db, IMapper mapper, IWebHostEnvironment env)
+        public NotificationController(AdventureWorksContext db, IMapper mapper)
         {
             _db = db;
             _mapper = mapper;
-            _env = env;
         }
 
         // POST: api/v1/notification
