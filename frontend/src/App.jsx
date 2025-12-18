@@ -11,6 +11,7 @@ import Profile from "./pages/Profile/Profile";
 import Funcionarios from "./pages/Funcionarios/Funcionarios";
 import Movimentos from "./pages/Movimentos/Movimentos";
 import Pagamentos from "./pages/Pagamentos/Pagamentos";
+import AuthGuard from "./components/AuthGuard/RequireAuth";
 
  
 function App() {
@@ -19,13 +20,13 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/form" element={<Form />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/candidatos" element={<Candidatos />} />
-          <Route path="/payhistory" element={<PayHistoryList />} />
-          <Route path="/dephistory" element={<DepartmentHistoryList />} />
-          <Route path="/profile/:id?" element={<Profile />} />
-          <Route path="/funcionarios" element={<Funcionarios />} />
-          <Route path="/gestao-pagamentos" element={<Pagamentos />} />
-          <Route path="/gestao-movimentos" element={<Movimentos />} />
+          <Route path="/candidatos" element={<AuthGuard><Candidatos /></AuthGuard>} />
+          <Route path="/payhistory" element={<AuthGuard><PayHistoryList /></AuthGuard>} />
+          <Route path="/dephistory" element={<AuthGuard><DepartmentHistoryList /></AuthGuard>} />
+          <Route path="/profile/:id?" element={<AuthGuard><Profile /></AuthGuard>} />
+          <Route path="/funcionarios" element={<AuthGuard><Funcionarios /></AuthGuard>} />
+          <Route path="/gestao-pagamentos" element={<AuthGuard><Pagamentos /></AuthGuard>} />
+          <Route path="/gestao-movimentos" element={<AuthGuard><Movimentos /></AuthGuard>} />
         </Routes>
   );
 }
