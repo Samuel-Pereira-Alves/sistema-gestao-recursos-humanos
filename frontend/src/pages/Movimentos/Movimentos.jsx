@@ -347,7 +347,8 @@ export default function Movimentos() {
           throw new Error((await resp.text()) || "Falha ao editar registo.");
       }
 
-      addNotificationForUser("O seu registo foi atualizado com sucesso.", form.businessEntityID);
+      addNotificationForUser("A sua movimentação de Departamento foi atualizada com sucesso.", form.businessEntityID);
+      addNotificationForUser("A sua movimentação de Departamento foi atualizada com sucesso.", form.businessEntityID);
 
       await fetchData();
       closeAction();

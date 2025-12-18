@@ -187,7 +187,7 @@ export default function Pagamentos() {
         const text = await resp.text();
         throw new Error(text || "Falha ao editar registo.");
       }
-      addNotificationForUser("O seu registo foi atualizado com sucesso.", editKeys.businessEntityID);
+      addNotificationForUser("O seu registo de Pagamento foi atualizado com sucesso.", editKeys.businessEntityID);
       await fetchPagamentos();
       setEditOpen(false);
     } catch (e) {
