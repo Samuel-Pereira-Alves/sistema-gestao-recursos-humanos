@@ -28,7 +28,7 @@ export default function Candidatos() {
         numero: d.jobCandidateId,
         nome: d.firstName + " " + d.lastName,
         cvXml: d.resume || "",
-        cvPdfUrl: d.cvFileUrl ? `"http://localhost:5136/"${d.cvFileUrl}` : "",
+        cvPdfUrl: d.cvFileUrl ? `http://localhost:5136/${d.cvFileUrl}` : "",
       }));
 
       setCandidatos(mapped);
