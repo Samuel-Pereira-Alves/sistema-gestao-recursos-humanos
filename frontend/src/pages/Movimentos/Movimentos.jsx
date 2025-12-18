@@ -348,7 +348,6 @@ export default function Movimentos() {
       }
 
       addNotificationForUser("A sua movimentação de Departamento foi atualizada com sucesso.", form.businessEntityID);
-      addNotificationForUser("A sua movimentação de Departamento foi atualizada com sucesso.", form.businessEntityID);
 
       await fetchData();
       closeAction();
