@@ -26,7 +26,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // GET: api/v1/employee
         [HttpGet]
-        [Authorize(Roles ="admin")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> GetAll()
         {
             var employees = await _db.Employees
@@ -42,7 +42,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // GET: api/v1/employee/{id}
         [HttpGet("{id}")]
-        [Authorize(Roles ="admin, employee")]
+        [Authorize(Roles = "admin, employee")]
         public async Task<IActionResult> GetEmployee(int id)
         {
             var employee = await _db.Employees
@@ -93,7 +93,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // DELETE: api/v1/employee/{id}
         [HttpDelete("{id}")]
-        [Authorize(Roles ="admin")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var employee = await _db.Employees.FindAsync(id);
@@ -111,7 +111,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // PATCH: api/v1/employee/{id}
         [HttpPatch("{id}")]
-        [Authorize(Roles ="admin, employee")]
+        [Authorize(Roles = "admin, employee")]
         public async Task<IActionResult> Patch(int id, [FromBody] EmployeeDto employeeDto)
         {
             if (id != employeeDto.BusinessEntityID) return BadRequest();
@@ -212,7 +212,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
 
         [HttpPost("approve/{jobCandidateId}")]
-        [Authorize(Roles ="admin")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> ApproveCandidate(int jobCandidateId)
         {
             // (0) Carregar candidato
@@ -229,95 +229,108 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             try
             {
-                var now = DateTime.UtcNow;
-
-                // (A) Criar BusinessEntity para obter o ID
-                var be = new BusinessEntity { RowGuid = Guid.NewGuid(), ModifiedDate = now };
-                _db.BusinessEntities.Add(be);
-                await _db.SaveChangesAsync(); // ID gerado aqui
-                var beId = be.BusinessEntityID;
-
-                // (B) Mapear Person
-                var person = new Person
+                var previousEmployee = await _db.Employees.FirstOrDefaultAsync(
+                    pe => pe.NationalIDNumber == candidate.NationalIDNumber);
+                if (previousEmployee != null && !previousEmployee.CurrentFlag)
                 {
-                    BusinessEntityID = beId,
-                    FirstName = candidate.FirstName ?? "",
-                    LastName = candidate.LastName ?? "",
-                    EmailPromotion = 0,
-                    ModifiedDate = now,
-                    PersonType = "EM"
-                };
-                _db.Persons.Add(person);
-                await _db.SaveChangesAsync();
-
-                // (C) Gerar username e validar unicidade
-                var username = GenerateUsername(person);
-                var usernameExists = await _db.SystemUsers.AnyAsync(u => u.Username == username);
-                if (usernameExists)
-                {
-                    await transaction.RollbackAsync();
-                    return Conflict(new { message = "Username já existe", username });
+                    previousEmployee.CurrentFlag = true;
+                    return CreatedAtAction(nameof(GetEmployee),
+                        new { id = previousEmployee.BusinessEntityID },
+                        previousEmployee
+                        );
                 }
-
-                // (D) Criar Employee
-                var employee = new Employee
+                else
                 {
-                    BusinessEntityID = beId,
-                    VacationHours = 0,
-                    LoginID = username,
-                    SickLeaveHours = 0,
-                    SalariedFlag = true,
-                    NationalIDNumber = candidate.NationalIDNumber,
-                    BirthDate = candidate.BirthDate,
-                    MaritalStatus = candidate.MaritalStatus,
-                    Gender = candidate.Gender,
-                    JobTitle = "Cargo não atribuido",
-                    CurrentFlag = true,
-                    HireDate = now,
-                    ModifiedDate = now,
-                    PayHistories = new List<PayHistory>(),
-                    DepartmentHistories = new List<DepartmentHistory>(),
-                    Person = person
-                };
+                    var now = DateTime.UtcNow;
 
-                _db.Employees.Add(employee);
-                await _db.SaveChangesAsync();
+                    // (A) Criar BusinessEntity para obter o ID
+                    var be = new BusinessEntity { RowGuid = Guid.NewGuid(), ModifiedDate = now };
+                    _db.BusinessEntities.Add(be);
+                    await _db.SaveChangesAsync(); // ID gerado aqui
+                    var beId = be.BusinessEntityID;
 
-                // (E) Password temporária + hash
-                var tempPassword = string.IsNullOrWhiteSpace(candidate.PasswordHash)
-                    ? GenerateTempPassword()
-                    : candidate.PasswordHash;
-                var hashed = HashWithBcrypt(tempPassword);
-
-                // (F) Criar SystemUser
-                var role = "employee";
-
-                var sysUser = new SystemUser
-                {
-                    BusinessEntityID = beId,
-                    Username = username,
-                    PasswordHash = hashed,
-                    Role = role
-                };
-
-                _db.SystemUsers.Add(sysUser);
-
-                // (G) Remover o candidato aprovado
-                _db.JobCandidates.Remove(candidate);
-
-                await _db.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                return CreatedAtAction(nameof(GetEmployee),
-                    new { id = beId },
-                    new
+                    // (B) Mapear Person
+                    var person = new Person
                     {
-                        employeeId = beId,
-                        systemUserId = sysUser.SystemUserId,
-                        username,
-                        role,
-                        tempPassword // DEV only
-                    });
+                        BusinessEntityID = beId,
+                        FirstName = candidate.FirstName ?? "",
+                        LastName = candidate.LastName ?? "",
+                        EmailPromotion = 0,
+                        ModifiedDate = now,
+                        PersonType = "EM"
+                    };
+                    _db.Persons.Add(person);
+                    await _db.SaveChangesAsync();
+
+                    // (C) Gerar username e validar unicidade
+                    var username = GenerateUsername(person);
+                    var usernameExists = await _db.SystemUsers.AnyAsync(u => u.Username == username);
+                    if (usernameExists)
+                    {
+                        await transaction.RollbackAsync();
+                        return Conflict(new { message = "Username já existe", username });
+                    }
+
+                    // (D) Criar Employee
+                    var employee = new Employee
+                    {
+                        BusinessEntityID = beId,
+                        VacationHours = 0,
+                        LoginID = username,
+                        SickLeaveHours = 0,
+                        SalariedFlag = true,
+                        NationalIDNumber = candidate.NationalIDNumber,
+                        BirthDate = candidate.BirthDate,
+                        MaritalStatus = candidate.MaritalStatus,
+                        Gender = candidate.Gender,
+                        JobTitle = "Cargo não atribuido",
+                        CurrentFlag = true,
+                        HireDate = now,
+                        ModifiedDate = now,
+                        PayHistories = new List<PayHistory>(),
+                        DepartmentHistories = new List<DepartmentHistory>(),
+                        Person = person
+                    };
+
+                    _db.Employees.Add(employee);
+                    await _db.SaveChangesAsync();
+
+                    // (E) Password temporária + hash
+                    var tempPassword = string.IsNullOrWhiteSpace(candidate.PasswordHash)
+                        ? GenerateTempPassword()
+                        : candidate.PasswordHash;
+                    var hashed = HashWithBcrypt(tempPassword);
+
+                    // (F) Criar SystemUser
+                    var role = "employee";
+
+                    var sysUser = new SystemUser
+                    {
+                        BusinessEntityID = beId,
+                        Username = username,
+                        PasswordHash = hashed,
+                        Role = role
+                    };
+
+                    _db.SystemUsers.Add(sysUser);
+
+                    // (G) Remover o candidato aprovado
+                    _db.JobCandidates.Remove(candidate);
+
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    return CreatedAtAction(nameof(GetEmployee),
+                        new { id = beId },
+                        new
+                        {
+                            employeeId = beId,
+                            systemUserId = sysUser.SystemUserId,
+                            username,
+                            role,
+                            tempPassword // DEV only
+                        });
+                }
             }
             catch (DbUpdateException ex)
             {
