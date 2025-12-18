@@ -236,7 +236,7 @@ function Funcionarios() {
                 {/* Mobile Cards */}
                 <div className="d-md-none">
                   {currentFuncionarios.map((f) => (
-                    <div key={f.id} className="border-bottom p-3">
+                    <div key={f.businessEntityID} className="border-bottom p-3">
                       <h6 className="mb-1">{getNomeCompleto(f)}</h6>
                       <p className="text-muted small mb-1">{f.jobTitle}</p>
                       <p className="text-muted small mb-3">
