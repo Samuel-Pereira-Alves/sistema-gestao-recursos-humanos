@@ -25,8 +25,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             _logger = logger;
         }
 
-        // // POST: api/v1/notification
-        // // Creates a single notification (for a specific BusinessEntityID from the body)
         // [HttpPost]
         // public async Task<IActionResult> Create([FromBody] NotificationDto dto)
         // {
@@ -45,7 +43,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         //         _mapper.Map<NotificationDto>(notification));
         // }
 
-
+        // POST: api/v1/notification
+        // Creates a single notification (for a specific BusinessEntityID from the body)
         [HttpPost]
         [Authorize(Roles ="admin")]
         public async Task<IActionResult> Create([FromBody] NotificationDto dto)

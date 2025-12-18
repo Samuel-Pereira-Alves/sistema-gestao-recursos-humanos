@@ -18,55 +18,83 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
     {
         private readonly AdventureWorksContext _db;
         private readonly IConfiguration _config;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(AdventureWorksContext db, IConfiguration config)
+        public AuthController(AdventureWorksContext db, IConfiguration config, ILogger<AuthController> logger)
         {
             _db = db;
             _config = config;
+            _logger = logger;
         }
+
 
         [AllowAnonymous]
         // POST: api/v1/login
-
         [HttpPost("login")]
         public IActionResult Login([FromBody] SystemUsersDTO request)
         {
+
+            _logger.LogInformation("Pedido de login recebido.");
+
             if (request is null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             {
+                _logger.LogWarning("Pedido de login inválido: body nulo ou campos em branco.");
                 return BadRequest("Pedido inválido");
             }
 
-            // 1. Procurar utilizador
-            var user = _db.SystemUsers.FirstOrDefault(u => u.Username == request.Username);
-            if (user is null)
+            try
             {
-                return Unauthorized("Credenciais inválidas");
+                // 1. Procurar utilizador
+                var user = _db.SystemUsers.FirstOrDefault(u => u.Username == request.Username);
+                if (user is null)
+                {
+                    _logger.LogWarning("Login falhou: utilizador não encontrado. Username={Username}",
+                        request.Username);
+                    return Unauthorized("Credenciais inválidas");
+                }
+
+                // 2. Validar password (NUNCA logar a password)
+                var passwordOk = VerifyPassword(request.Password, user.PasswordHash);
+                if (!passwordOk)
+                {
+                    _logger.LogWarning("Login falhou: password inválida. Username={Username}, SystemUserId={SystemUserId}.",
+                        request.Username, user.SystemUserId);
+                    return Unauthorized("Credenciais inválidas");
+                }
+
+                // 3. Procurar funcionário
+                var employee = _db.Employees.FirstOrDefault(e => e.BusinessEntityID == user.BusinessEntityID);
+                if (employee is null || !employee.CurrentFlag)
+                {
+                    _logger.LogWarning("Login falhou: funcionário inexistente ou inativo. Username={Username}, BusinessEntityID={BusinessEntityID}",
+                        request.Username, user.BusinessEntityID);
+                    return Unauthorized("Credenciais inválidas");
+                }
+
+                // 4. Gerar token JWT (NUNCA logar o token)
+                var token = GenerateJwtToken(user);
+
+                _logger.LogInformation("Login bem-sucedido. Username={Username}, Role={Role}, SystemUserId={SystemUserId}, BusinessEntityID={BusinessEntityID}",
+                    request.Username, user.Role, user.SystemUserId, user.BusinessEntityID);
+
+                return Ok(new
+                {
+                    token,
+                    role = user.Role,
+                    systemUserId = user.SystemUserId,
+                    businessEntityId = user.BusinessEntityID
+                });
             }
-
-            // 2. Validar password
-            if (!VerifyPassword(request.Password, user.PasswordHash))
+            catch (Exception ex)
             {
-                return Unauthorized("Credenciais inválidas");
+                _logger.LogError(ex,
+                    "Erro inesperado no login. Username={Username}",
+                    request?.Username);
+
+                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao processar o login.");
             }
-
-            // 3. Procurar funcionário só depois de sabermos que há utilizador
-            var employee = _db.Employees.FirstOrDefault(e => e.BusinessEntityID == user.BusinessEntityID);
-            if (employee is null || !employee.CurrentFlag)
-            {
-                return Unauthorized("Credenciais inválidas");
-            }
-
-            // 4. Gerar token JWT
-            var token = GenerateJwtToken(user);
-
-            return Ok(new
-            {
-                token,
-                role = user.Role,
-                systemUserId = user.SystemUserId,
-                businessEntityId = user.BusinessEntityID
-            });
         }
+
 
 
         private bool VerifyPassword(string password, string storedHash)
