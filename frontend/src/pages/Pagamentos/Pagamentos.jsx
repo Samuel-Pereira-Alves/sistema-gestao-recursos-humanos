@@ -212,7 +212,8 @@ export default function Pagamentos() {
         const text = await resp.text();
         throw new Error(text || "Falha ao editar registo.");
       }
-
+      console.log(editKeys.businessEntityID);
+      addNotificationForUser("O seu registo foi atualizado com sucesso.", editKeys.businessEntityID);
       await fetchPagamentos();
       setEditOpen(false);
     } catch (e) {
@@ -323,7 +324,7 @@ export default function Pagamentos() {
         const text = await resp.text();
         throw new Error(text || "Falha ao criar registo.");
       }
-
+      console.log(editKeys.businessEntityID);
       addNotificationForUser("O seu registo foi atualizado com sucesso.", editKeys.businessEntityID);
 
       await fetchPagamentos();

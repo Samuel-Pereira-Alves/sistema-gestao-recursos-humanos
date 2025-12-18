@@ -22,10 +22,13 @@ export function addNotification(message, role) {
 }
 
 export function addNotificationForUser(message, id) {
+  const token = localStorage.getItem("authToken");
   fetch(`http://localhost:5136/api/v1/notification/`, {
     method: 'POST',
     headers: {
+      "Content-Type": "application/json",
       Accept: "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ message, businessEntityId: id }),
   }).catch((err) => {
