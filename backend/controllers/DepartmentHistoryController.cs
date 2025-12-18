@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using sistema_gestao_recursos_humanos.backend.data;
@@ -21,19 +22,21 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         // GET: api/v1/departmenthistory
-        //[HttpGet]
-        // public async Task<IActionResult> GetAll()
-        // {
-        //     var histories = await _db.DepartmentHistories
-        //         .Include(dh => dh.Department)
-        //         .ToListAsync();
+        [HttpGet]
+        [Authorize(Roles ="admin, employee")]
+        public async Task<IActionResult> GetAll()
+        {
+            var histories = await _db.DepartmentHistories
+                .Include(dh => dh.Department)
+                .ToListAsync();
 
-        //     var dto = _mapper.Map<List<DepartmentHistoryDto>>(histories);
-        //     return Ok(dto);
-        // }
+            var dto = _mapper.Map<List<DepartmentHistoryDto>>(histories);
+            return Ok(dto);
+        }
 
         // GET: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
         [HttpGet("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Get(int businessEntityId, short departmentId, byte shiftId, DateTime startDate)
         {
             var history = await _db.DepartmentHistories
@@ -50,6 +53,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // POST: api/v1/departmenthistory
         [HttpPost]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Create(DepartmentHistoryDto dto)
         {
             // 1) Validar Employee (FK)
@@ -138,6 +142,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // PATCH: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
         [HttpPatch("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Patch(int businessEntityId, short departmentId, byte shiftId, DateTime startDate, DepartmentHistoryDto dto)
         {
             var history = await _db.DepartmentHistories
@@ -159,6 +164,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         [HttpPost("{businessEntityId}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> CreateByEmployee(
             int businessEntityId,
             [FromBody] DepartmentHistoryDto dto)
@@ -221,6 +227,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         [HttpDelete("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Delete(int businessEntityId, short departmentId, byte shiftId, DateTime startDate)
         {
             var history = await _db.DepartmentHistories

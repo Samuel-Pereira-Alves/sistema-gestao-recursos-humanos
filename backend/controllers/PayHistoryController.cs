@@ -24,6 +24,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // GET: api/v1/payhistory
         [HttpGet]
         [Authorize(Roles ="admin")]
+        //[Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> GetAll()
         {
             var histories = await _db.PayHistories.ToListAsync();
@@ -47,6 +48,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // GET: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
         [HttpGet("{businessEntityId}/{rateChangeDate}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Get(int businessEntityId, DateTime rateChangeDate)
         {
             var history = await _db.PayHistories
@@ -61,6 +63,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // POST: api/v1/payhistory
         [HttpPost]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Create(PayHistoryDto dto)
         {
             var history = _mapper.Map<PayHistory>(dto);
@@ -95,6 +98,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // PATCH: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
         [HttpPatch("{businessEntityId}/{rateChangeDate}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Patch(int businessEntityId, DateTime rateChangeDate, PayHistoryDto dto)
         {
             var history = await _db.PayHistories
@@ -114,6 +118,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // DELETE: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
         [HttpDelete("{businessEntityId}/{rateChangeDate}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Delete(int businessEntityId, DateTime rateChangeDate)
         {
             var payhistory = await _db.PayHistories
