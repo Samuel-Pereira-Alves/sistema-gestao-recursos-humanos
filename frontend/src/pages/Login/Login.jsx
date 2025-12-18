@@ -97,7 +97,6 @@ function Login() {
               />
             </div>
 
-
             <button
               type="submit"
               className="btn btn-gray btn-lg w-100"
@@ -106,10 +105,6 @@ function Login() {
               {loading ? "A entrar..." : "Entrar"}
             </button>
           </form>
-
-          <footer className="text-center mt-4 small text-muted">
-            © {new Date().getFullYear()} RH • Interface minimal
-          </footer>
         </div>
       </div>
     </div>
@@ -117,4 +112,3 @@ function Login() {
 }
 
 export default Login;
-

@@ -2,29 +2,26 @@ import React, { useEffect, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
 
-/* Utils */
 function formatDate(dateStr) {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   if (isNaN(d)) return "—";
   return d.toLocaleDateString("pt-PT");
 }
+
 function formatCurrencyEUR(value) {
   if (value == null) return "—";
   const n = Number(value);
   if (Number.isNaN(n)) return "—";
   return n.toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
 }
+
 function freqLabel(code) {
   switch (Number(code)) {
     case 1:
       return "Mensal";
     case 2:
-      return "Semanal";
-    case 3:
       return "Quinzenal";
-    case 4:
-      return "Anual";
     default:
       return code != null ? `Código ${code}` : "—";
   }
@@ -42,7 +39,6 @@ export default function PayHistoryList() {
   const [employeeId, setEmployeeId] = useState(null);
   const [employee, setEmployee] = useState(null);
 
-  // Lê o ID e carrega o histórico
   useEffect(() => {
     const id = localStorage.getItem("businessEntityId");
     setEmployeeId(id);
@@ -52,15 +48,13 @@ export default function PayHistoryList() {
       return;
     }
 
-    const controller = new AbortController();
-
+    
     async function load() {
       const token = localStorage.getItem("authToken");
       setLoading(true);
       setFetchError(null);
       try {
         const res = await fetch(`http://localhost:5136/api/v1/employee/${id}`, {
-          signal: controller.signal,
           headers: { Accept: "application/json",
                     "Authorization": `Bearer ${token}`,
            },
@@ -70,10 +64,9 @@ export default function PayHistoryList() {
         const data = await res.json();
 
         if (!Array.isArray(data)) {
-          setEmployee(data); // data tem person e payHistories
+          setEmployee(data);
         }
 
-        // Aceita array direto ou wrapper { payHistories: [...] }
         const list = (Array.isArray(data) ? data : data?.payHistories ?? [])
           .slice()
           .sort(
@@ -84,7 +77,7 @@ export default function PayHistoryList() {
               p.rateChangeDate ?? idx
             }`,
             payHistoryId: p.payHistoryId ?? null,
-            employeeId: p.employeeId ?? null, // só útil internamente
+            employeeId: p.employeeId ?? null,
             rateChangeDate: p.rateChangeDate ?? null,
             rate: p.rate ?? null,
             payFrequency: p.payFrequency ?? null,
@@ -101,11 +94,8 @@ export default function PayHistoryList() {
     }
 
     load();
-    return () => controller.abort();
   }, []);
 
-
-  // Paginação
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
   const currentPayments = payments.slice(indexOfFirst, indexOfLast);
@@ -115,7 +105,7 @@ export default function PayHistoryList() {
     <>
       <div className="container mt-4">
         <BackButton />
-        {/* Header (mantido) */}
+        {/* Header */}
         <div className="mb-4 d-flex justify-content-between align-items-center">
           <h1 className="h3 mb-0">Histórico de Pagamentos</h1>
           <div className="text-muted small">
@@ -175,7 +165,7 @@ export default function PayHistoryList() {
                         </tr>
                       ) : (
                         currentPayments.map((p, idx) => {
-                          const seq = indexOfFirst + idx + 1; // numeração contínua global
+                          const seq = indexOfFirst + idx + 1; 
                           return (
                             <tr key={p.key}>
                               <td className="px-4 py-3">{seq}</td>

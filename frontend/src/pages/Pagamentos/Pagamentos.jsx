@@ -3,19 +3,20 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { addNotificationForUser } from "../../utils/notificationBus";
 import BackButton from "../../components/Button/BackButton";
 
-/* Utils de apresentação */
 function formatDate(dateStr) {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   if (isNaN(d)) return "—";
   return d.toLocaleDateString("pt-PT");
 }
+
 function formatCurrencyEUR(value) {
   if (value == null) return "—";
   const n = Number(value);
   if (Number.isNaN(n)) return "—";
   return n.toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
 }
+
 function freqLabel(code) {
   switch (Number(code)) {
     case 1:
@@ -27,7 +28,6 @@ function freqLabel(code) {
   }
 }
 
-/* Utils de comparação / formatação */
 function normalizarTexto(t) {
   if (!t) return "";
   return String(t)
@@ -38,9 +38,9 @@ function normalizarTexto(t) {
 }
 function toIdString(id) {
   if (id == null) return "";
-  return String(id).trim(); // não converte para número (protege "004")
+  return String(id).trim(); 
 }
-/** Converte "yyyy-MM-dd" para ISO "yyyy-MM-ddT00:00:00" (para POST) */
+
 function dateInputToIsoMidnight(dateStr) {
   if (!dateStr) return "";
   return `${dateStr}T00:00:00`;
@@ -49,17 +49,12 @@ function dateInputToIsoMidnight(dateStr) {
 export default function Pagamentos() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
-
-
   const [searchTerm, setSearchTerm] = useState("");
-
-
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
 
   const [pagamentos, setPagamentos] = useState([]);
 
-  // 🔁 Função reutilizável para ir buscar dados
   const fetchPagamentos = useCallback(async () => {
     try {
       setLoading(true);
@@ -102,15 +97,10 @@ export default function Pagamentos() {
     fetchPagamentos();
   }, [fetchPagamentos]);
 
-  /** Reset para a primeira página quando muda o termo de pesquisa */
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  /** Filtro:
-   *  - ID numérico: employee.businessEntityID (igualdade exata)
-   *  - Texto: colaborador, frequência, valor e data (insensível a acentos)
-   */
   const rawSearch = searchTerm.trim();
   const isNumericSearch = /^\d+$/.test(rawSearch);
   const termo = normalizarTexto(searchTerm);
@@ -141,30 +131,18 @@ export default function Pagamentos() {
     });
   }, [pagamentos, rawSearch, termo, isNumericSearch]);
 
-
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
-  const currentPagamentos = pagamentosFiltrados.slice(
-    indexOfFirst,
-    indexOfLast
-  );
-  const totalPages = Math.max(
-    1,
-    Math.ceil(pagamentosFiltrados.length / itemsPerPage)
-  );
+  const currentPagamentos = pagamentosFiltrados.slice(indexOfFirst,indexOfLast);
+  const totalPages = Math.max(1,Math.ceil(pagamentosFiltrados.length / itemsPerPage));
 
-  /* =========================
-   *  Ações: Editar / Eliminar / Criar
-   * ========================= */
-
-  // Editar
   const [editOpen, setEditOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState(null);
   const [editKeys, setEditKeys] = useState({
     businessEntityID: "",
     rateChangeDate: "",
-  }); // não editáveis
+  }); 
   const [editForm, setEditForm] = useState({ rate: "", payFrequency: "1" });
 
   const openEdit = (p) => {
@@ -187,12 +165,9 @@ export default function Pagamentos() {
       setEditError(null);
 
       const { businessEntityID, rateChangeDate } = editKeys;
-      const url = `http://localhost:5136/api/v1/payhistory/${encodeURIComponent(
-        businessEntityID
-      )}/${encodeURIComponent(rateChangeDate)}`;
+      const url = `http://localhost:5136/api/v1/payhistory/${businessEntityID}/${rateChangeDate}`;
 
       const body = {
-
         rate: Number(editForm.rate),
         payFrequency: Number(editForm.payFrequency),
       };
@@ -212,7 +187,6 @@ export default function Pagamentos() {
         const text = await resp.text();
         throw new Error(text || "Falha ao editar registo.");
       }
-      console.log(editKeys.businessEntityID);
       addNotificationForUser("O seu registo foi atualizado com sucesso.", editKeys.businessEntityID);
       await fetchPagamentos();
       setEditOpen(false);
@@ -223,7 +197,6 @@ export default function Pagamentos() {
     }
   };
 
-  // Eliminar
   const [deleteLoadingId, setDeleteLoadingId] = useState(null);
 
   const handleDelete = async (p) => {
@@ -242,9 +215,7 @@ export default function Pagamentos() {
     );
     if (!confirm) return;
 
-    const url = `http://localhost:5136/api/v1/payhistory/${encodeURIComponent(
-      businessEntityID
-    )}/${encodeURIComponent(rateChangeDate)}`;
+    const url = `http://localhost:5136/api/v1/payhistory/${businessEntityID}/${rateChangeDate}`;
 
     try {
       const token = localStorage.getItem("authToken");
@@ -269,7 +240,6 @@ export default function Pagamentos() {
     }
   };
 
-  // Criar
   const [createOpen, setCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState(null);
@@ -336,8 +306,6 @@ export default function Pagamentos() {
       setCreateLoading(false);
     }
   };
-
-  /* ============== UI ============== */
 
   return (
     <div className="container mt-4">
@@ -545,7 +513,6 @@ export default function Pagamentos() {
         <div className="alert alert-danger mt-3">{fetchError}</div>
       )}
 
-      {/* ======= MODAL: Editar ======= */}
       {editOpen && (
         <div
           className="modal fade show d-block"
@@ -615,9 +582,7 @@ export default function Pagamentos() {
                       }
                     >
                       <option value="1">Mensal</option>
-                      <option value="2">Semanal</option>
-                      <option value="3">Quinzenal</option>
-                      <option value="4">Anual</option>
+                      <option value="2">Quinzenal</option>
                     </select>
                   </div>
                 </div>
@@ -642,7 +607,6 @@ export default function Pagamentos() {
         </div>
       )}
 
-      {/* ======= MODAL: Criar ======= */}
       {createOpen && (
         <div
           className="modal fade show d-block"
@@ -722,9 +686,7 @@ export default function Pagamentos() {
                       }
                     >
                       <option value="1">Mensal</option>
-                      <option value="2">Semanal</option>
-                      <option value="3">Quinzenal</option>
-                      <option value="4">Anual</option>
+                      <option value="2">Quinzenal</option>
                     </select>
                   </div>
                 </div>

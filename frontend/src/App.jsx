@@ -1,6 +1,6 @@
 import React from "react";
 import './App.css';
-import { BrowserRouter as Router, Routes, Route, BrowserRouter } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import Home from "./pages/Home/Home";
 import Form from "./pages/Form/FormPage";
 import Login from "./pages/Login/Login";
@@ -15,7 +15,6 @@ import Pagamentos from "./pages/Pagamentos/Pagamentos";
  
 function App() {
   return (
-     
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/form" element={<Form />} />
@@ -28,8 +27,6 @@ function App() {
           <Route path="/gestao-pagamentos" element={<Pagamentos />} />
           <Route path="/gestao-movimentos" element={<Movimentos />} />
         </Routes>
-      
-
   );
 }
 

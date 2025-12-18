@@ -4,27 +4,22 @@ import Navbar from "../../components/Navbar/Navbar";
 import { addNotification } from "../../utils/notificationBus";
 
 function Form({ hideNavbar = false, variant = "default", onCancel }) {
-  // --- Estado dos campos do formulário ---
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [nationalIDNumber, setNationalIDNumber] = useState("");
-  const [birthDate, setBirthDate] = useState("");          // "YYYY-MM-DD"
-  const [maritalStatus, setMaritalStatus] = useState("");  // "S" | "M"
-  const [gender, setGender] = useState("");                // "M" | "F"
+  const [birthDate, setBirthDate] = useState("");
+  const [maritalStatus, setMaritalStatus] = useState("");
+  const [gender, setGender] = useState("");
 
-  // Ficheiro PDF
   const [ficheiro, setFicheiro] = useState(null);
 
-  // UI
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Limites
   const MAX_SIZE_MB = 5;
   const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024;
 
-  // --- Helpers de validação ---
   const validateFile = (f) => {
     const newErrors = {};
     if (!f) {
@@ -40,12 +35,9 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
 
   const validateForm = () => {
     const newErrors = {};
-
-    // firstName / lastName obrigatórios
     if (!firstName.trim()) newErrors.firstName = "Primeiro nome é obrigatório.";
     if (!lastName.trim()) newErrors.lastName = "Apelido é obrigatório.";
 
-    // nationalIDNumber: 9 dígitos
     const nid = nationalIDNumber.trim();
     if (!nid) {
       newErrors.nationalIDNumber = "Número de identificação nacional é obrigatório.";
@@ -53,32 +45,27 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
       newErrors.nationalIDNumber = "Deve conter exatamente 9 dígitos.";
     }
 
-    // birthDate: obrigatório (input date já ajuda no formato)
     if (!birthDate) newErrors.birthDate = "Data de nascimento é obrigatória.";
-    // (Opcional) impedir datas futuras
+
     const bd = new Date(birthDate);
     if (birthDate && bd > new Date()) {
       newErrors.birthDate = "Data futura não é válida.";
     }
 
-    // maritalStatus: exige "S" ou "M"
     if (!["S", "M"].includes(maritalStatus)) {
       newErrors.maritalStatus = "Seleciona estado civil: Solteiro (S) ou Casado (M).";
     }
 
-    // gender: exige "M" ou "F"
     if (!["M", "F"].includes(gender)) {
       newErrors.gender = "Seleciona género: Masculino (M) ou Feminino (F).";
     }
 
-    // ficheiro
     const fileErrors = validateFile(ficheiro);
     Object.assign(newErrors, fileErrors);
 
     return newErrors;
   };
 
-  // --- Handlers ---
   const handleFileChange = (e) => {
     const f = e.target.files?.[0] || null;
     setSuccessMsg("");
@@ -98,29 +85,14 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
 
     try {
       setSending(true);
-
-      // ⚠️ Enviar BirthDate como "YYYY-MM-DD" simples (sem T00:00:00)
       const formData = new FormData();
       formData.append("cv", ficheiro);
-
-      // ✅ Nomes das chaves exatamente como o backend espera (case-sensitive)
       formData.append("FirstName", firstName.trim());
       formData.append("LastName", lastName.trim());
       formData.append("NationalIDNumber", nationalIDNumber.trim());
-      formData.append("BirthDate", birthDate);           // "YYYY-MM-DD"
-      formData.append("MaritalStatus", maritalStatus);   // "S" | "M"
-      formData.append("Gender", gender); 
-            
-      
-      
-console.group('FormData payload');
-for (const [k, v] of formData.entries()) {
-  if (v instanceof File) {
-    console.log(k, { name: v.name, size: v.size, type: v.type });
-  } else {
-    console.log(k, v);
-  }
-}
+      formData.append("BirthDate", birthDate);
+      formData.append("MaritalStatus", maritalStatus);
+      formData.append("Gender", gender);
 
       const resp = await fetch("http://localhost:5136/api/v1/jobcandidate/upload", {
         method: "POST",
@@ -140,8 +112,6 @@ for (const [k, v] of formData.entries()) {
       setSuccessMsg("Candidatura enviada com sucesso! Obrigado.");
       setFicheiro(null);
       setErrors({});
-
-      // Limpar campos do formulário
       setFirstName("");
       setLastName("");
       setNationalIDNumber("");
@@ -160,186 +130,184 @@ for (const [k, v] of formData.entries()) {
     }
   };
 
-  const UploadUI = (
-    <form onSubmit={handleSubmit} noValidate className="simple-form">
-      <header className="mb-3 text-center">
-        <h6 className="mb-1">Dados do candidato e CV (PDF)</h6>
-        <p className="text-muted small mb-0">
-          Preenche os teus dados e seleciona o ficheiro em formato PDF. Limite: {MAX_SIZE_MB}MB.
-        </p>
-      </header>
+  if (variant === "embedded") {
+    return <div className="candidatura-embedded w-100" style={{ maxWidth: "640px" }}>
+      <form onSubmit={handleSubmit} noValidate className="simple-form">
+        <header className="mb-3 text-center">
+          <h6 className="mb-1">Dados do candidato e CV (PDF)</h6>
+          <p className="text-muted small mb-0">
+            Preenche os teus dados e seleciona o ficheiro em formato PDF. Limite: {MAX_SIZE_MB}MB.
+          </p>
+        </header>
 
-      {(errors.ficheiro || successMsg) && (
-        <div
-          className={`alert ${errors.ficheiro ? "alert-danger" : "alert-success"} py-2 px-3 mb-3`}
-          role="alert"
-        >
-          {errors.ficheiro || successMsg}
-        </div>
-      )}
-
-      {/* Campos de texto */}
-      <div className="row g-3">
-        <div className="col-md-6">
-          <label htmlFor="firstName" className="form-label fw-semibold">
-            Primeiro nome <span className="text-danger">*</span>
-          </label>
-          <input
-            id="firstName"
-            type="text"
-            className={`form-control input-gray ${errors.firstName ? "is-invalid" : ""}`}
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            autoComplete="given-name"
-          />
-          {errors.firstName && <div className="invalid-feedback">{errors.firstName}</div>}
-        </div>
-
-        <div className="col-md-6">
-          <label htmlFor="lastName" className="form-label fw-semibold">
-            Apelido <span className="text-danger">*</span>
-          </label>
-          <input
-            id="lastName"
-            type="text"
-            className={`form-control input-gray ${errors.lastName ? "is-invalid" : ""}`}
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            autoComplete="family-name"
-          />
-          {errors.lastName && <div className="invalid-feedback">{errors.lastName}</div>}
-        </div>
-
-        <div className="col-md-6">
-          <label htmlFor="nationalIDNumber" className="form-label fw-semibold">
-            Nº Identificação Nacional <span className="text-danger">*</span>
-          </label>
-          <input
-            id="nationalIDNumber"
-            type="text"
-            inputMode="numeric"
-            pattern="\d{9}"
-            maxLength={9}
-            className={`form-control input-gray ${errors.nationalIDNumber ? "is-invalid" : ""}`}
-            value={nationalIDNumber}
-            onChange={(e) => {
-              const onlyDigits = e.target.value.replace(/\D/g, "").slice(0, 9);
-              setNationalIDNumber(onlyDigits);
-            }}
-            placeholder="123456789"
-            autoComplete="off"
-          />
-          {errors.nationalIDNumber && (
-            <div className="invalid-feedback">{errors.nationalIDNumber}</div>
-          )}
-        </div>
-
-        <div className="col-md-6">
-          <label htmlFor="birthDate" className="form-label fw-semibold">
-            Data de nascimento <span className="text-danger">*</span>
-          </label>
-          <input
-            id="birthDate"
-            type="date"
-            className={`form-control input-gray ${errors.birthDate ? "is-invalid" : ""}`}
-            value={birthDate}
-            onChange={(e) => setBirthDate(e.target.value)}
-            placeholder="YYYY-MM-DD"
-          />
-          {errors.birthDate && <div className="invalid-feedback">{errors.birthDate}</div>}
-        </div>
-
-        <div className="col-md-6">
-          <label htmlFor="maritalStatus" className="form-label fw-semibold">
-            Estado civil <span className="text-danger">*</span>
-          </label>
-          <select
-            id="maritalStatus"
-            className={`form-select input-gray ${errors.maritalStatus ? "is-invalid" : ""}`}
-            value={maritalStatus}
-            onChange={(e) => setMaritalStatus(e.target.value)}
+        {(errors.ficheiro || successMsg) && (
+          <div
+            className={`alert ${errors.ficheiro ? "alert-danger" : "alert-success"} py-2 px-3 mb-3`}
+            role="alert"
           >
-            <option value="">Seleciona…</option>
-            <option value="S">Solteiro(a) (S)</option>
-            <option value="M">Casado(a) (M)</option>
-          </select>
-          {errors.maritalStatus && <div className="invalid-feedback">{errors.maritalStatus}</div>}
-        </div>
+            {errors.ficheiro || successMsg}
+          </div>
+        )}
 
-        <div className="col-md-6">
-          <label htmlFor="gender" className="form-label fw-semibold">
-            Género <span className="text-danger">*</span>
-          </label>
-          <select
-            id="gender"
-            className={`form-select input-gray ${errors.gender ? "is-invalid" : ""}`}
-            value={gender}
-            onChange={(e) => setGender(e.target.value)}
-          >
-            <option value="">Seleciona…</option>
-            <option value="M">Masculino (M)</option>
-            <option value="F">Feminino (F)</option>
-          </select>
-          {errors.gender && <div className="invalid-feedback">{errors.gender}</div>}
-        </div>
-      </div>
+        {/* Campos de texto */}
+        <div className="row g-3">
+          <div className="col-md-6">
+            <label htmlFor="firstName" className="form-label fw-semibold">
+              Primeiro nome <span className="text-danger">*</span>
+            </label>
+            <input
+              id="firstName"
+              type="text"
+              className={`form-control input-gray ${errors.firstName ? "is-invalid" : ""}`}
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              autoComplete="given-name"
+            />
+            {errors.firstName && <div className="invalid-feedback">{errors.firstName}</div>}
+          </div>
 
-      {/* Upload do CV */}
-      <div className="mt-3">
-        <label htmlFor="cv-input" className="form-label fw-semibold">
-          CV (PDF) <span className="text-danger">*</span>
-        </label>
-        <input
-          id="cv-input"
-          type="file"
-          accept=".pdf,application/pdf"
-          className={`form-control form-control-lg input-gray ${errors.ficheiro ? "is-invalid" : ""}`}
-          onChange={handleFileChange}
-        />
-        {errors.ficheiro && <div className="invalid-feedback">{errors.ficheiro}</div>}
-      </div>
+          <div className="col-md-6">
+            <label htmlFor="lastName" className="form-label fw-semibold">
+              Apelido <span className="text-danger">*</span>
+            </label>
+            <input
+              id="lastName"
+              type="text"
+              className={`form-control input-gray ${errors.lastName ? "is-invalid" : ""}`}
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              autoComplete="family-name"
+            />
+            {errors.lastName && <div className="invalid-feedback">{errors.lastName}</div>}
+          </div>
 
-      {ficheiro && (
-        <div className="selected-file my-2">
-          <div className="file-pill" title={ficheiro.name}>
-            <span className="file-name">{ficheiro.name}</span>
-            <button
-              type="button"
-              className="btn btn-sm btn-clear"
-              onClick={() => setFicheiro(null)}
-              aria-label="Remover ficheiro selecionado"
+          <div className="col-md-6">
+            <label htmlFor="nationalIDNumber" className="form-label fw-semibold">
+              Nº Identificação Nacional <span className="text-danger">*</span>
+            </label>
+            <input
+              id="nationalIDNumber"
+              type="text"
+              inputMode="numeric"
+              pattern="\d{9}"
+              maxLength={9}
+              className={`form-control input-gray ${errors.nationalIDNumber ? "is-invalid" : ""}`}
+              value={nationalIDNumber}
+              onChange={(e) => {
+                const onlyDigits = e.target.value.replace(/\D/g, "").slice(0, 9);
+                setNationalIDNumber(onlyDigits);
+              }}
+              placeholder="123456789"
+              autoComplete="off"
+            />
+            {errors.nationalIDNumber && (
+              <div className="invalid-feedback">{errors.nationalIDNumber}</div>
+            )}
+          </div>
+
+          <div className="col-md-6">
+            <label htmlFor="birthDate" className="form-label fw-semibold">
+              Data de nascimento <span className="text-danger">*</span>
+            </label>
+            <input
+              id="birthDate"
+              type="date"
+              className={`form-control input-gray ${errors.birthDate ? "is-invalid" : ""}`}
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+              placeholder="YYYY-MM-DD"
+            />
+            {errors.birthDate && <div className="invalid-feedback">{errors.birthDate}</div>}
+          </div>
+
+          <div className="col-md-6">
+            <label htmlFor="maritalStatus" className="form-label fw-semibold">
+              Estado civil <span className="text-danger">*</span>
+            </label>
+            <select
+              id="maritalStatus"
+              className={`form-select input-gray ${errors.maritalStatus ? "is-invalid" : ""}`}
+              value={maritalStatus}
+              onChange={(e) => setMaritalStatus(e.target.value)}
             >
-              ✕
-            </button>
+              <option value="">Seleciona…</option>
+              <option value="S">Solteiro(a) (S)</option>
+              <option value="M">Casado(a) (M)</option>
+            </select>
+            {errors.maritalStatus && <div className="invalid-feedback">{errors.maritalStatus}</div>}
+          </div>
+
+          <div className="col-md-6">
+            <label htmlFor="gender" className="form-label fw-semibold">
+              Género <span className="text-danger">*</span>
+            </label>
+            <select
+              id="gender"
+              className={`form-select input-gray ${errors.gender ? "is-invalid" : ""}`}
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+            >
+              <option value="">Seleciona…</option>
+              <option value="M">Masculino (M)</option>
+              <option value="F">Feminino (F)</option>
+            </select>
+            {errors.gender && <div className="invalid-feedback">{errors.gender}</div>}
           </div>
         </div>
-      )}
 
-      {/* Botões */}
-      <div className="d-flex gap-2 mt-4">
-        <button
-          type="submit"
-          className="btn btn-dark flex-grow-1"
-          disabled={sending}
-        >
-          {sending ? "A enviar..." : "Enviar candidatura"}
-        </button>
-        {typeof onCancel === "function" && (
+        {/* Upload do CV */}
+        <div className="mt-3">
+          <label htmlFor="cv-input" className="form-label fw-semibold">
+            CV (PDF) <span className="text-danger">*</span>
+          </label>
+          <input
+            id="cv-input"
+            type="file"
+            accept=".pdf,application/pdf"
+            className={`form-control form-control-lg input-gray ${errors.ficheiro ? "is-invalid" : ""}`}
+            onChange={handleFileChange}
+          />
+          {errors.ficheiro && <div className="invalid-feedback">{errors.ficheiro}</div>}
+        </div>
+
+        {ficheiro && (
+          <div className="selected-file my-2">
+            <div className="file-pill" title={ficheiro.name}>
+              <span className="file-name">{ficheiro.name}</span>
+              <button
+                type="button"
+                className="btn btn-sm btn-clear"
+                onClick={() => setFicheiro(null)}
+                aria-label="Remover ficheiro selecionado"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Botões */}
+        <div className="d-flex gap-2 mt-4">
           <button
-            type="button"
-            className="btn btn-outline-secondary"
-            onClick={onCancel}
+            type="submit"
+            className="btn btn-dark flex-grow-1"
             disabled={sending}
           >
-            Cancelar
+            {sending ? "A enviar..." : "Enviar candidatura"}
           </button>
-        )}
-      </div>
-    </form>
-  );
-
-  if (variant === "embedded") {
-    return <div className="candidatura-embedded w-100" style={{ maxWidth: "640px" }}>{UploadUI}</div>;
+          {typeof onCancel === "function" && (
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={onCancel}
+              disabled={sending}
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
+      </form>
+    </div>;
   }
 
   return (

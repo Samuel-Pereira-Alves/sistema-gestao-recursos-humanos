@@ -36,11 +36,11 @@ export default function Profile() {
         const res = await fetch(
           "http://localhost:5136/api/v1/departmenthistory",
           {
-            method: "GET", 
+            method: "GET",
             headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
           }
         );
         if (!res.ok) throw new Error("Erro ao carregar departamentos");
@@ -62,10 +62,7 @@ export default function Profile() {
     return fromQuery ?? fromStorage ?? null;
   };
 
-
   useEffect(() => {
-    
-  const controller = new AbortController();
     const id = getEmployeeId();
 
     const fetchEmployee = async () => {
@@ -74,15 +71,14 @@ export default function Profile() {
         setLoading(true);
         setFetchError(null);
         const response = await fetch(
-          `http://localhost:5136/api/v1/employee/${id}`,{
-            method: "GET", 
-            headers: {
+          `http://localhost:5136/api/v1/employee/${id}`, {
+          method: "GET",
+          headers: {
             Accept: "application/json",
             Authorization: `Bearer ${token}`,
           },
-          signal: controller.signal 
-          },
-         
+        },
+
         );
         if (!response.ok)
           throw new Error(
@@ -102,32 +98,28 @@ export default function Profile() {
     };
 
     fetchEmployee();
-
-    return () =>  controller.abort();
   }, [navigate, location.search]);
 
   const handleChange = (e) => {
-  const { name, value, type, checked } = e.target;
- 
-  // Atualiza campos dentro de "person.*" (ex.: person.firstName)
-  if (name.startsWith('person.')) {
-    const key = name.split('.')[1];
+    const { name, value, type, checked } = e.target;
+
+    if (name.startsWith('person.')) {
+      const key = name.split('.')[1];
+      setEmployee((prev) => ({
+        ...prev,
+        person: {
+          ...prev.person,
+          [key]: value
+        }
+      }));
+      return;
+    }
+
     setEmployee((prev) => ({
       ...prev,
-      person: {
-        ...prev.person,
-        [key]: value
-      }
+      [name]: type === 'checkbox' ? checked : value
     }));
-    return;
-  }
- 
-  setEmployee((prev) => ({
-    ...prev,
-    [name]: type === 'checkbox' ? checked : value
-  }));
-};
- 
+  };
 
   const handleSave = async () => {
     const id = getEmployeeId();
@@ -162,11 +154,11 @@ export default function Profile() {
         `http://localhost:5136/api/v1/employee/${id}`,
         {
           method: "PATCH",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
             Authorization: `Bearer ${token}`,
-           },
+          },
           body: JSON.stringify(payload),
         }
       );
@@ -182,14 +174,15 @@ export default function Profile() {
       );
 
       const refreshResponse = await fetch(
-        `http://localhost:5136/api/v1/employee/${id}`,{
-          method: "GET", 
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        `http://localhost:5136/api/v1/employee/${id}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
       );
+      
       if (refreshResponse.ok) {
         const updated = await refreshResponse.json();
         setEmployee(updated);
@@ -503,16 +496,16 @@ export default function Profile() {
                       {employee.maritalStatus === "S"
                         ? "Solteiro(a)"
                         : employee.maritalStatus === "M"
-                        ? "Casado(a)"
-                        : employee.maritalStatus || "N/A"}
+                          ? "Casado(a)"
+                          : employee.maritalStatus || "N/A"}
                     </p>
                     <p className="mb-0">
                       <strong>Género:</strong>{" "}
                       {employee.gender === "M"
                         ? "Masculino"
                         : employee.gender === "F"
-                        ? "Feminino"
-                        : employee.gender || "N/A"}
+                          ? "Feminino"
+                          : employee.gender || "N/A"}
                     </p>
                   </div>
                 </div>

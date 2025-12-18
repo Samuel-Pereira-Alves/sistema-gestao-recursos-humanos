@@ -3,15 +3,13 @@ import { addNotificationForUser } from "../../utils/notificationBus";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
 
-/* =========================
- * Utils
- * ========================= */
 function formatDate(dateStr) {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   if (isNaN(d)) return "—";
   return d.toLocaleDateString("pt-PT");
 }
+
 function normalize(t) {
   if (!t) return "";
   return String(t)
@@ -20,6 +18,7 @@ function normalize(t) {
     .toLowerCase()
     .trim();
 }
+
 function idToString(id) {
   if (id == null) return "";
   return String(id).trim();
@@ -28,18 +27,19 @@ function dateInputToIsoMidnight(dateStr) {
   return dateStr ? `${dateStr}T00:00:00` : "";
 }
 
-/* Helpers (suportam camelCase/PascalCase) */
 const getBusinessEntityID = (h) =>
   h?.businessEntityID ??
   h?.BusinessEntityID ??
   h?.employee?.businessEntityID ??
   "";
+
 const getDepartmentID = (h) =>
   h?.departmentID ??
   h?.DepartmentID ??
   h?.department?.departmentID ??
   h?.department?.DepartmentID ??
   "";
+
 const getShiftID = (h) =>
   h?.shiftID ?? h?.ShiftID ?? h?.shift?.shiftID ?? h?.shift?.ShiftID ?? "";
 const getStartDate = (h) => h?.startDate ?? h?.StartDate ?? "";
@@ -50,24 +50,13 @@ const getDepartmentName = (h) =>
   h?.departmentName ??
   h?.DepartmentName ??
   "—";
+
 const getGroupName = (h) =>
   h?.department?.groupName ??
   h?.department?.GroupName ??
   h?.groupName ??
   h?.GroupName ??
   "—";
-
-/* API */
-const API_BASE = "http://localhost:5136/api/v1";
-const EMPLOYEE_BASE = `${API_BASE}/employee`;
-const DEPT_HISTORY_BASE = `${API_BASE}/departmenthistory`;
-
-const deptHistoryUrl = (businessEntityID, departmentID, shiftID, startDate) =>
-  `${DEPT_HISTORY_BASE}/${encodeURIComponent(
-    businessEntityID
-  )}/${encodeURIComponent(departmentID)}/${encodeURIComponent(
-    shiftID
-  )}/${encodeURIComponent(startDate)}`;
 
 const SHIFT_LABELS = { 1: "Manhã", 2: "Tarde", 3: "Noite" };
 const resolveShiftLabel = (id) => SHIFT_LABELS[Number(id)] ?? "—";
@@ -77,28 +66,24 @@ export default function Movimentos() {
   const [fetchError, setFetchError] = useState(null);
   const [items, setItems] = useState([]);
 
-  /* Departamentos: derivados dos próprios histories */
   const [departments, setDepartments] = useState([]);
-
-  // 🔎 pesquisa
   const [searchTerm, setSearchTerm] = useState("");
-  // 📄 paginação
+  
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
 
-  /* ---------- Fetch & flatten ---------- */
   const fetchData = useCallback(async () => {
     try {
       const token = localStorage.getItem("authToken");
       setLoading(true);
       setFetchError(null);
 
-      const response = await fetch(EMPLOYEE_BASE, {
-        method: "GET", 
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+      const response = await fetch("http://localhost:5136/api/v1/employee", {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
       if (!response.ok)
         throw new Error("Erro ao carregar colaboradores/departamentos");
@@ -110,18 +95,16 @@ export default function Movimentos() {
         (emp.departmentHistories ?? emp.DepartmentHistories ?? []).map(
           (dh) => ({
             ...dh,
-            employee: emp, // referência ao colaborador (Nome/ID)
+            employee: emp, 
           })
         )
       );
 
-      // Ordena por Data Início desc
       flattened.sort(
         (a, b) => new Date(getStartDate(b)) - new Date(getStartDate(a))
       );
       setItems(flattened);
 
-      // Derivar departamentos (ID + Nome) a partir dos histories carregados
       const derivedDeps = buildDerivedDepartments(flattened);
       setDepartments(derivedDeps);
     } catch (err) {
@@ -135,12 +118,10 @@ export default function Movimentos() {
     fetchData();
   }, [fetchData]);
 
-  /* ---------- Reset página ao mudar pesquisa ---------- */
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  /* ---------- Filtro ---------- */
   const rawSearch = searchTerm.trim();
   const isNumericSearch = /^\d+$/.test(rawSearch);
   const termo = normalize(searchTerm);
@@ -154,7 +135,7 @@ export default function Movimentos() {
 
       if (isNumericSearch) {
         const beid = idToString(employee.businessEntityID);
-        return beid === rawSearch; // filtra por businessEntityID (igualdade exata)
+        return beid === rawSearch; 
       }
 
       const fullName = `${normalize(person.firstName)} ${normalize(
@@ -175,18 +156,14 @@ export default function Movimentos() {
     });
   }, [items, rawSearch, termo, isNumericSearch]);
 
-  /* ---------- Paginação ---------- */
   const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
   const pageItems = filtered.slice(indexOfFirst, indexOfLast);
 
-  /* =========================
-   * CRUD (modal único Create/Edit)
-   * ========================= */
   const [action, setAction] = useState({
     open: false,
-    mode: "create", // 'create' | 'edit'
+    mode: "create", 
     loading: false,
     error: null,
     keys: {
@@ -199,8 +176,8 @@ export default function Movimentos() {
       businessEntityID: "",
       departmentID: "",
       shiftID: "",
-      startDate: "", // create: 'yyyy-MM-dd'
-      endDate: "", // create: 'yyyy-MM-dd' (opcional) | edit: ISO (mostrado como yyyy-MM-dd)
+      startDate: "", 
+      endDate: "", 
     },
   });
 
@@ -226,42 +203,34 @@ export default function Movimentos() {
     });
   };
 
-  
-function formatDateForRoute(input) {
-  // Aceita string (ex.: "2020-02-29") ou Date
-  const d = (input instanceof Date) ? input : new Date(input);
+  function formatDateForRoute(input) {
+    const d = (input instanceof Date) ? input : new Date(input);
 
-  // Validação rigorosa
-  if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
-    throw new Error("StartDate inválida. Use uma data existente (ex.: 2020-02-29).");
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
+      throw new Error("StartDate inválida. Use uma data existente (ex.: 2020-02-29).");
+    }
+
+    const pad = (n) => String(n).padStart(2, "0");
+
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    const seconds = pad(d.getSeconds());
+
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
   }
 
-  // Partes com zero à esquerda
-  const pad = (n) => String(n).padStart(2, "0");
-
-  const year = d.getFullYear();
-  const month = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hours = pad(d.getHours());
-  const minutes = pad(d.getMinutes());
-  const seconds = pad(d.getSeconds());
-
-  // "YYYY-MM-DDTHH:mm:ss" (sem milissegundos e timezone)
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-}
-
-
-const openDelete = async (h) => {
-  
+  const openDelete = async (h) => {
     try {
-      
       const ok = window.confirm('Tem a certeza que deseja apagar este registo?');
       if (!ok) return;
 
       const beid = getBusinessEntityID(h);
       const depId = getDepartmentID(h);
-      const shId  = getShiftID(h);
-      const date  = getStartDate(h);
+      const shId = getShiftID(h);
+      const date = getStartDate(h);
       const formatDate = formatDateForRoute(date);
 
       const token = localStorage.getItem("authToken");
@@ -269,23 +238,22 @@ const openDelete = async (h) => {
         `http://localhost:5136/api/v1/departmenthistory/${beid}/${depId}/${shId}/${formatDate}`;
 
       const resp = await fetch(url, {
-        method: "DELETE", 
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+        method: "DELETE",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (!resp.ok) {
         const text = await resp.text().catch(() => "");
         throw new Error(text || `Falha ao apagar registo (HTTP ${resp.status}).`);
       }
-      await fetchData(); 
+      await fetchData();
     } catch (e) {
       window.alert("Erro", e.message || "Erro ao apagar registo.", "error");
     }
   };
-
 
   const openEdit = (h) => {
     const beid = getBusinessEntityID(h);
@@ -325,7 +293,6 @@ const openDelete = async (h) => {
       const { mode, form, keys } = action;
 
       if (mode === "create") {
-        // validações mínimas
         const businessEntityID = Number(form.businessEntityID);
         const departmentID = Number(form.departmentID);
         const shiftID = Number(form.shiftID);
@@ -344,8 +311,8 @@ const openDelete = async (h) => {
 
         const token = localStorage.getItem("authToken");
 
-        const resp = await fetch(`${DEPT_HISTORY_BASE}`, {
-          method: "POST", 
+        const resp = await fetch(`http://localhost:5136/api/v1/departmenthistory`, {
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -356,8 +323,6 @@ const openDelete = async (h) => {
         if (!resp.ok)
           throw new Error((await resp.text()) || "Falha ao criar registo.");
       } else {
-        // EDIT: PATCH /departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
-        // Atualizamos apenas campos não-chave (ex.: endDate).
         const { businessEntityID, departmentID, shiftID, startDate } = keys;
         if (!businessEntityID || !departmentID || !shiftID || !startDate)
           throw new Error("Chaves do registo em falta.");
@@ -365,15 +330,14 @@ const openDelete = async (h) => {
         const patchBody = {
           endDate: form.endDate ? form.endDate : null,
         };
-        
+
         const token = localStorage.getItem("authToken");
-        const resp = await fetch(
-          deptHistoryUrl(businessEntityID, departmentID, shiftID, startDate),
+        const resp = await fetch(`http://localhost:5136/api/v1/departmenthistory/${businessEntityID}/${departmentID}/${shiftID}/${startDate}`,
           {
-            method: "PATCH", 
+            method: "PATCH",
             headers: {
               "Content-Type": "application/json",
-               Accept: "application/json",
+              Accept: "application/json",
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(patchBody),
@@ -394,7 +358,6 @@ const openDelete = async (h) => {
     }
   };
 
-  /* ---------- Util: derivar departamentos a partir dos histories ---------- */
   function buildDerivedDepartments(list) {
     const map = new Map();
     list.forEach((h) => {
@@ -405,7 +368,6 @@ const openDelete = async (h) => {
         if (!map.has(key)) {
           map.set(key, { departmentID: key, name });
         } else {
-          // Se o nome vier vazio "—" numa entrada e noutra vier preenchido, atualiza
           const existing = map.get(key);
           if (
             (!existing.name || existing.name === "—") &&
@@ -431,9 +393,6 @@ const openDelete = async (h) => {
     return dep?.name ?? "—";
   };
 
-  /* =========================
-   * UI
-   * ========================= */
   return (
     <div className="container mt-4">
       <BackButton />
@@ -500,7 +459,6 @@ const openDelete = async (h) => {
                       const start = getStartDate(h);
                       const end = getEndDate(h);
 
-                      // chave estável por linha
                       const key = `${getBusinessEntityID(h)}|${getDepartmentID(
                         h
                       )}|${getShiftID(h)}|${start}`;
@@ -582,12 +540,12 @@ const openDelete = async (h) => {
                         >
                           Editar
                         </button>
-                         <button
-                              className="btn btn-sm btn-outline-danger ms-2"
-                              onClick={() => openDelete(h)}
-                            >
-                              Apagar
-                            </button>
+                        <button
+                          className="btn btn-sm btn-outline-danger ms-2"
+                          onClick={() => openDelete(h)}
+                        >
+                          Apagar
+                        </button>
                       </div>
                     </div>
                   );
@@ -605,29 +563,29 @@ const openDelete = async (h) => {
               )}
 
               {/* Pagination */}
-                <div className="border-top p-3">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      type="button"
-                    >
-                      ← Anterior
-                    </button>
-                    <span className="text-muted small">
-                      Página {currentPage} de {totalPages}
-                    </span>
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      type="button"
-                    >
-                      Próxima →
-                    </button>
-                  </div>
+              <div className="border-top p-3">
+                <div className="d-flex justify-content-between align-items-center">
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    type="button"
+                  >
+                    ← Anterior
+                  </button>
+                  <span className="text-muted small">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    type="button"
+                  >
+                    Próxima →
+                  </button>
                 </div>
+              </div>
             </>
           )}
         </div>
@@ -687,7 +645,6 @@ const openDelete = async (h) => {
                         />
                       </div>
 
-                      {/* DepartmentID como dropdown (derivado dos histories) */}
                       <div className="col-6">
                         <label className="form-label">Departamento</label>
                         <select
@@ -712,7 +669,6 @@ const openDelete = async (h) => {
                         </select>
                       </div>
 
-                      {/* ShiftID como dropdown fixo */}
                       <div className="col-6">
                         <label className="form-label">Turno</label>
                         <select
@@ -766,7 +722,6 @@ const openDelete = async (h) => {
                     </>
                   ) : (
                     <>
-                      {/* Chaves (read-only) */}
                       <div className="col-6">
                         <label className="form-label">BusinessEntityID</label>
                         <input
@@ -776,9 +731,7 @@ const openDelete = async (h) => {
                           readOnly
                         />
                       </div>
-                      
 
-                      {/* Mostrar nome do Departamento resolvido por ID */}
                       <div className="col-6">
                         <label className="form-label">Departamento</label>
                         <input
@@ -791,9 +744,6 @@ const openDelete = async (h) => {
                         />
                       </div>
 
-                      
-
-                      {/* Mostrar label do Shift */}
                       <div className="col-6">
                         <label className="form-label">Turno</label>
                         <input
@@ -816,7 +766,6 @@ const openDelete = async (h) => {
                         />
                       </div>
 
-                      {/* Campo editável */}
                       <div className="col-6">
                         <label className="form-label">Data Fim</label>
                         <input
@@ -863,8 +812,8 @@ const openDelete = async (h) => {
                       ? "A criar..."
                       : "A guardar..."
                     : action.mode === "create"
-                    ? "Criar registo"
-                    : "Guardar alterações"}
+                      ? "Criar registo"
+                      : "Guardar alterações"}
                 </button>
               </div>
             </div>
