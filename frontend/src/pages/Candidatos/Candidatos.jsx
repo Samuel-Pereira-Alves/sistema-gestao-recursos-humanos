@@ -7,49 +7,43 @@ export default function Candidatos() {
   const [candidatos, setCandidatos] = useState([]);
   const [error, setError] = useState("");
 
-  const API_BASE = "http://localhost:5136";
-
   const fetchCandidatos = async () => {
-      try {
-        const token = localStorage.getItem("authToken");
-        setIsLoading(true);
-        setError("");
-        const res = await fetch(`${API_BASE}/api/v1/jobcandidate`, {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (!res.ok)
-          throw new Error(`Falha ao obter candidatos (${res.status})`);
-        const data = await res.json();
+    try {
+      const token = localStorage.getItem("authToken");
+      setIsLoading(true);
+      setError("");
+      const res = await fetch("http://localhost:5136/api/v1/jobcandidate", {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok)
+        throw new Error(`Falha ao obter candidatos (${res.status})`);
+      const data = await res.json();
 
-        // Mapeia também o URL do PDF
-        const mapped = (data || []).map((d) => ({
-          id: d.jobCandidateId,
-          numero: d.jobCandidateId,
-          nome: d.firstName + " " + d.lastName,
-          cvXml: d.resume || "",
-          cvPdfUrl: d.cvFileUrl ? `${API_BASE}${d.cvFileUrl}` : "",
-        }));
+      const mapped = (data || []).map((d) => ({
+        id: d.jobCandidateId,
+        numero: d.jobCandidateId,
+        nome: d.firstName + " " + d.lastName,
+        cvXml: d.resume || "",
+        cvPdfUrl: d.cvFileUrl ? `"http://localhost:5136/"${d.cvFileUrl}` : "",
+      }));
 
-        setCandidatos(mapped);
-      } catch (e) {
-        console.error(e);
-        setError("Não foi possível carregar os candidatos.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      setCandidatos(mapped);
+    } catch (e) {
+      console.error(e);
+      setError("Não foi possível carregar os candidatos.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  // Carregar candidatos da API
   useEffect(() => {
-    
     fetchCandidatos();
   }, []);
 
-  // Pesquisa
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -64,7 +58,6 @@ export default function Candidatos() {
     );
   }, [candidatos, searchTerm]);
 
-  // Paginação
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
   const current = filtered.slice(indexOfFirst, indexOfLast);
@@ -74,12 +67,11 @@ export default function Candidatos() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  // Abrir PDF numa nova aba (com fallback se o popup for bloqueado)
+  // Abrir PDF numa nova aba 
   const abrirCvPdf = (url) => {
     if (!url) return alert("CV PDF não disponível.");
     const win = window.open(url, "_blank", "noopener,noreferrer");
     if (!win) {
-      // Fallback: criar link temporário caso o browser bloqueie window.open
       const a = document.createElement("a");
       a.href = url;
       a.target = "_blank";
@@ -90,12 +82,11 @@ export default function Candidatos() {
     }
   };
 
-  //Aprovar candidato (simulação)
   const aprovarCandidato = async (id) => {
     try {
       const token = localStorage.getItem("authToken");
       setIsLoading(true);
-      const res = await fetch(`${API_BASE}/api/v1/employee/approve/${id}`, {
+      const res = await fetch(`http://localhost:5136/api/v1/employee/approve/${id}`, {
         headers: {
           Accept: "application/json",
           Authorization: `Bearer ${token}`,
@@ -107,7 +98,7 @@ export default function Candidatos() {
         fetchCandidatos();
       }
       else {
-        throw new Error(`Falha ao aprovar candidato (HTTP ${res.status}).`);
+        throw new Error(`Falha ao aprovar candidato`);
       }
     } catch (err) {
 
@@ -123,7 +114,7 @@ export default function Candidatos() {
       setIsLoading(true);
       setError("");
       const token = localStorage.getItem("authToken");
-      const res = await fetch(`${API_BASE}/api/v1/jobcandidate/${id}`, {
+      const res = await fetch(`http://localhost:5136/api/v1/jobcandidate/${id}`, {
         method: "DELETE",
         headers: {
           Accept: "application/json",
@@ -346,4 +337,3 @@ export default function Candidatos() {
     </div>
   );
 };
-

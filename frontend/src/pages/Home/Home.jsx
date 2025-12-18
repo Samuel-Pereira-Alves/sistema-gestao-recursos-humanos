@@ -1,37 +1,31 @@
-
-// src/pages/HomePage.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
 import Navbar from "../../components/Navbar/Navbar";
 import Form from "../Form/FormPage";
 
 function Home() {
-  
-  const [role, setRole] = useState(localStorage.getItem("role") || null);
 
-  
+  const [role, setRole] = useState(localStorage.getItem("role") || null);
   const [mostrarForm, setMostrarForm] = useState(false);
 
   const location = useLocation();
   const cardRef = useRef(null);
 
-  
   useEffect(() => {
     if (location.state?.openCandidatura && !role) {
       setMostrarForm(true);
-      
+
       window.history.replaceState({}, document.title);
-      
+
       setTimeout(() => cardRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
     }
   }, [location.state, role]);
 
-  
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === "role") {
         setRole(e.newValue || null);
-        
+
         if (e.newValue) setMostrarForm(false);
       }
     };
@@ -39,7 +33,6 @@ function Home() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  
   const abrirForm = () => {
     if (!role) setMostrarForm(true);
   };
@@ -48,17 +41,13 @@ function Home() {
   return (
     <div>
       <Navbar />
-
       <main className="container" style={{ marginTop: "80px", marginBottom: "80px" }}>
         <h2 className="mt-4">Bem-vindo ao Sistema de Gestão de RH</h2>
 
         <div className="my-5" />
-
-        
         {!role && (
           <div className="card mt-5" style={{ backgroundColor: "#f1f3f5" }} ref={cardRef}>
             <div className="card-body" style={{ maxWidth: 800, margin: "0 auto" }}>
-              
               {!mostrarForm && (
                 <>
                   <h5 className="card-title">Candidatura espontânea</h5>
@@ -76,7 +65,6 @@ function Home() {
                 </>
               )}
 
-              
               {mostrarForm && (
                 <div id="form-candidatura" className="mt-3">
                   <Form hideNavbar variant="embedded" onCancel={fecharForm} />
@@ -85,8 +73,6 @@ function Home() {
             </div>
           </div>
         )}
-
-        
         {role && (
           <section className="mt-5">
             <h5>Área do colaborador</h5>
@@ -124,12 +110,11 @@ function Home() {
           </section>
         )}
 
-        
         {role === "admin" && (
           <section className="mt-4">
             <h5>Área de administração</h5>
             <div className="row g-3 mt-2">
-              
+
               <div className="col-md-4">
                 <div className="card h-100">
                   <div className="card-body">

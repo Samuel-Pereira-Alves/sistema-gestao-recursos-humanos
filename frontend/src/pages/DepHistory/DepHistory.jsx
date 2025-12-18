@@ -3,13 +3,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
 
-/* Utils */
 function formatDate(dateStr) {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   if (isNaN(d)) return "—";
   return d.toLocaleDateString("pt-PT");
 }
+
 function normalizarTexto(str) {
   return (str || "")
     .normalize("NFD")
@@ -38,10 +38,7 @@ export default function DepartmentHistoryList() {
       return;
     }
 
-
     async function load() {
-      
-
       setLoading(true);
       setFetchError(null);
       const token = localStorage.getItem("authToken");
@@ -85,7 +82,6 @@ export default function DepartmentHistoryList() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  // Filtro por nome do departamento / grupo (insensível a acentos)
   const termo = normalizarTexto(searchTerm);
   const filteredDepartamentos = useMemo(() => {
     return departamentos.filter((d) => {
@@ -95,7 +91,6 @@ export default function DepartmentHistoryList() {
     });
   }, [departamentos, termo]);
 
-  // Paginação
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
   const currentDepartamentos = filteredDepartamentos.slice(indexOfFirst, indexOfLast);

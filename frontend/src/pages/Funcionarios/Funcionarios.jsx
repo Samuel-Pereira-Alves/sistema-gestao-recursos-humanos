@@ -45,12 +45,6 @@ function Funcionarios() {
     fetchFuncionarios();
   }, []);
 
-  const handleEditClick = (funcionario) => {
-    setSelectedFuncionario(funcionario);
-    setShowModal(true);
-  };
-
-  // Eliminar
   const [deleteLoadingId, setDeleteLoadingId] = useState(null);
 
   const handleDelete = async (p) => {
@@ -143,7 +137,6 @@ function Funcionarios() {
     return escolhido?.department?.name ?? "Departamento desconhecido";
   }
 
-  // Paginação
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
   const currentFuncionarios = filteredFuncionarios.slice(
@@ -201,7 +194,7 @@ function Funcionarios() {
                     </thead>
                     <tbody>
                       {currentFuncionarios.map((f) => {
-                        const id = f.businessEntityID ?? f.id; // usa o ID que estiver disponível
+                        const id = f.businessEntityID ?? f.id; 
                         const isDeleting =
                           String(deleteLoadingId) === String(id);
 
@@ -243,7 +236,7 @@ function Funcionarios() {
                 {/* Mobile Cards */}
                 <div className="d-md-none">
                   {currentFuncionarios.map((f) => (
-                    <div key={f.id} className="border-bottom p-3">
+                    <div key={f.businessEntityID} className="border-bottom p-3">
                       <h6 className="mb-1">{getNomeCompleto(f)}</h6>
                       <p className="text-muted small mb-1">{f.jobTitle}</p>
                       <p className="text-muted small mb-3">
@@ -377,4 +370,3 @@ function Funcionarios() {
 }
 
 export default Funcionarios;
-``;

@@ -1,13 +1,6 @@
-
-// src/store/notificationBus.js
-
-let _notifications = []; // array de strings ou objetos, simples para já
+let _notifications = []; 
 let _subscribers = new Set();
 
-/**
- * Adiciona uma notificação (string simples).
- * Ex.: addNotification("teste");
- */
 export function addNotification(message, role) {
   fetch(`http://localhost:5136/api/v1/notification/${role}`, {
     method: 'POST',
@@ -39,7 +32,6 @@ export function addNotificationForUser(message, id) {
   _emit();
 }
 
-/** Limpa todas as notificações */
 export async function clearNotifications() {
   const token = localStorage.getItem("authToken");
   for (const n of _notifications) {
@@ -57,7 +49,6 @@ export async function clearNotifications() {
   _emit();
 }
 
-/** (Opcional) remove por índice */
 export async function removeNotifications() {
   const token = localStorage.getItem("authToken");
 
@@ -73,7 +64,6 @@ export async function removeNotifications() {
   });
   _emit();
 }
-
 
 export async function syncNotificationsFromServer() {
   const token = localStorage.getItem("authToken");
@@ -110,7 +100,6 @@ function _emit() {
 /** Subscreve para receber atualizações */
 export function subscribe(listener) {
   _subscribers.add(listener);
-  // devolve unsubscribe
   return () => {
     _subscribers.delete(listener);
   };
