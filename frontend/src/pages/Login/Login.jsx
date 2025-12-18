@@ -99,7 +99,7 @@ function Login() {
 
 
             <button
-              type="submit"spereira
+              type="submit"
               className="btn btn-gray btn-lg w-100"
               disabled={loading}
             >
