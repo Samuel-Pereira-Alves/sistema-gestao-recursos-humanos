@@ -1,0 +1,4 @@
+
+.nav-item.dropstart .dropdown-menu {
+  right: calc(100% + 16px); 
+}

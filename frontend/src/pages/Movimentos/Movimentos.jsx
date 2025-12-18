@@ -89,11 +89,16 @@ export default function Movimentos() {
   /* ---------- Fetch & flatten ---------- */
   const fetchData = useCallback(async () => {
     try {
+      const token = localStorage.getItem("authToken");
       setLoading(true);
       setFetchError(null);
 
       const response = await fetch(EMPLOYEE_BASE, {
-        headers: { Accept: "application/json" },
+        method: "GET", 
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
       });
       if (!response.ok)
         throw new Error("Erro ao carregar colaboradores/departamentos");
@@ -259,15 +264,16 @@ const openDelete = async (h) => {
       const date  = getStartDate(h);
       const formatDate = formatDateForRoute(date);
 
+      const token = localStorage.getItem("authToken");
       const url =
         `http://localhost:5136/api/v1/departmenthistory/${beid}/${depId}/${shId}/${formatDate}`;
 
       const resp = await fetch(url, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+        method: "DELETE", 
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       });
 
       if (!resp.ok) {
@@ -336,11 +342,14 @@ const openDelete = async (h) => {
           endDate: form.endDate ? dateInputToIsoMidnight(form.endDate) : null,
         };
 
+        const token = localStorage.getItem("authToken");
+
         const resp = await fetch(`${DEPT_HISTORY_BASE}`, {
-          method: "POST",
+          method: "POST", 
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(body),
         });
@@ -356,14 +365,16 @@ const openDelete = async (h) => {
         const patchBody = {
           endDate: form.endDate ? form.endDate : null,
         };
-
+        
+        const token = localStorage.getItem("authToken");
         const resp = await fetch(
           deptHistoryUrl(businessEntityID, departmentID, shiftID, startDate),
           {
-            method: "PATCH",
+            method: "PATCH", 
             headers: {
               "Content-Type": "application/json",
-              Accept: "application/json",
+               Accept: "application/json",
+              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(patchBody),
           }
@@ -594,13 +605,13 @@ const openDelete = async (h) => {
               )}
 
               {/* Pagination */}
-              {!!pageItems.length && (
-                <div className="border-top p-3 d-flex flex-wrap gap-2 justify-content-between align-items-center">
-                  <div className="d-flex align-items-center gap-2">
+                <div className="border-top p-3">
+                  <div className="d-flex justify-content-between align-items-center">
                     <button
                       className="btn btn-sm btn-outline-secondary"
                       disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((p) => p - 1)}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      type="button"
                     >
                       ← Anterior
                     </button>
@@ -610,13 +621,13 @@ const openDelete = async (h) => {
                     <button
                       className="btn btn-sm btn-outline-secondary"
                       disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((p) => p + 1)}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      type="button"
                     >
                       Próxima →
                     </button>
                   </div>
                 </div>
-              )}
             </>
           )}
         </div>

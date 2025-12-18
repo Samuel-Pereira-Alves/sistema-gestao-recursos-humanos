@@ -5,8 +5,7 @@ import {
   getNotifications,
   clearNotifications,
   syncNotificationsFromServer,
-} from "/";
-import { subscribe } from "../../utils/notificationBus";
+} from "../../utils/notificationBus";
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);

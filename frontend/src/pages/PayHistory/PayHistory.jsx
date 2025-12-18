@@ -55,12 +55,15 @@ export default function PayHistoryList() {
     const controller = new AbortController();
 
     async function load() {
+      const token = localStorage.getItem("authToken");
       setLoading(true);
       setFetchError(null);
       try {
         const res = await fetch(`http://localhost:5136/api/v1/employee/${id}`, {
           signal: controller.signal,
-          headers: { Accept: "application/json" },
+          headers: { Accept: "application/json",
+                    "Authorization": `Bearer ${token}`,
+           },
         });
         if (!res.ok)
           throw new Error(`Erro ao carregar pagamentos (HTTP ${res.status})`);
@@ -230,75 +233,28 @@ export default function PayHistoryList() {
                 </div>
 
                 {/* Pagination */}
-                <div className="d-flex justify-content-between align-items-center mt-3 px-3 pb-3">
-                  <div className="small text-muted">
-                    A mostrar {currentPayments.length} de {payments.length}
+                <div className="border-top p-3">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <button
+                      className="btn btn-sm btn-outline-secondary"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      type="button"
+                    >
+                      ← Anterior
+                    </button>
+                    <span className="text-muted small">
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <button
+                      className="btn btn-sm btn-outline-secondary"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      type="button"
+                    >
+                      Próxima →
+                    </button>
                   </div>
-                  <nav aria-label="Paginação">
-                    <ul className="pagination mb-0">
-                      <li
-                        className={`page-item ${
-                          currentPage === 1 ? "disabled" : ""
-                        }`}
-                      >
-                        <button
-                          className="page-link"
-                          onClick={() => setCurrentPage(1)}
-                          aria-label="Primeira"
-                        >
-                          «
-                        </button>
-                      </li>
-                      <li
-                        className={`page-item ${
-                          currentPage === 1 ? "disabled" : ""
-                        }`}
-                      >
-                        <button
-                          className="page-link"
-                          onClick={() =>
-                            setCurrentPage((p) => Math.max(1, p - 1))
-                          }
-                          aria-label="Anterior"
-                        >
-                          ‹
-                        </button>
-                      </li>
-                      <li className="page-item disabled">
-                        <span className="page-link">
-                          Página {currentPage} de {totalPages}
-                        </span>
-                      </li>
-                      <li
-                        className={`page-item ${
-                          currentPage >= totalPages ? "disabled" : ""
-                        }`}
-                      >
-                        <button
-                          className="page-link"
-                          onClick={() =>
-                            setCurrentPage((p) => Math.min(totalPages, p + 1))
-                          }
-                          aria-label="Seguinte"
-                        >
-                          ›
-                        </button>
-                      </li>
-                      <li
-                        className={`page-item ${
-                          currentPage >= totalPages ? "disabled" : ""
-                        }`}
-                      >
-                        <button
-                          className="page-link"
-                          onClick={() => setCurrentPage(totalPages)}
-                          aria-label="Última"
-                        >
-                          »
-                        </button>
-                      </li>
-                    </ul>
-                  </nav>
                 </div>
               </>
             )}

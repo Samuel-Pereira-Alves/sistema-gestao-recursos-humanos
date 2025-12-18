@@ -27,8 +27,15 @@ function Navbar() {
     async function loadUserName() {
       if (!isLoggedIn || !businessEntityId) return;
       try {
+        const token = localStorage.getItem("authToken");
         setLoadingName(true);
-        const res = await fetch(`http://localhost:5136/api/v1/employee/${businessEntityId}`);
+        const res = await fetch(`http://localhost:5136/api/v1/employee/${businessEntityId}`, {
+          method: "GET", 
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (!res.ok) throw new Error(`Falha ao obter utilizador (HTTP ${res.status})`);
         const data = await res.json();
         const first = data?.person?.firstName || "";

@@ -46,7 +46,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // POST: api/v1/notification/{role}
         // Creates one notification per user that has the given role
         [HttpPost("{role}")]
-        [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> CreateForRole(string role, [FromBody] NotificationDto dto)
         {
             if (string.IsNullOrWhiteSpace(role)) return BadRequest("Role is required.");

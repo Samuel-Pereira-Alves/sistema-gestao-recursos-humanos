@@ -50,10 +50,10 @@ export default function Pagamentos() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
 
-  
+
   const [searchTerm, setSearchTerm] = useState("");
 
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
 
@@ -65,8 +65,13 @@ export default function Pagamentos() {
       setLoading(true);
       setFetchError(null);
 
+      const token = localStorage.getItem("authToken")
+
       const response = await fetch("http://localhost:5136/api/v1/employee", {
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
       });
       if (!response.ok) throw new Error("Erro ao carregar movimentações");
 
@@ -76,7 +81,7 @@ export default function Pagamentos() {
       const flattened = employees.flatMap((emp) =>
         (emp.payHistories ?? []).map((ph) => ({
           ...ph,
-          employee: emp, 
+          employee: emp,
         }))
       );
 
@@ -136,7 +141,7 @@ export default function Pagamentos() {
     });
   }, [pagamentos, rawSearch, termo, isNumericSearch]);
 
-  
+
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
   const currentPagamentos = pagamentosFiltrados.slice(
@@ -164,7 +169,7 @@ export default function Pagamentos() {
 
   const openEdit = (p) => {
     const businessEntityID =
-      p.businessEntityID ?? p.employee?.businessEntityID ?? ""; 
+      p.businessEntityID ?? p.employee?.businessEntityID ?? "";
     const rateChangeDate = p.rateChangeDate ?? "";
 
     setEditKeys({ businessEntityID: String(businessEntityID), rateChangeDate });
@@ -187,16 +192,18 @@ export default function Pagamentos() {
       )}/${encodeURIComponent(rateChangeDate)}`;
 
       const body = {
-    
+
         rate: Number(editForm.rate),
         payFrequency: Number(editForm.payFrequency),
       };
 
+      const token = localStorage.getItem("authToken");
+
       const resp = await fetch(url, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+        headers: {"Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(body),
       });
@@ -205,9 +212,8 @@ export default function Pagamentos() {
         const text = await resp.text();
         throw new Error(text || "Falha ao editar registo.");
       }
-    
-      
-      await fetchPagamentos(); 
+
+      await fetchPagamentos();
       setEditOpen(false);
     } catch (e) {
       setEditError(e.message || "Erro ao editar registo.");
@@ -217,7 +223,7 @@ export default function Pagamentos() {
   };
 
   // Eliminar
-  const [deleteLoadingId, setDeleteLoadingId] = useState(null); 
+  const [deleteLoadingId, setDeleteLoadingId] = useState(null);
 
   const handleDelete = async (p) => {
     const businessEntityID =
@@ -230,8 +236,7 @@ export default function Pagamentos() {
     }
 
     const confirm = window.confirm(
-      `Eliminar registo de pay history do colaborador ${
-        p.employee?.person?.firstName
+      `Eliminar registo de pay history do colaborador ${p.employee?.person?.firstName
       } ${p.employee?.person?.lastName} com data ${formatDate(rateChangeDate)}?`
     );
     if (!confirm) return;
@@ -241,8 +246,16 @@ export default function Pagamentos() {
     )}/${encodeURIComponent(rateChangeDate)}`;
 
     try {
+      const token = localStorage.getItem("authToken");
       setDeleteLoadingId(`${businessEntityID}|${rateChangeDate}`);
-      const resp = await fetch(url, { method: "DELETE" }); 
+      const resp = await fetch(url, { 
+        method: "DELETE" ,
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+      });
       if (!resp.ok) {
         const text = await resp.text();
         throw new Error(text || "Falha ao eliminar registo.");
@@ -289,17 +302,20 @@ export default function Pagamentos() {
 
       const body = {
         businessEntityID: Number(createForm.businessEntityID),
-        rateChangeDate: dateInputToIsoMidnight(createForm.rateChangeDate), 
+        rateChangeDate: dateInputToIsoMidnight(createForm.rateChangeDate),
         rate: Number(createForm.rate),
         payFrequency: Number(createForm.payFrequency),
       };
 
+      const token = localStorage.getItem("authToken");
+
       const resp = await fetch("http://localhost:5136/api/v1/payhistory", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         body: JSON.stringify(body),
       });
 
@@ -307,7 +323,7 @@ export default function Pagamentos() {
         const text = await resp.text();
         throw new Error(text || "Falha ao criar registo.");
       }
-      
+
       addNotificationForUser("O seu registo foi atualizado com sucesso.", editKeys.businessEntityID);
 
       await fetchPagamentos();
@@ -337,7 +353,7 @@ export default function Pagamentos() {
               setCreateOpen(true);
             }}
           >
-             Criar registo
+            Criar registo
           </button>
         )}
       </div>
@@ -388,9 +404,8 @@ export default function Pagamentos() {
                   </thead>
                   <tbody>
                     {currentPagamentos.map((p) => {
-                      const key = `${
-                        p.businessEntityID ?? p.employee?.businessEntityID
-                      }|${p.rateChangeDate}`;
+                      const key = `${p.businessEntityID ?? p.employee?.businessEntityID
+                        }|${p.rateChangeDate}`;
                       const deleting = deleteLoadingId === key;
 
                       return (
@@ -438,9 +453,8 @@ export default function Pagamentos() {
               {/* Mobile Cards */}
               <div className="d-md-none">
                 {currentPagamentos.map((p) => {
-                  const key = `${
-                    p.businessEntityID ?? p.employee?.businessEntityID
-                  }|${p.rateChangeDate}`;
+                  const key = `${p.businessEntityID ?? p.employee?.businessEntityID
+                    }|${p.rateChangeDate}`;
                   const deleting = deleteLoadingId === key;
 
                   return (
@@ -497,14 +511,14 @@ export default function Pagamentos() {
                 </div>
               )}
 
-              {/* Pagination + botão criar em baixo */}
-              {!!currentPagamentos.length && (
-                <div className="border-top p-3 d-flex flex-wrap gap-2 justify-content-between align-items-center">
-                  <div className="d-flex align-items-center gap-2">
+              {/* Pagination */}
+                <div className="border-top p-3">
+                  <div className="d-flex justify-content-between align-items-center">
                     <button
                       className="btn btn-sm btn-outline-secondary"
                       disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((p) => p - 1)}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      type="button"
                     >
                       ← Anterior
                     </button>
@@ -514,14 +528,13 @@ export default function Pagamentos() {
                     <button
                       className="btn btn-sm btn-outline-secondary"
                       disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((p) => p + 1)}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      type="button"
                     >
                       Próxima →
                     </button>
                   </div>
-
                 </div>
-              )}
             </>
           )}
         </div>

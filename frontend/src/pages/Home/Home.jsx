@@ -79,7 +79,7 @@ function Home() {
               
               {mostrarForm && (
                 <div id="form-candidatura" className="mt-3">
-                  <FormPage hideNavbar variant="embedded" onCancel={fecharForm} />
+                  <Form hideNavbar variant="embedded" onCancel={fecharForm} />
                 </div>
               )}
             </div>
