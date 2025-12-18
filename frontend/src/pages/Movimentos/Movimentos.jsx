@@ -68,7 +68,7 @@ export default function Movimentos() {
 
   const [departments, setDepartments] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
 
@@ -95,7 +95,7 @@ export default function Movimentos() {
         (emp.departmentHistories ?? emp.DepartmentHistories ?? []).map(
           (dh) => ({
             ...dh,
-            employee: emp, 
+            employee: emp,
           })
         )
       );
@@ -135,7 +135,7 @@ export default function Movimentos() {
 
       if (isNumericSearch) {
         const beid = idToString(employee.businessEntityID);
-        return beid === rawSearch; 
+        return beid === rawSearch;
       }
 
       const fullName = `${normalize(person.firstName)} ${normalize(
@@ -163,7 +163,7 @@ export default function Movimentos() {
 
   const [action, setAction] = useState({
     open: false,
-    mode: "create", 
+    mode: "create",
     loading: false,
     error: null,
     keys: {
@@ -176,8 +176,8 @@ export default function Movimentos() {
       businessEntityID: "",
       departmentID: "",
       shiftID: "",
-      startDate: "", 
-      endDate: "", 
+      startDate: "",
+      endDate: "",
     },
   });
 
@@ -480,18 +480,20 @@ export default function Movimentos() {
                             {formatDate(end)}
                           </td>
                           <td className="px-4 py-3 text-end">
-                            <button
-                              className="btn btn-sm btn-outline-primary"
-                              onClick={() => openEdit(h)}
-                            >
-                              Editar
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-danger ms-2"
-                              onClick={() => openDelete(h)}
-                            >
-                              Apagar
-                            </button>
+                            <div className="btn-group btn-group-sm">
+                              <button
+                                className="btn btn-outline-primary"
+                                onClick={() => openEdit(h)}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                className="btn btn-outline-danger"
+                                onClick={() => openDelete(h)}
+                              >
+                                Eliminar
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );

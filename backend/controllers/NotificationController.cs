@@ -149,7 +149,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         // GET: api/v1/notification/by-entity/{businessEntityId}
-
         [HttpGet("by-entity/{businessEntityId}")]
         [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> GetByBusinessEntityID(int businessEntityId)
@@ -257,7 +256,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
         }
 
-        
         // DELETE: api/v1/notification/{id}
         [HttpDelete("{id:int}")]
         [Authorize(Roles ="admin, employee")]

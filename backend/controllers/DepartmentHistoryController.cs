@@ -289,7 +289,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     var now = DateTime.Now;
                     foreach (var movement in lastMovements)
                     {
-                        movement.EndDate = now;
+                        movement.EndDate = dto.StartDate;
                         movement.ModifiedDate = now;
                     }
                 }
