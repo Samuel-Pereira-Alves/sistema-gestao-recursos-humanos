@@ -294,9 +294,7 @@ export default function Pagamentos() {
         const text = await resp.text();
         throw new Error(text || "Falha ao criar registo.");
       }
-      console.log(editKeys.businessEntityID);
-      addNotificationForUser("O seu registo foi atualizado com sucesso.", editKeys.businessEntityID);
-
+      
       await fetchPagamentos();
       setCreateOpen(false);
       resetCreateForm();
