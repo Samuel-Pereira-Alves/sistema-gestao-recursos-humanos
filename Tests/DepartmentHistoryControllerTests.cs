@@ -69,7 +69,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedBasicData(ctx, addHistory: false);
 
             var mapperMock = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapperMock.Object);
+            var controller = new DepartmentHistoryController(ctx, mapperMock.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
 
             var dto = new DepartmentHistoryDto
             {
@@ -94,7 +94,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedBasicData(ctx, startDate: start, addHistory: true);
 
             var mapperMock = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapperMock.Object);
+            var controller = new DepartmentHistoryController(ctx, mapperMock.Object,MapperMockFactory.CreateLoggerMockDepartment().Object);
 
             var dto = new DepartmentHistoryDto
             {
@@ -121,7 +121,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedBasicData(ctx, startDate: start, addHistory: true);
 
             var mapperMock = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapperMock.Object);
+            var controller = new DepartmentHistoryController(ctx, mapperMock.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
 
             var result = await controller.Delete(100, 1, 1, start);
 

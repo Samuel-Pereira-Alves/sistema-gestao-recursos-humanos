@@ -354,5 +354,28 @@ namespace sistema_gestao_recursos_humanos.Tests.Utils
         {
             return new Mock<ILogger<JobCandidateController>>(MockBehavior.Loose);
         }
+
+        public static Mock<ILogger<NotificationController>> CreateLoggerMockNotification()
+        {
+            return new Mock<ILogger<NotificationController>>(MockBehavior.Loose);
+        }
+        public static Mock<ILogger<AuthController>> CreateLoggerMockAuth()
+        {
+            return new Mock<ILogger<AuthController>>(MockBehavior.Loose);
+        }
+        public static Mock<ILogger<DepartmentHistoryController>> CreateLoggerMockDepartment()
+        {
+            return new Mock<ILogger<DepartmentHistoryController>>(MockBehavior.Loose);
+        }
+        public static Mock<ILogger<EmployeeController>> CreateLoggerMockEmployee()
+        {
+            return new Mock<ILogger<EmployeeController>>(MockBehavior.Loose);
+        }
+
+        public static Mock<ILogger<PayHistoryController>> CreateLoggerMockPayHistory()
+        {
+            return new Mock<ILogger<PayHistoryController>>(MockBehavior.Loose);
+        }
+
     }
 }

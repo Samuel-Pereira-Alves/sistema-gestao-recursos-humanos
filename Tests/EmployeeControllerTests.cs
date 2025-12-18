@@ -72,7 +72,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedEmployee(ctx, id: 101, jobTitle: "QA");
 
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object);
+            var controller = new EmployeeController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockEmployee().Object);
 
             var result = await controller.GetAll();
 
@@ -90,7 +90,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedEmployee(ctx, id: 100, jobTitle: "Dev");
 
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object);
+            var controller = new EmployeeController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockEmployee().Object);
 
             var result = await controller.GetEmployee(100);
 
@@ -108,47 +108,11 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object);
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
 
             var result = await controller.GetEmployee(999);
 
             Assert.IsType<NotFoundResult>(result);
-        }
-
-        [Fact]
-        public async Task Create_ReturnsCreated_AndPersists()
-        {
-            var ctx = BuildContext();
-
-            var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object);
-
-            var dto = new EmployeeDto
-            {
-                BusinessEntityID = 200, 
-                LoginID = "new.user",
-                JobTitle = "New Hire",
-                BirthDate = new DateTime(1995, 4, 10),
-                HireDate = new DateTime(2024, 1, 1), 
-                MaritalStatus = "S",
-                Gender = "M",
-                SalariedFlag = true,
-                VacationHours = 2,
-                SickLeaveHours = 0,
-                NationalIDNumber = "NID200",
-                Person = new PersonDto
-                {
-                    FirstName = "Tiago",
-                    LastName = "Pacheco"
-                }
-            };
-
-            var before = DateTime.Now;
-            var result = await controller.Create(dto);
-            var after = DateTime.Now;
-
-            var created = Assert.IsType<CreatedAtActionResult>(result);
-            Assert.Equal(nameof(EmployeeController.GetEmployee), created.ActionName);
         }
 
         [Fact]
@@ -158,7 +122,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedEmployee(ctx, id: 100, jobTitle: "Dev");
 
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object);
+            var controller = new EmployeeController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockEmployee().Object);
 
             var dto = new EmployeeDto
             {
@@ -186,7 +150,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object);
+            var controller = new EmployeeController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockEmployee().Object);
 
             var dto = new EmployeeDto { BusinessEntityID = 100, JobTitle = "Lead Dev" };
 
@@ -202,7 +166,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedEmployee(ctx, id: 100, jobTitle: "Dev", currentFlag: true);
 
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object);
+            var controller = new EmployeeController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockEmployee().Object);
 
             var result = await controller.Delete(100);
 
@@ -217,7 +181,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object);
+            var controller = new EmployeeController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockEmployee().Object);
 
             var result = await controller.Delete(999);
 

@@ -41,7 +41,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedNotification(ctx, id: 12, businessEntityId: 200, message: "Msg C");
 
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object);
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
 
             var result = await controller.GetByBusinessEntityID(100);
 
@@ -55,7 +55,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object);
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
 
             var result = await controller.GetByBusinessEntityID(0);
             Assert.IsType<BadRequestObjectResult>(result);
@@ -68,7 +68,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedNotification(ctx, id: 42, businessEntityId: 500, message: "Ping");
 
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object);
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
 
             var result = await controller.GetById(42);
 
@@ -84,7 +84,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object);
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
 
             var result = await controller.GetById(999);
             Assert.IsType<NotFoundResult>(result);
@@ -96,7 +96,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var ctx = BuildContext();
 
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object);
+            var controller = new NotificationController(ctx, mapper.Object,  MapperMockFactory.CreateLoggerMockNotification().Object);
 
             var dto = new NotificationDto
             {
@@ -120,7 +120,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object);
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
 
             var dto = new NotificationDto
             {
@@ -141,7 +141,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedNotification(ctx, id: 2, businessEntityId: 999, message: "B");
 
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object);
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
 
             var result = await controller.DeleteByBusinessEntityID(999);
 
@@ -154,7 +154,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object);
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
 
             var result = await controller.DeleteByBusinessEntityID(12345);
 
@@ -168,7 +168,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedNotification(ctx, id: 42, businessEntityId: 1000, message: "Del me");
 
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object);
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
 
             var result = await controller.DeleteById(42);
 
@@ -182,7 +182,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var ctx = BuildContext();
 
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object);
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
 
             var result = await controller.DeleteById(777);
             Assert.IsType<NotFoundResult>(result);

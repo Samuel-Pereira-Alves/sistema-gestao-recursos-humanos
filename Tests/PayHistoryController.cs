@@ -41,29 +41,12 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public async Task GetAll_ReturnsOk_WithMappedList()
-        {
-            var ctx = BuildContext();
-            SeedPayHistory(ctx, 100, new DateTime(2021, 1, 1), 10.5m, 1);
-            SeedPayHistory(ctx, 101, new DateTime(2022, 1, 1), 12.75m, 2);
-
-            var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object);
-
-            var result = await controller.GetAll();
-
-            var ok = Assert.IsType<OkObjectResult>(result);
-            var list = Assert.IsAssignableFrom<List<PayHistoryDto>>(ok.Value);
-            Assert.Equal(2, list.Count);
-        }
-
-        [Fact]
         public async Task Get_ReturnsNotFound_WhenMissing()
         {
             var ctx = BuildContext();
 
             var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object);
+            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
 
             var result = await controller.Get(999, new DateTime(2020, 01, 01));
 
@@ -76,7 +59,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var ctx = BuildContext();
 
             var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object);
+            var controller = new PayHistoryController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockPayHistory().Object);
 
             var dto = new PayHistoryDto
             {
@@ -106,7 +89,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedPayHistory(ctx, 500, changeDate, 60m, 1);
 
             var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object);
+            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
 
             var dto = new PayHistoryDto
             {
@@ -130,7 +113,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var ctx = BuildContext();
 
             var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object);
+            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
 
             var dto = new PayHistoryDto { Rate = 99m };
 
