@@ -331,7 +331,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     await _db.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    _logger.LogInformation("Transação concluída (reativação). BusinessEntityID={BusinessEntityID}", previousEmployee.BusinessEntityID);
+                    _logger.LogInformation("Transação concluída. BusinessEntityID={BusinessEntityID}", previousEmployee.BusinessEntityID);
 
                     return CreatedAtAction(nameof(GetEmployee),
                         new { id = previousEmployee.BusinessEntityID },
