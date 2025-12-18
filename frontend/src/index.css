@@ -1,5 +1,0 @@
-
-/* Empurra o dropdown mais para a esquerda quando é dropstart */
-.nav-item.dropstart .dropdown-menu {
-  right: calc(100% + 16px); /* aumenta 16px; ajusta conforme necessário  right: calc(100% + 16px); /* aumenta 16px; ajusta conforme necessário */
-}

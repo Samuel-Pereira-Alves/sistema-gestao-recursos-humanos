@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
-import BackButton from "./components/BackButton";
+import BackButton from "../../components/Button/BackButton";
 
 export default function Candidatos() {
   const [isLoading, setIsLoading] = useState(false);
   const [candidatos, setCandidatos] = useState([]);
   const [error, setError] = useState("");
 
-  // Ajusta conforme o teu ambiente
   const API_BASE = "http://localhost:5136";
 
   // Carregar candidatos da API

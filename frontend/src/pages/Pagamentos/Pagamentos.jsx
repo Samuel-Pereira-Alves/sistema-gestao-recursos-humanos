@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { addNotificationForUser } from "./store/notificationBus";
-import BackButton from "./components/BackButton";
+import { addNotificationForUser } from "../../utils/notificationBus";
+import BackButton from "../../components/Button/BackButton";
 
 /* Utils de apresentação */
 function formatDate(dateStr) {
@@ -46,7 +46,7 @@ function dateInputToIsoMidnight(dateStr) {
   return `${dateStr}T00:00:00`;
 }
 
-export default function GestaoPagamentos() {
+export default function Pagamentos() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
 

@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { Button } from "bootstrap";
-import BackButton from "./components/BackButton";
+import BackButton from "../../components/Button/BackButton";
 
 /* Utils */
 function formatDate(dateStr) {

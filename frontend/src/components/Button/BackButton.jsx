@@ -1,8 +1,6 @@
-
-// src/components/BackButton.jsx
 import { useNavigate } from 'react-router-dom';
 
-export default function BackButton({ label = 'Voltar', className = '' }) {
+export default function BackButton({ label = 'Voltar'}) {
   const navigate = useNavigate();
 
   const goBack = () => {
@@ -14,7 +12,6 @@ export default function BackButton({ label = 'Voltar', className = '' }) {
       type="button"
       onClick={goBack}
       aria-label={label}
-      className={className}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

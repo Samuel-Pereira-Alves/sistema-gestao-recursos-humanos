@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { addNotificationForUser } from "./store/notificationBus.js";
+import { addNotificationForUser } from "../../utils/notificationBus";
 import "bootstrap/dist/css/bootstrap.min.css";
-import BackButton from "./components/BackButton";
+import BackButton from "../../components/Button/BackButton";
 
 /* =========================
  * Utils
@@ -72,7 +72,7 @@ const deptHistoryUrl = (businessEntityID, departmentID, shiftID, startDate) =>
 const SHIFT_LABELS = { 1: "Manhã", 2: "Tarde", 3: "Noite" };
 const resolveShiftLabel = (id) => SHIFT_LABELS[Number(id)] ?? "—";
 
-export default function GestaoDepartmentHistories() {
+export default function Movimentos() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [items, setItems] = useState([]);

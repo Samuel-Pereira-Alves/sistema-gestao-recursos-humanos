@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
-import BackButton from "./components/BackButton";
+import BackButton from "../../components/Button/BackButton";
 
 /* Utils */
 function formatDate(dateStr) {

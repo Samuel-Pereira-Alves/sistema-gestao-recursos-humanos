@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { addNotification } from "./store/notificationBus";
-import BackButton from "./components/BackButton";
+import { addNotification } from "../../utils/notificationBus";
+import BackButton from "../../components/Button/BackButton";
 
 function getDepartamentoAtualNome(funcionario) {
   const historicos = funcionario?.departmentHistories ?? [];
@@ -15,7 +15,7 @@ function getDepartamentoAtualNome(funcionario) {
   return escolhido?.department?.name ?? "Departamento desconhecido";
 }
 
-export default function EmployeeProfile() {
+export default function Profile() {
   const navigate = useNavigate();
   const location = useLocation();
   const role = localStorage.getItem("role");

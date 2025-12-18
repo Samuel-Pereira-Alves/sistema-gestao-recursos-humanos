@@ -1,55 +1,45 @@
 
-// src/components/layout/NotificationBell.jsx
 import React, { useEffect, useRef, useState } from "react";
 import {
   subscribe,
   getNotifications,
   clearNotifications,
-
-  // se precisares de sync com servidor, expõe uma função no store: syncNotificationsFromServer
   syncNotificationsFromServer,
-} from "../store/notificationBus";
+} from "/";
+import { subscribe } from "../../utils/notificationBus";
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
-  // Agora getNotifications() devolve objetos {id, message}
   const [allItems, setAllItems] = useState(() => getNotifications());
-  const [role, setRole] = useState(() => getRoleFromStorage());        // "admin" | "employee"
-  const [userId, setUserId] = useState(() => getUserIdFromStorage());  // string (ex.: "123")
+  const [role, setRole] = useState(() => getRoleFromStorage());        
+  const [userId, setUserId] = useState(() => getUserIdFromStorage()); 
   const dropdownRef = useRef(null);
   const bellBtnRef = useRef(null);
 
-  // Ler role e userId ao montar
   useEffect(() => {
     const r = getRoleFromStorage();
     const u = getUserIdFromStorage();
     setRole(r);
     setUserId(u);
-    console.debug("[NotificationBell] mounted -> role:", r, " userId:", u);
-    // (Opcional) sincronizar com o servidor logo ao montar:
     syncNotificationsFromServer();
   }, []);
 
-  // Listener de alterações no localStorage (usa a MESMA chave!)
   useEffect(() => {
     function handleStorage(e) {
       if (e.key === "role") {
         const r = getRoleFromStorage();
         setRole(r);
-        console.debug("[NotificationBell] storage role ->", r);
       }
-      // ATENÇÃO: usa a mesma chave que lês em getUserIdFromStorage()
+
       if (e.key === "businessEntityId") {
         const u = getUserIdFromStorage();
         setUserId(u);
-        console.debug("[NotificationBell] storage businessEntityId ->", u);
       }
     }
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  // Subscrever ao bus (recebe SEMPRE a lista atual já em memória)
   useEffect(() => {
     const unsub = subscribe((list) => {
       const safeList = Array.isArray(list) ? list : [];
@@ -58,8 +48,6 @@ export default function NotificationBell() {
     return unsub;
   }, []);
 
-
-  // Fecha ao clicar fora
   useEffect(() => {
     function handleClickOutside(e) {
       if (!open) return;
@@ -135,7 +123,7 @@ function getRoleFromStorage() {
     const raw = window?.localStorage?.getItem("role");
     const v = String(raw || "").trim().toLowerCase();
     if (v === "admin" || v === "employee") return v;
-    return "employee"; // fallback
+    return "employee"; 
   } catch {
     return "employee";
   }
@@ -143,11 +131,10 @@ function getRoleFromStorage() {
 
 function getUserIdFromStorage() {
   try {
-    // Usa SEMPRE a mesma chave aqui e no listener de storage
     const raw = window?.localStorage?.getItem("businessEntityId");
     const v = String(raw || "").trim();
     console.debug("[NotificationBell] getUserIdFromStorage ->", v);
-    return v; // pode ser vazio; filtragem só considera se existir
+    return v; 
   } catch {
     return "";
   }

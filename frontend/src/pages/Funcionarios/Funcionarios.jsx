@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import BackButton from "./components/BackButton";
+import BackButton from "../../components/Button/BackButton";
 
 function Funcionarios() {
   const navigate = useNavigate();
