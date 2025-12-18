@@ -1,9 +1,9 @@
 
 import React, { useState } from "react";
-import Navbar from "./Navbar";
-import { addNotification } from "./store/notificationBus";
+import Navbar from "../../components/Navbar/Navbar";
+import { addNotification } from "../../utils/notificationBus";
 
-function FormPage({ hideNavbar = false, variant = "default", onCancel }) {
+function Form({ hideNavbar = false, variant = "default", onCancel }) {
   // --- Estado dos campos do formulário ---
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -365,4 +365,4 @@ for (const [k, v] of formData.entries()) {
   );
 }
 
-export default FormPage;
+export default Form;

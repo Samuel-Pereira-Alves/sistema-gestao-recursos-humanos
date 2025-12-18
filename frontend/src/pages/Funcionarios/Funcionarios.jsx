@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import BackButton from "./components/BackButton";
+import BackButton from "../../components/Button/BackButton";
 
 function Funcionarios() {
   const navigate = useNavigate();
@@ -20,8 +20,17 @@ function Funcionarios() {
 
   const fetchFuncionarios = async () => {
     try {
+      const token = localStorage.getItem("authToken");
       setLoading(true);
-      const response = await fetch("http://localhost:5136/api/v1/employee/");
+      
+      const response = await fetch("http://localhost:5136/api/v1/employee/", {
+        method: "GET", 
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
       if (!response.ok) throw new Error("Erro ao carregar funcionários");
       const data = await response.json();
       setFuncionarios(data);
@@ -51,18 +60,18 @@ function Funcionarios() {
     const confirm = window.confirm("Deseja mesmo eliminar este Funcionário?");
     if (!confirm) return;
 
-    const url = `http://localhost:5136/api/v1/employee/${encodeURIComponent(
-      businessEntityID
-    )}`;
+    const url = `http://localhost:5136/api/v1/employee/${businessEntityID}`;
 
     try {
       setDeleteLoadingId(String(businessEntityID));
 
+      const token = localStorage.getItem("authToken");
       const resp = await fetch(url, {
         method: "DELETE",
-        headers: {
-          Accept: "application/json",
-        },
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
       });
 
       await fetchFuncionarios();

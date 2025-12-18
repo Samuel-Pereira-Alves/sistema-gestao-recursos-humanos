@@ -6,6 +6,7 @@ using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
 using sistema_gestao_recursos_humanos.backend.models.tools;
+using Microsoft.AspNetCore.Authorization;
 
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
@@ -39,6 +40,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         //GET: api/v1/jobcandidate
         [HttpGet]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> GetAll()
         {
             _logger.LogInformation("Recebida requisição para obter todos os JobCandidates.");
@@ -75,6 +77,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // GET: api/v1/jobcandidate/{id}
         [HttpGet("{id}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Get(int id)
         {
             _logger.LogInformation("Recebida requisição para obter JobCandidate com ID={ID}.", id);
@@ -238,6 +241,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [RequestSizeLimit(50_000_000)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [AllowAnonymous]
         public async Task<IActionResult> UploadAndCreate([FromForm] JobCandidateCreateForm form, CancellationToken ct)
         {
             _logger.LogInformation("Recebida requisição para upload de CV e criação de JobCandidate.");
@@ -368,6 +372,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // DELETE: api/v1/jobcandidate/{id}
         [HttpDelete("{id}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var jobcandidate = await _db.JobCandidates.FindAsync(id);

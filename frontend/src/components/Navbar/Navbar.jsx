@@ -1,16 +1,12 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import NotificationBell from "./components/NotificationBell";
-import { addNotification } from "./store/notificationBus";
+import NotificationBell from "../NotificationBell/NotificationBell";
 
 function Navbar() {
   const [open, setOpen] = useState(false);
   const bellBtnRef = useRef(null);
   const dropdownRef = useRef(null);
-
-  // Ajusta aqui o número do badge (pode vir de API no futuro)
-  const NOTIFICATION_COUNT = 3;
 
   const businessEntityId = localStorage.getItem("businessEntityId");
   const isLoggedIn = Boolean(businessEntityId);
@@ -31,8 +27,15 @@ function Navbar() {
     async function loadUserName() {
       if (!isLoggedIn || !businessEntityId) return;
       try {
+        const token = localStorage.getItem("authToken");
         setLoadingName(true);
-        const res = await fetch(`http://localhost:5136/api/v1/employee/${businessEntityId}`);
+        const res = await fetch(`http://localhost:5136/api/v1/employee/${businessEntityId}`, {
+          method: "GET", 
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (!res.ok) throw new Error(`Falha ao obter utilizador (HTTP ${res.status})`);
         const data = await res.json();
         const first = data?.person?.firstName || "";
@@ -68,7 +71,6 @@ function Navbar() {
     .join("")
     .toUpperCase();
 
-  // Fechar ao clicar fora / ESC (opcional mas recomendado)
   useEffect(() => {
     function handleClickOutside(e) {
       if (!open) return;
@@ -76,17 +78,10 @@ function Navbar() {
       const insideButton = bellBtnRef.current?.contains(e.target);
       if (!insideDropdown && !insideButton) setOpen(false);
     }
-    function handleEsc(e) {
-      if (e.key === "Escape") {
-        setOpen(false);
-        bellBtnRef.current?.focus();
-      }
-    }
+
     document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEsc);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEsc);
     };
   }, [open]);
 
@@ -113,10 +108,9 @@ function Navbar() {
           <ul className="navbar-nav ms-auto align-items-lg-center">
             {isLoggedIn ? (
               <>
-                {/* Sino + badge */}
+                {/* Sino */}
                 <NotificationBell className="me-3" />
 
-                {/* Bem-vindo + perfil */}
                 <li className="nav-item d-flex align-items-center me-lg-3 ">
                   <span className="text-muted me-2 d-none d-md-inline">Bem-vindo,</span>
                   <Link
@@ -160,6 +154,5 @@ function Navbar() {
     </nav>
   );
 }
-
 
 export default Navbar;

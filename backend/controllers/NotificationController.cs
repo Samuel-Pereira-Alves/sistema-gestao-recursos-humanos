@@ -1,5 +1,6 @@
 
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using sistema_gestao_recursos_humanos.backend.data;
@@ -46,6 +47,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
 
         [HttpPost]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Create([FromBody] NotificationDto dto)
         {
             _logger.LogInformation("Recebido pedido para criar Notificação.");
@@ -219,6 +221,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // GET: api/v1/notification/by-entity/{businessEntityId}
 
         [HttpGet("by-entity/{businessEntityId}")]
+        [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> GetByBusinessEntityID(int businessEntityId)
         {
             _logger.LogInformation("Recebida requisição para obter notificações para BusinessEntityID={BusinessEntityID}.", businessEntityId);
@@ -263,6 +266,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // GET: api/v1/notification/{id}
         [HttpGet("{id}")]
+        [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> GetById(int id)
         {
             _logger.LogInformation("Recebida requisição para obter Notification com ID={ID}.", id);
@@ -310,6 +314,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // DELETE: api/v1/notification/by-entity/{businessEntityId}
         [HttpDelete("by-entity/{businessEntityId}")]
+        [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> DeleteByBusinessEntityID(int businessEntityId)
         {
             _logger.LogInformation("Recebida requisição para eliminar notificações para BusinessEntityID={BusinessEntityID}.", businessEntityId);
@@ -367,6 +372,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // DELETE: api/v1/notification/{id}
         [HttpDelete("{id:int}")]
+        [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> DeleteById(int id)
         {
             _logger.LogInformation("Recebida requisição para eliminar Notification com ID={ID}.", id);

@@ -1,8 +1,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { Button } from "bootstrap";
-import BackButton from "./components/BackButton";
+import BackButton from "../../components/Button/BackButton";
 
 /* Utils */
 function formatDate(dateStr) {
@@ -19,12 +18,6 @@ function normalizarTexto(str) {
     .trim();
 }
 
-/**
- * Component: Histórico de Departamentos
- * - Lê o ID do funcionário APENAS do localStorage ("businessEntityId").
- * - Faz fetch a GET /api/v1/employee/:id e extrai departmentHistories.
- * - Pesquisa por nome/ grupo, paginação e UI responsiva em tons cinza.
- */
 export default function DepartmentHistoryList() {
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
@@ -37,7 +30,6 @@ export default function DepartmentHistoryList() {
   const [employeeId, setEmployeeId] = useState(null);
 
   useEffect(() => {
-    // Lê o ID do localStorage
     const id = localStorage.getItem("businessEntityId");
     setEmployeeId(id);
 
@@ -46,19 +38,23 @@ export default function DepartmentHistoryList() {
       return;
     }
 
-    const controller = new AbortController();
 
     async function load() {
+      
+
       setLoading(true);
       setFetchError(null);
+      const token = localStorage.getItem("authToken");
       try {
         const res = await fetch(`http://localhost:5136/api/v1/employee/${id}`, {
-          signal: controller.signal,
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         });
         if (!res.ok) throw new Error(`Erro ao carregar funcionário (HTTP ${res.status})`);
         const data = await res.json();
-
-        // Mapeia e ordena os históricos (mais recentes primeiro)
         const list = (data?.departmentHistories ?? [])
           .slice()
           .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
@@ -82,7 +78,6 @@ export default function DepartmentHistoryList() {
     }
 
     load();
-    return () => controller.abort();
   }, []);
 
   // Reset para a primeira página quando muda o termo de pesquisa
@@ -227,7 +222,7 @@ export default function DepartmentHistoryList() {
                       disabled={currentPage === 1}
                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                       type="button"
-                                       >
+                    >
                       ← Anterior
                     </button>
                     <span className="text-muted small">

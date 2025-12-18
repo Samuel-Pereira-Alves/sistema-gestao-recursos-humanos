@@ -51,6 +51,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // GET: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
         [HttpGet("{businessEntityId}/{rateChangeDate}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Get(int businessEntityId, DateTime rateChangeDate)
         {
 
@@ -78,6 +79,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
        
         // POST: api/v1/payhistory
         [HttpPost]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Create(PayHistoryDto dto)
         {
             _logger.LogInformation(
@@ -140,6 +142,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         
         // PATCH: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
         [HttpPatch("{businessEntityId}/{rateChangeDate}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Patch(int businessEntityId, DateTime rateChangeDate, PayHistoryDto dto)
         {
             _logger.LogInformation(
@@ -197,6 +200,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // DELETE: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
         [HttpDelete("{businessEntityId}/{rateChangeDate}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Delete(int businessEntityId, DateTime rateChangeDate)
         {
             _logger.LogInformation(

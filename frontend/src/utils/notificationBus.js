@@ -24,7 +24,9 @@ export function addNotification(message, role) {
 export function addNotificationForUser(message, id) {
   fetch(`http://localhost:5136/api/v1/notification/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      Accept: "application/json",
+    },
     body: JSON.stringify({ message, businessEntityId: id }),
   }).catch((err) => {
     console.error('Failed to send notification to server:', err);
@@ -36,9 +38,14 @@ export function addNotificationForUser(message, id) {
 
 /** Limpa todas as notificações */
 export async function clearNotifications() {
+  const token = localStorage.getItem("authToken");
   for (const n of _notifications) {
     await fetch(`http://localhost:5136/api/v1/notification/${n.id}`, {
       method: 'DELETE',
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
     }).catch((err) => {
       console.error('Failed to delete notification from server:', err);
     });
@@ -49,10 +56,15 @@ export async function clearNotifications() {
 
 /** (Opcional) remove por índice */
 export async function removeNotifications() {
-  
+  const token = localStorage.getItem("authToken");
+
   const id = localStorage.getItem('businessEntityId') || '';
   await fetch(`http://localhost:5136/api/v1/notification/by-entity/${id}`, {
     method: 'DELETE',
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
   }).catch((err) => {
     console.error('Failed to delete notification from server:', err);
   });
@@ -61,10 +73,19 @@ export async function removeNotifications() {
 
 
 export async function syncNotificationsFromServer() {
+  const token = localStorage.getItem("authToken");
   try {
     const id = localStorage.getItem('businessEntityId') || '';
-    const res = await fetch(`http://localhost:5136/api/v1/notification/by-entity/${id}`);
-    const data = await res.json(); 
+    const res = await fetch(`http://localhost:5136/api/v1/notification/by-entity/${id}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    const data = await res.json();
     _notifications = Array.isArray(data) ? data : [];
     _emit();
   } catch (err) {
@@ -73,7 +94,7 @@ export async function syncNotificationsFromServer() {
 }
 
 export function getNotifications() {
-  return _notifications.slice(); // objetos
+  return _notifications.slice();
 }
 
 function _emit() {
@@ -83,7 +104,6 @@ function _emit() {
   });
 }
 
-
 /** Subscreve para receber atualizações */
 export function subscribe(listener) {
   _subscribers.add(listener);
@@ -92,5 +112,3 @@ export function subscribe(listener) {
     _subscribers.delete(listener);
   };
 }
-
-

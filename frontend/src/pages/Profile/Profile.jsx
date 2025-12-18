@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { addNotification } from "./store/notificationBus";
-import BackButton from "./components/BackButton";
+import { addNotification } from "../../utils/notificationBus";
+import BackButton from "../../components/Button/BackButton";
 
 function getDepartamentoAtualNome(funcionario) {
   const historicos = funcionario?.departmentHistories ?? [];
@@ -15,7 +15,7 @@ function getDepartamentoAtualNome(funcionario) {
   return escolhido?.department?.name ?? "Departamento desconhecido";
 }
 
-export default function EmployeeProfile() {
+export default function Profile() {
   const navigate = useNavigate();
   const location = useLocation();
   const role = localStorage.getItem("role");
@@ -32,8 +32,16 @@ export default function EmployeeProfile() {
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
+        const token = localStorage.getItem("authToken");
         const res = await fetch(
-          "http://localhost:5136/api/v1/departmenthistory"
+          "http://localhost:5136/api/v1/departmenthistory",
+          {
+            method: "GET", 
+            headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          }
         );
         if (!res.ok) throw new Error("Erro ao carregar departamentos");
         const data = await res.json();
@@ -54,18 +62,27 @@ export default function EmployeeProfile() {
     return fromQuery ?? fromStorage ?? null;
   };
 
-  const controller = new AbortController();
 
   useEffect(() => {
+    
+  const controller = new AbortController();
     const id = getEmployeeId();
 
     const fetchEmployee = async () => {
       try {
+        const token = localStorage.getItem("authToken");
         setLoading(true);
         setFetchError(null);
         const response = await fetch(
-          `http://localhost:5136/api/v1/employee/${id}`,
-          { signal: controller.signal }
+          `http://localhost:5136/api/v1/employee/${id}`,{
+            method: "GET", 
+            headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal 
+          },
+         
         );
         if (!response.ok)
           throw new Error(
@@ -85,6 +102,8 @@ export default function EmployeeProfile() {
     };
 
     fetchEmployee();
+
+    return () =>  controller.abort();
   }, [navigate, location.search]);
 
   const handleChange = (e) => {
@@ -137,11 +156,17 @@ export default function EmployeeProfile() {
         sickLeaveHours: parseInt(employee.sickLeaveHours) || 0,
       };
 
+      const token = localStorage.getItem("authToken");
+
       const response = await fetch(
         `http://localhost:5136/api/v1/employee/${id}`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+           },
           body: JSON.stringify(payload),
         }
       );
@@ -157,7 +182,13 @@ export default function EmployeeProfile() {
       );
 
       const refreshResponse = await fetch(
-        `http://localhost:5136/api/v1/employee/${id}`
+        `http://localhost:5136/api/v1/employee/${id}`,{
+          method: "GET", 
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
       if (refreshResponse.ok) {
         const updated = await refreshResponse.json();

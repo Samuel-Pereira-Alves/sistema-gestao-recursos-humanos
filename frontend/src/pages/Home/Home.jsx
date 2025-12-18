@@ -2,10 +2,10 @@
 // src/pages/HomePage.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
-import Navbar from "./Navbar";
-import FormPage from "./FormPage";
+import Navbar from "../../components/Navbar/Navbar";
+import Form from "../Form/FormPage";
 
-function HomePage() {
+function Home() {
   
   const [role, setRole] = useState(localStorage.getItem("role") || null);
 
@@ -79,7 +79,7 @@ function HomePage() {
               
               {mostrarForm && (
                 <div id="form-candidatura" className="mt-3">
-                  <FormPage hideNavbar variant="embedded" onCancel={fecharForm} />
+                  <Form hideNavbar variant="embedded" onCancel={fecharForm} />
                 </div>
               )}
             </div>
@@ -177,4 +177,4 @@ function HomePage() {
   );
 }
 
-export default HomePage;
+export default Home;

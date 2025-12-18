@@ -1,32 +1,32 @@
 import React from "react";
 import './App.css';
 import { BrowserRouter as Router, Routes, Route, BrowserRouter } from "react-router-dom";
-import HomePage from './HomePage';
-import FormPage from './FormPage';
-import Login from './Login';
-import Candidatos from "./Candidatos";
-import PaymentsList from "./PayHistory";
-import DepartmentHistoryList from "./DepHistory";
-import EmployeeProfile from "./EmployeeProfile";
-import Funcionarios from "./Funcionarios";
-import GestaoMovimentacoes from "./GestaoMovimentos";
-import GestaoPagamentos from "./GestaoPagamentos";
+import Home from "./pages/Home/Home";
+import Form from "./pages/Form/FormPage";
+import Login from "./pages/Login/Login";
+import Candidatos from "./pages/Candidatos/Candidatos";
+import PayHistoryList from "./pages/PayHistory/PayHistory";
+import DepartmentHistoryList from "./pages/DepHistory/DepHistory";
+import Profile from "./pages/Profile/Profile";
+import Funcionarios from "./pages/Funcionarios/Funcionarios";
+import Movimentos from "./pages/Movimentos/Movimentos";
+import Pagamentos from "./pages/Pagamentos/Pagamentos";
 
  
 function App() {
   return (
      
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/form" element={<FormPage />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/form" element={<Form />} />
           <Route path="/login" element={<Login />} />
           <Route path="/candidatos" element={<Candidatos />} />
-          <Route path="/payhistory" element={<PaymentsList />} />
+          <Route path="/payhistory" element={<PayHistoryList />} />
           <Route path="/dephistory" element={<DepartmentHistoryList />} />
-          <Route path="/profile/:id?" element={<EmployeeProfile />} />
+          <Route path="/profile/:id?" element={<Profile />} />
           <Route path="/funcionarios" element={<Funcionarios />} />
-          <Route path="/gestao-pagamentos" element={<GestaoPagamentos />} />
-          <Route path="/gestao-movimentos" element={<GestaoMovimentacoes />} />
+          <Route path="/gestao-pagamentos" element={<Pagamentos />} />
+          <Route path="/gestao-movimentos" element={<Movimentos />} />
         </Routes>
       
 
