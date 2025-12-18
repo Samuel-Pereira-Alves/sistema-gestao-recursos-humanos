@@ -1,5 +1,6 @@
 
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using sistema_gestao_recursos_humanos.backend.data;
@@ -24,6 +25,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // POST: api/v1/notification
         // Creates a single notification (for a specific BusinessEntityID from the body)
         [HttpPost]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Create([FromBody] NotificationDto dto)
         {
             if (dto is null) return BadRequest("Body is required.");
@@ -44,6 +46,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // POST: api/v1/notification/{role}
         // Creates one notification per user that has the given role
         [HttpPost("{role}")]
+        [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> CreateForRole(string role, [FromBody] NotificationDto dto)
         {
             if (string.IsNullOrWhiteSpace(role)) return BadRequest("Role is required.");
@@ -79,6 +82,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // GET: api/v1/notification/by-entity/{businessEntityId}
         [HttpGet("by-entity/{businessEntityId}")]
+        [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> GetByBusinessEntityID(int businessEntityId)
         {
             if (businessEntityId <= 0) return BadRequest("BusinessEntityID must be a positive integer.");
@@ -93,6 +97,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // GET: api/v1/notification/{id}
         [HttpGet("{id}")]
+        [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> GetById(int id)
         {
             var notification = await _db.Notifications
@@ -106,6 +111,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // DELETE: api/v1/notification/by-entity/{businessEntityId}
         [HttpDelete("by-entity/{businessEntityId}")]
+        [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> DeleteByBusinessEntityID(int businessEntityId)
         {
             if (businessEntityId <= 0) return BadRequest("BusinessEntityID must be a positive integer.");
@@ -124,6 +130,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // DELETE: api/v1/notification/{id}
         [HttpDelete("{id:int}")]
+        [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> DeleteById(int id)
         {
             var notification = await _db.Notifications.FindAsync(id);

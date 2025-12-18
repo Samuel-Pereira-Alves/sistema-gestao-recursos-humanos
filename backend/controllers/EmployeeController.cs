@@ -7,6 +7,7 @@ using sistema_gestao_recursos_humanos.backend.models.dtos;
 using System.Security.Cryptography;
 using System.Text;
 using BCrypt.Net;
+using Microsoft.AspNetCore.Authorization;
 
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
@@ -25,6 +26,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // GET: api/v1/employee
         [HttpGet]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> GetAll()
         {
             var employees = await _db.Employees
@@ -40,6 +42,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // GET: api/v1/employee/{id}
         [HttpGet("{id}")]
+        [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> GetEmployee(int id)
         {
             var employee = await _db.Employees
@@ -56,19 +59,19 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         // POST: api/v1/employee
-        [HttpPost]
-        public async Task<IActionResult> Create(EmployeeDto employeeDto)
-        {
-            var employee = _mapper.Map<Employee>(employeeDto);
-            employee.HireDate = DateTime.Now;
-            employee.ModifiedDate = DateTime.Now;
+        // [HttpPost]
+        // public async Task<IActionResult> Create(EmployeeDto employeeDto)
+        // {
+        //     var employee = _mapper.Map<Employee>(employeeDto);
+        //     employee.HireDate = DateTime.Now;
+        //     employee.ModifiedDate = DateTime.Now;
 
-            _db.Employees.Add(employee);
-            await _db.SaveChangesAsync();
+        //     _db.Employees.Add(employee);
+        //     await _db.SaveChangesAsync();
 
-            var createdDto = _mapper.Map<EmployeeDto>(employee);
-            return CreatedAtAction(nameof(GetEmployee), new { id = employee.BusinessEntityID }, createdDto);
-        }
+        //     var createdDto = _mapper.Map<EmployeeDto>(employee);
+        //     return CreatedAtAction(nameof(GetEmployee), new { id = employee.BusinessEntityID }, createdDto);
+        // }
 
         // PUT: api/v1/employee/{id}
         // [HttpPut("{id}")]
@@ -90,6 +93,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // DELETE: api/v1/employee/{id}
         [HttpDelete("{id}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var employee = await _db.Employees.FindAsync(id);
@@ -107,6 +111,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         // PATCH: api/v1/employee/{id}
         [HttpPatch("{id}")]
+        [Authorize(Roles ="admin, employee")]
         public async Task<IActionResult> Patch(int id, [FromBody] EmployeeDto employeeDto)
         {
             if (id != employeeDto.BusinessEntityID) return BadRequest();
@@ -207,6 +212,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
 
         [HttpPost("approve/{jobCandidateId}")]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> ApproveCandidate(int jobCandidateId)
         {
             // (0) Carregar candidato

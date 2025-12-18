@@ -27,21 +27,47 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         [AllowAnonymous]
         // POST: api/v1/login
+
         [HttpPost("login")]
         public IActionResult Login([FromBody] SystemUsersDTO request)
         {
+            if (request is null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return BadRequest("Pedido inválido");
+            }
+
             // 1. Procurar utilizador
             var user = _db.SystemUsers.FirstOrDefault(u => u.Username == request.Username);
-            if (user == null || !VerifyPassword(request.Password, user.PasswordHash))
+            if (user is null)
             {
                 return Unauthorized("Credenciais inválidas");
             }
 
-            // 2. Gerar token JWT
+            // 2. Validar password
+            if (!VerifyPassword(request.Password, user.PasswordHash))
+            {
+                return Unauthorized("Credenciais inválidas");
+            }
+
+            // 3. Procurar funcionário só depois de sabermos que há utilizador
+            var employee = _db.Employees.FirstOrDefault(e => e.BusinessEntityID == user.BusinessEntityID);
+            if (employee is null || !employee.CurrentFlag)
+            {
+                return Unauthorized("Credenciais inválidas");
+            }
+
+            // 4. Gerar token JWT
             var token = GenerateJwtToken(user);
 
-            return Ok(new { token, role = user.Role, systemUserId = user.SystemUserId, businessEntityId = user.BusinessEntityID });
+            return Ok(new
+            {
+                token,
+                role = user.Role,
+                systemUserId = user.SystemUserId,
+                businessEntityId = user.BusinessEntityID
+            });
         }
+
 
         private bool VerifyPassword(string password, string storedHash)
         {
