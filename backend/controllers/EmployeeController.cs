@@ -342,7 +342,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao atualizar o empregado.");
             }
         }
-        
+
         //Secção de Aprovação de candidatura
         private static string GenerateUsername(Person person)
         {
@@ -389,39 +389,57 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             return BCrypt.Net.BCrypt.HashPassword(plain, workFactor: 11);
         }
 
-
         [HttpPost("approve/{jobCandidateId}")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> ApproveCandidate(int jobCandidateId)
         {
-            _logger.LogInformation("Iniciando aprovação do candidato. JobCandidateId={JobCandidateId}", jobCandidateId);
+            // 1) Pedido recebido
+            string m0 = $"Iniciando aprovação do candidato. JobCandidateId={jobCandidateId}";
+            _logger.LogInformation(m0);
+            _db.Logs.Add(new Log { Message = m0, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
 
+            // 2) Procurar candidato
             var candidate = await _db.JobCandidates
                 .FirstOrDefaultAsync(jc => jc.JobCandidateId == jobCandidateId);
 
             if (candidate is null)
             {
-                _logger.LogWarning("Candidato não encontrado. JobCandidateId={JobCandidateId}", jobCandidateId);
+                string m1 = $"Candidato não encontrado. JobCandidateId={jobCandidateId}";
+                _logger.LogWarning(m1);
+                _db.Logs.Add(new Log { Message = m1, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return NotFound(new { message = "Candidato não encontrado", jobCandidateId });
             }
 
             await using var transaction = await _db.Database.BeginTransactionAsync();
-            _logger.LogInformation("Transação iniciada para aprovação. JobCandidateId={JobCandidateId}", jobCandidateId);
+            string m2 = $"Transação iniciada para aprovação. JobCandidateId={jobCandidateId}";
+            _logger.LogInformation(m2);
+            _db.Logs.Add(new Log { Message = m2, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
 
             try
             {
+                // 3) Reativar empregado existente, se aplicável
                 var previousEmployee = await _db.Employees.FirstOrDefaultAsync(
                     pe => pe.NationalIDNumber == candidate.NationalIDNumber);
 
                 if (previousEmployee != null && !previousEmployee.CurrentFlag)
                 {
-                    _logger.LogInformation("Tornar empregado empregado existente. BusinessEntityID={BusinessEntityID}", previousEmployee.BusinessEntityID);
+                    string m3 = $"Ativar empregado existente. BusinessEntityID={previousEmployee.BusinessEntityID}";
+                    _logger.LogInformation(m3);
+                    _db.Logs.Add(new Log { Message = m3, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
 
                     previousEmployee.CurrentFlag = true;
                     await _db.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    _logger.LogInformation("Transação concluída. BusinessEntityID={BusinessEntityID}", previousEmployee.BusinessEntityID);
+                    string m4 = $"Transação concluída. BusinessEntityID={previousEmployee.BusinessEntityID}";
+                    _logger.LogInformation(m4);
+                    _db.Logs.Add(new Log { Message = m4, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
 
                     return CreatedAtAction(nameof(GetEmployee),
                         new { id = previousEmployee.BusinessEntityID },
@@ -430,6 +448,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 }
                 else
                 {
+                    // 4) Criar novo BusinessEntity
                     var now = DateTime.UtcNow;
 
                     var be = new BusinessEntity { RowGuid = Guid.NewGuid(), ModifiedDate = now };
@@ -437,8 +456,12 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     await _db.SaveChangesAsync();
                     var beId = be.BusinessEntityID;
 
-                    _logger.LogInformation("BusinessEntity criado. BusinessEntityID={BusinessEntityID}", beId);
+                    string m5 = $"BusinessEntity criado. BusinessEntityID={beId}";
+                    _logger.LogInformation(m5);
+                    _db.Logs.Add(new Log { Message = m5, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
 
+                    // 5) Criar Person
                     var person = new Person
                     {
                         BusinessEntityID = beId,
@@ -451,20 +474,37 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     _db.Persons.Add(person);
                     await _db.SaveChangesAsync();
 
-                    _logger.LogInformation("Person criado. BusinessEntityID={BusinessEntityID}", beId);
+                    string m6 = $"Person criado. BusinessEntityID={beId}";
+                    _logger.LogInformation(m6);
+                    _db.Logs.Add(new Log { Message = m6, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
 
+                    // 6) Gerar e validar username
                     var username = GenerateUsername(person);
                     var usernameExists = await _db.SystemUsers.AnyAsync(u => u.Username == username);
                     if (usernameExists)
                     {
-                        _logger.LogWarning("Conflito de username. Username={Username}", username);
+                        string m7 = $"Conflito de username. Username={username}";
+                        _logger.LogWarning(m7);
+                        _db.Logs.Add(new Log { Message = m7, Date = DateTime.Now });
+                        await _db.SaveChangesAsync();
+
                         await transaction.RollbackAsync();
-                        _logger.LogInformation("Transação revertida por conflito de username. JobCandidateId={JobCandidateId}", jobCandidateId);
+
+                        string m8 = $"Transação revertida por conflito de username. JobCandidateId={jobCandidateId}";
+                        _logger.LogInformation(m8);
+                        _db.Logs.Add(new Log { Message = m8, Date = DateTime.Now });
+                        await _db.SaveChangesAsync();
+
                         return Conflict(new { message = "Username já existe", username });
                     }
 
-                    _logger.LogInformation("Username gerado e validado. Username={Username}", username);
+                    string m9 = $"Username gerado e validado. Username={username}";
+                    _logger.LogInformation(m9);
+                    _db.Logs.Add(new Log { Message = m9, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
 
+                    // 7) Criar Employee
                     var employee = new Employee
                     {
                         BusinessEntityID = beId,
@@ -488,14 +528,16 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     _db.Employees.Add(employee);
                     await _db.SaveChangesAsync();
 
-                    _logger.LogInformation("Employee criado. BusinessEntityID={BusinessEntityID}, LoginID={LoginID}", beId, employee.LoginID);
+                    string m10 = $"Employee criado. BusinessEntityID={beId}, LoginID={employee.LoginID}";
+                    _logger.LogInformation(m10);
+                    _db.Logs.Add(new Log { Message = m10, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
 
+                    // 8) Criar SystemUser e remover candidato
                     var tempPassword = string.IsNullOrWhiteSpace(candidate.PasswordHash)
                         ? GenerateTempPassword()
                         : candidate.PasswordHash;
-
                     var hashed = HashWithBcrypt(tempPassword);
-
                     var role = "employee";
 
                     var sysUser = new SystemUser
@@ -512,9 +554,17 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     await _db.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    _logger.LogInformation("SystemUser criado e candidato removido. SystemUserId={SystemUserId}, Username={Username}", sysUser.SystemUserId, sysUser.Username);
-                    _logger.LogInformation("Transação concluída com sucesso. BusinessEntityID={BusinessEntityID}", beId);
+                    string m11 = $"SystemUser criado e candidato removido. SystemUserId={sysUser.SystemUserId}, Username={sysUser.Username}";
+                    _logger.LogInformation(m11);
+                    _db.Logs.Add(new Log { Message = m11, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
 
+                    string m12 = $"Transação concluída com sucesso. BusinessEntityID={beId}";
+                    _logger.LogInformation("Transação concluída com sucesso. BusinessEntityID={BusinessEntityID}", beId);
+                    _db.Logs.Add(new Log { Message = m12, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
+
+                    // DEV-only: tempPassword vai na resposta mas não fica nos logs
                     return CreatedAtAction(nameof(GetEmployee),
                         new { id = beId },
                         new
@@ -529,16 +579,34 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (DbUpdateException ex)
             {
-                _logger.LogError(ex, "Erro de atualização ao aprovar candidato. JobCandidateId={JobCandidateId}", jobCandidateId);
+                string mErr1 = $"Erro de atualização ao aprovar candidato. JobCandidateId={jobCandidateId}";
+                _logger.LogError(ex, mErr1);
+                _db.Logs.Add(new Log { Message = mErr1, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 await transaction.RollbackAsync();
-                _logger.LogInformation("Transação revertida devido a DbUpdateException. JobCandidateId={JobCandidateId}", jobCandidateId);
+
+                string mRol1 = $"Transação revertida devido a DbUpdateException. JobCandidateId={jobCandidateId}";
+                _logger.LogInformation(mRol1);
+                _db.Logs.Add(new Log { Message = mRol1, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return Conflict(new { message = "Erro ao aprovar candidato", detail = ex.Message });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro interno ao aprovar candidato. JobCandidateId={JobCandidateId}", jobCandidateId);
+                string mErr2 = $"Erro interno ao aprovar candidato. JobCandidateId={jobCandidateId}";
+                _logger.LogError(ex, mErr2);
+                _db.Logs.Add(new Log { Message = mErr2, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 await transaction.RollbackAsync();
-                _logger.LogInformation("Transação revertida devido a erro interno. JobCandidateId={JobCandidateId}", jobCandidateId);
+
+                string mRol2 = $"Transação revertida devido a erro interno. JobCandidateId={jobCandidateId}";
+                _logger.LogInformation(mRol2);
+                _db.Logs.Add(new Log { Message = mRol2, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(500, new { message = "Erro interno ao aprovar candidato", detail = ex.Message });
             }
         }
