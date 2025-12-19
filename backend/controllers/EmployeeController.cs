@@ -439,6 +439,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     string m4 = $"Transação concluída. BusinessEntityID={previousEmployee.BusinessEntityID}";
                     _logger.LogInformation(m4);
                     _db.Logs.Add(new Log { Message = m4, Date = DateTime.Now });
+                    _db.JobCandidates.Remove(candidate);
                     await _db.SaveChangesAsync();
 
                     return CreatedAtAction(nameof(GetEmployee),
