@@ -55,8 +55,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<IActionResult> Get(int businessEntityId, DateTime rateChangeDate)
         {
 
-            _logger.LogInformation("Inicia procura de histórico de pagamento para o ID BusinessEntityId={BusinessEntityId} com a data RateChangeDate={RateChangeDate}.",
-                businessEntityId, rateChangeDate);
+            string message = $"Inicia procura de histórico de pagamento para o ID BusinessEntityId={businessEntityId} com a data RateChangeDate=${rateChangeDate}.";
+            _logger.LogInformation(message);
+            _db.Logs.Add(new Log { Message = message, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
 
             var history = await _db.PayHistories
                 .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
@@ -64,14 +66,17 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             if (history == null)
             {
-                _logger.LogWarning("Nenhum registo encontrado para BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                    businessEntityId, rateChangeDate);
+                string message2 = $"Nenhum registo encontrado para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+                _logger.LogWarning(message2);
+                _db.Logs.Add(new Log { Message = message2, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
                 return NotFound();
             }
 
-            _logger.LogInformation("Registo Encontrado para BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                businessEntityId, rateChangeDate);
-
+            string message3 = $"Registo Encontrado para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+            _logger.LogInformation(message3);
+            _db.Logs.Add(new Log { Message = message3, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
             var dto = _mapper.Map<PayHistoryDto>(history);
             return Ok(dto);
         }
@@ -82,9 +87,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [Authorize(Roles ="admin")]
         public async Task<IActionResult> Create(PayHistoryDto dto)
         {
-            _logger.LogInformation(
-                "A iniciar a criação de um registo de pagamento para o BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                dto.BusinessEntityID, dto.RateChangeDate);
+            string message4 = $"A iniciar a criação de um registo de pagamento para o BusinessEntityId={dto.BusinessEntityID} na data RateChangeDate={dto.RateChangeDate}.";
+            _logger.LogInformation(message4);
+            _db.Logs.Add(new Log { Message = message4, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
 
             try
             {
@@ -94,9 +100,9 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 _db.PayHistories.Add(history);
                 await _db.SaveChangesAsync();
 
-                _logger.LogInformation(
-                    "Registo de Pagamento criado com sucesso."
-                    );
+                string message5 = $"Registo de Pagamento criado com sucesso.";
+                _logger.LogInformation(message5);
+                _db.Logs.Add(new Log { Message = message5, Date = DateTime.Now });
 
                 return CreatedAtAction(nameof(Get),
                     new { businessEntityId = history.BusinessEntityID, rateChangeDate = history.RateChangeDate },
@@ -104,17 +110,17 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (DbUpdateException ex)
             {
-                _logger.LogError(ex,
-                    "Erro ao criar o registo para BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                    dto.BusinessEntityID, dto.RateChangeDate);
-
+                string message6 = $"Erro ao criar o registo para BusinessEntityId={dto.BusinessEntityID} na data RateChangeDate={dto.RateChangeDate}.";
+                _logger.LogError(ex, message6);
+                _db.Logs.Add(new Log { Message = message6, Date = DateTime.Now });
+               
                 return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao criar registo.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Erro ao criar o registo para o BusinessEntityId={BusinessEntityId}.",
-                    dto.BusinessEntityID);
+                string message7 = $"Erro ao criar o registo para o BusinessEntityId={dto.BusinessEntityID}.";
+                _logger.LogError(ex, message7);
+                _db.Logs.Add(new Log { Message = message7, Date = DateTime.Now });
 
                 return StatusCode(StatusCodes.Status500InternalServerError, "Erro inesperado no servidor.");
             }
@@ -145,9 +151,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [Authorize(Roles ="admin")]
         public async Task<IActionResult> Patch(int businessEntityId, DateTime rateChangeDate, PayHistoryDto dto)
         {
-            _logger.LogInformation(
-                "A iniciar atualização dos dados para BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                businessEntityId, rateChangeDate);
+            string message8 = $"A iniciar atualização dos dados para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+            _logger.LogInformation(message8);
+            _db.Logs.Add(new Log { Message = message8, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
 
             var history = await _db.PayHistories
                 .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
@@ -155,9 +162,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             if (history == null)
             {
-                _logger.LogWarning(
-                    "PATCH falhou: registo não encontrado para BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                    businessEntityId, rateChangeDate);
+                string message9 = $"PATCH falhou: registo não encontrado para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+                _logger.LogWarning(message9);
+                _db.Logs.Add(new Log { Message = message9, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return NotFound();
             }
 
@@ -167,33 +176,38 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 if (dto.PayFrequency != default(byte)) history.PayFrequency = dto.PayFrequency;
 
                 history.ModifiedDate = DateTime.UtcNow;
+                string message10 = $"PATCH concluído com sucesso para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+                _logger.LogWarning(message10);
+                _db.Logs.Add(new Log { Message = message10, Date = DateTime.Now });
                 await _db.SaveChangesAsync();
-
-                _logger.LogInformation(
-                    "PATCH concluído com sucesso para BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                    businessEntityId, rateChangeDate);
 
                 return Ok(_mapper.Map<PayHistoryDto>(history));
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                _logger.LogError(ex,
-                    "Erro ao atualizar o registo do BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                    businessEntityId, rateChangeDate);
+                string message11 = $"Erro ao atualizar o registo do BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+                _logger.LogError(ex, message11);
+                _db.Logs.Add(new Log { Message = message11, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status409Conflict, "Conflito de concorrência ao atualizar o registo.");
             }
             catch (DbUpdateException ex)
             {
-                _logger.LogError(ex,
-                    "Erro ao atualizar os dados na BD para BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                    businessEntityId, rateChangeDate);
+                string message12 = $"Erro ao atualizar os dados na BD para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+                _logger.LogError(ex, message12);
+                _db.Logs.Add(new Log { Message = message12, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao atualizar o registo.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Erro inesperado no PATCH para BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                    businessEntityId, rateChangeDate);
+                string message13 = $"Erro inesperado no PATCH para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+                _logger.LogError(ex, message13);
+                _db.Logs.Add(new Log { Message = message13, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Erro inesperado no servidor.");
             }
         }
@@ -203,9 +217,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [Authorize(Roles ="admin")]
         public async Task<IActionResult> Delete(int businessEntityId, DateTime rateChangeDate)
         {
-            _logger.LogInformation(
-                "A iniciar o DELETE para BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                businessEntityId, rateChangeDate);
+            string message14 = $"A iniciar o DELETE para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+            _logger.LogInformation(message14);
+            _db.Logs.Add(new Log { Message = message14, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
 
             var payhistory = await _db.PayHistories
                 .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
@@ -213,9 +228,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             if (payhistory == null)
             {
-                _logger.LogWarning(
-                    "O DELETE falhou: registo não encontrado para BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                    businessEntityId, rateChangeDate);
+                string message15 = $"O DELETE falhou: registo não encontrado para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+                _logger.LogWarning(message15);
+                _db.Logs.Add(new Log { Message = message15, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return NotFound();
             }
 
@@ -224,31 +241,38 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 _db.PayHistories.Remove(payhistory);
                 await _db.SaveChangesAsync();
 
-                _logger.LogInformation(
-                    "DELETE concluído com sucesso para BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                    businessEntityId, rateChangeDate);
+                string message16 = $"DELETE concluído com sucesso para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+                _logger.LogInformation(message16);
+                _db.Logs.Add(new Log { Message = message16, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
                 return NoContent();
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                _logger.LogError(ex,
-                    "Conflito de concorrência ao apagar BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                    businessEntityId, rateChangeDate);
+                string message17 = $"Conflito de concorrência ao apagar BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+                _logger.LogError(ex, message17);
+                _db.Logs.Add(new Log { Message = message17, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status409Conflict, "Conflito de concorrência ao apagar o registo.");
             }
             catch (DbUpdateException ex)
             {
-                _logger.LogError(ex,
-                    "Erro ao apagar o registo da BD para o BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                    businessEntityId, rateChangeDate);
+                string message18 = $"Erro ao apagar o registo da BD para o BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+                _logger.LogError(ex, message18);
+                _db.Logs.Add(new Log { Message = message18, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao apagar o registo.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Erro inesperado no DELETE para BusinessEntityId={BusinessEntityId} na data RateChangeDate={RateChangeDate}.",
-                    businessEntityId, rateChangeDate);
+                string message19 = $"Erro inesperado no DELETE para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
+                _logger.LogError(ex, message19);
+                _db.Logs.Add(new Log { Message = message19, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Erro inesperado no servidor.");
             }
         }

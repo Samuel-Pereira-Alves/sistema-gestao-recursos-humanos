@@ -43,6 +43,14 @@ function App() {
       <Route
         path="/profile/:id?"
         element={
+          <AuthGuard allowedRoles={['admin']}>
+            <Profile />
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/profile/"
+        element={
           <AuthGuard allowedRoles={['employee', 'admin']}>
             <Profile />
           </AuthGuard>
