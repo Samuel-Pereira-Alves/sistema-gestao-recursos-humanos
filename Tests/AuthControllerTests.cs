@@ -1,5 +1,6 @@
 ﻿
 using System.IdentityModel.Tokens.Jwt;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -87,7 +88,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public void Login_WithValidCredentials_ReturnsOkWithTokenAndPayload()
+        public async Task Login_WithValidCredentials_ReturnsOkWithTokenAndPayloadAsync()
         {
             // Arrange
             var ctx = BuildContext();
@@ -99,7 +100,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var request = new SystemUsersDTO { Username = user.Username, Password = "P@ssw0rd" };
 
             // Act
-            var result = controller.Login(request);
+            var result = await controller.Login(request);
 
             // Assert
             var ok = Assert.IsType<OkObjectResult>(result);
@@ -124,7 +125,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public void Login_WithInvalidUsername_ReturnsUnauthorized()
+        public async Task Login_WithInvalidUsername_ReturnsUnauthorized()
         {
             // Arrange
             var ctx = BuildContext();
@@ -135,7 +136,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var request = new SystemUsersDTO { Username = "user-inexistente", Password = "P@ssw0rd" };
 
             // Act
-            var result = controller.Login(request);
+            var result = await controller.Login(request);
 
             // Assert
             var unauthorized = Assert.IsType<UnauthorizedObjectResult>(result);
@@ -143,7 +144,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public void Login_WithInvalidPassword_ReturnsUnauthorized()
+        public async Task Login_WithInvalidPassword_ReturnsUnauthorized()
         {
             // Arrange
             var ctx = BuildContext();
@@ -154,7 +155,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var request = new SystemUsersDTO { Username = "samuel", Password = "password-errada" };
 
             // Act
-            var result = controller.Login(request);
+            var result = await controller.Login(request);
 
             // Assert
             var unauthorized = Assert.IsType<UnauthorizedObjectResult>(result);
@@ -162,7 +163,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public void Login_UserWithoutRole_DoesNotIncludeRoleClaim()
+        public async Task Login_UserWithoutRole_DoesNotIncludeRoleClaim()
         {
             // Arrange
             var ctx = BuildContext();
@@ -174,7 +175,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var request = new SystemUsersDTO { Username = user.Username, Password = "P@ssw0rd" };
 
             // Act
-            var result = controller.Login(request);
+            var result = await controller.Login(request);
 
             // Assert
             Assert.IsType<OkObjectResult>(result);
