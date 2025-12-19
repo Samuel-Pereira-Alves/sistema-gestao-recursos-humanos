@@ -20,6 +20,7 @@ namespace sistema_gestao_recursos_humanos.backend.data
         public DbSet<SystemUser> SystemUsers { get; set; }
         public DbSet<BusinessEntity> BusinessEntities { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<Log> Logs {get; set;}
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

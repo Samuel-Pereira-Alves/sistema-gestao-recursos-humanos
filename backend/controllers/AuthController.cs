@@ -31,14 +31,19 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [AllowAnonymous]
         // POST: api/v1/login
         [HttpPost("login")]
-        public IActionResult Login([FromBody] SystemUsersDTO request)
+        public async Task<IActionResult> Login([FromBody] SystemUsersDTO request)
         {
-
-            _logger.LogInformation("Pedido de login recebido.");
+            string message1 = "Pedido de login recebido.";
+            _logger.LogInformation(message1);
+            _db.Logs.Add(new Log { Message = message1, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
 
             if (request is null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             {
-                _logger.LogWarning("Pedido de login inválido: body nulo ou campos em branco.");
+                string message2 = "Pedido de login inválido: body nulo ou campos em branco.";
+                _logger.LogWarning(message2);
+                _db.Logs.Add(new Log { Message = message2, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
                 return BadRequest("Pedido inválido");
             }
 
@@ -48,8 +53,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 var user = _db.SystemUsers.FirstOrDefault(u => u.Username == request.Username);
                 if (user is null)
                 {
-                    _logger.LogWarning("Login falhou: utilizador não encontrado. Username={Username}",
-                        request.Username);
+                    string message3 = $"Login falhou: utilizador não encontrado. Username={request.Username}.";
+                    _logger.LogWarning(message3);
+                    _db.Logs.Add(new Log { Message = message3, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
                     return Unauthorized("Credenciais inválidas");
                 }
 
@@ -57,8 +64,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 var passwordOk = VerifyPassword(request.Password, user.PasswordHash);
                 if (!passwordOk)
                 {
-                    _logger.LogWarning("Login falhou: password inválida. Username={Username}, SystemUserId={SystemUserId}.",
-                        request.Username, user.SystemUserId);
+                    string message4 = $"Login falhou: password inválida. Username={request.Username}, SystemUserId={user.SystemUserId}.";
+                    _logger.LogWarning(message4);
+                    _db.Logs.Add(new Log { Message = message4, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
                     return Unauthorized("Credenciais inválidas");
                 }
 
@@ -66,16 +75,20 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 var employee = _db.Employees.FirstOrDefault(e => e.BusinessEntityID == user.BusinessEntityID);
                 if (employee is null || !employee.CurrentFlag)
                 {
-                    _logger.LogWarning("Login falhou: funcionário inexistente ou inativo. Username={Username}, BusinessEntityID={BusinessEntityID}",
-                        request.Username, user.BusinessEntityID);
+                    string message5 = $"Login falhou: funcionário inexistente ou inativo. Username={request.Username}, BusinessEntityID={user.BusinessEntityID}.";
+                    _logger.LogWarning(message5);
+                    _db.Logs.Add(new Log { Message = message5, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
                     return Unauthorized("Credenciais inválidas");
                 }
 
                 // 4. Gerar token JWT (NUNCA logar o token)
                 var token = GenerateJwtToken(user);
 
-                _logger.LogInformation("Login bem-sucedido. Username={Username}, Role={Role}, SystemUserId={SystemUserId}, BusinessEntityID={BusinessEntityID}",
-                    request.Username, user.Role, user.SystemUserId, user.BusinessEntityID);
+                string message6 = $"Login bem-sucedido. Username={request.Username}, Role={user.Role}, SystemUserId={user.SystemUserId}, BusinessEntityID={user.BusinessEntityID}";
+                _logger.LogInformation(message6);
+                _db.Logs.Add(new Log { Message = message6, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
                 return Ok(new
                 {
@@ -87,15 +100,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Erro inesperado no login. Username={Username}",
-                    request?.Username);
+                string message7 = $"Erro inesperado no login. Username={request?.Username}";
+                _logger.LogError(ex, message7);
+                _db.Logs.Add(new Log { Message = message7, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
                 return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao processar o login.");
             }
         }
-
-
 
         private bool VerifyPassword(string password, string storedHash)
         {
