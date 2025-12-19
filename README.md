@@ -10,22 +10,25 @@ Funcionalidades: gestão de funcionários, histórico de pagamentos, movimentos,
 1. Clonar o projeto ou download do zip
 2. Configurar connection string da base de dados
 3. Configurar token JWT no appsettings.json
-
+```
 "Jwt": {
   "Key": "CHAVE_SECRETA",
   "Issuer": "ISSUER",
   "Audience": "AUDIENCE"
 }
-
+```
 4. Instalar dependências
 
-Frontend:
-cd frontend
-npm install
-npm run dev
+### Frontend:
+```
+- cd frontend
+- npm install
+- npm run dev
+``` 
 
-Backend:
-
-cd backend
-dotnet restore
-dotnet run
+### Backend:
+```
+- cd backend
+- dotnet restore
+- dotnet run
+```
