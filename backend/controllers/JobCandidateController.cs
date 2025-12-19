@@ -32,21 +32,37 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> GetAll()
         {
-            _logger.LogInformation("Recebida requisição para obter todos os JobCandidates.");
+            // 1) Pedido recebido
+            string msg1 = "Recebida requisição para obter todos os JobCandidates.";
+            _logger.LogInformation(msg1);
+            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
+
             try
             {
+                // 2) Consulta
                 var candidates = await _db.JobCandidates
                     .OrderByDescending(c => c.ModifiedDate)
                     .ToListAsync();
 
-                _logger.LogInformation("Encontrados {Count} JobCandidates.", candidates.Count);
+                // 3) Resultado
+                string msg2 = $"Encontrados {candidates.Count} JobCandidates.";
+                _logger.LogInformation(msg2);
+                _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
+                // 4) Mapeamento e retorno
                 var dto = _mapper.Map<List<JobCandidateDto>>(candidates);
                 return Ok(dto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter lista de JobCandidates.");
+                // 5) Erro
+                string msg3 = "Erro ao obter lista de JobCandidates.";
+                _logger.LogError(ex, msg3);
+                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao obter os candidatos.");
             }
         }
@@ -56,31 +72,50 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Get(int id)
         {
-            _logger.LogInformation("Recebida requisição para obter JobCandidate com ID={ID}.", id);
+            // 1) Pedido recebido
+            string msg1 = $"Recebida requisição para obter JobCandidate com ID={id}.";
+            _logger.LogInformation(msg1);
+            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
 
             try
             {
+                // 2) Consulta
                 var candidate = await _db.JobCandidates
                     .FirstOrDefaultAsync(jc => jc.JobCandidateId == id);
 
+                // 3) Não encontrado
                 if (candidate == null)
                 {
-                    _logger.LogWarning("JobCandidate não encontrado para ID={ID}.", id);
+                    string msg2 = $"JobCandidate não encontrado para ID={id}.";
+                    _logger.LogWarning(msg2);
+                    _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
+
                     return NotFound();
                 }
 
-                _logger.LogInformation("JobCandidate encontrado para ID={ID}.", id);
+                // 4) Encontrado
+                string msg3 = $"JobCandidate encontrado para ID={id}.";
+                _logger.LogInformation(msg3);
+                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
+                // 5) Mapeamento e retorno
                 var dto = _mapper.Map<JobCandidateDto>(candidate);
                 return Ok(dto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter JobCandidate com ID={ID}.", id);
+                // 6) Erro
+                string msg4 = $"Erro ao obter JobCandidate com ID={id}.";
+                _logger.LogError(ex, msg4);
+                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao obter o candidato.");
             }
         }
-
 
         // POST: api/v1/jobcandidate
         // [HttpPost]
@@ -107,20 +142,32 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [AllowAnonymous]
         public async Task<IActionResult> UploadAndCreate([FromForm] JobCandidateCreateForm form, CancellationToken ct)
         {
-            _logger.LogInformation("Recebida requisição para upload de CV e criação de JobCandidate.");
+            // 1) Pedido recebido
+            string msg1 = "Recebida requisição para upload de CV e criação de JobCandidate.";
+            _logger.LogInformation(msg1);
+            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
+            await _db.SaveChangesAsync(ct);
 
-            // 1) Validação do ficheiro
+            // 2) Validação do ficheiro
             var cv = form.Cv;
             if (cv is null || cv.Length == 0)
             {
-                _logger.LogWarning("Nenhum ficheiro enviado.");
+                string msg2 = "Nenhum ficheiro enviado.";
+                _logger.LogWarning(msg2);
+                _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
+                await _db.SaveChangesAsync(ct);
+
                 return BadRequest(new { message = "Nenhum ficheiro enviado." });
             }
 
             var ext = Path.GetExtension(cv.FileName);
             if (!string.Equals(ext, ".pdf", StringComparison.OrdinalIgnoreCase))
             {
+                string msg3 = $"Ficheiro inválido: extensão {ext}. Esperado .pdf.";
                 _logger.LogWarning("Ficheiro inválido: extensão {Ext}. Esperado .pdf.", ext);
+                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
+                await _db.SaveChangesAsync(ct);
+
                 return BadRequest(new { message = "O ficheiro deve ser um PDF (.pdf)." });
             }
 
@@ -133,27 +180,43 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             if (!IsPdf(pdfBytes))
             {
-                _logger.LogWarning("Conteúdo inválido: ficheiro não é um PDF válido.");
+                string msg4 = "Conteúdo inválido: ficheiro não é um PDF válido.";
+                _logger.LogWarning(msg4);
+                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
+                await _db.SaveChangesAsync(ct);
+
                 return BadRequest(new { message = "Conteúdo inválido: o ficheiro não é um PDF válido." });
             }
 
-            // 2) Extrair texto + construir XML
+            // 3) Extrair texto + construir XML
             string resumeXml = string.Empty;
             try
             {
+                _logger.LogInformation("A processar PDF para extração de texto.");
+                _db.Logs.Add(new Log { Message = "A processar PDF para extração de texto.", Date = DateTime.Now });
+                await _db.SaveChangesAsync(ct);
+
                 using var parseStream = new MemoryStream(pdfBytes, writable: false);
                 var text = PdfTextExtractor.ExtractAllText(parseStream);
                 var resumeData = ResumeParser.ParseFromText(text);
 
                 if (resumeData != null)
                     resumeXml = AdventureWorksResumeXmlBuilder.Build(resumeData);
+
+                _logger.LogInformation("Extração de texto concluída (XML construído? {HasXml}).", !string.IsNullOrEmpty(resumeXml));
+                _db.Logs.Add(new Log { Message = $"Extração de texto concluída (XML construído? {!string.IsNullOrEmpty(resumeXml)}).", Date = DateTime.Now });
+                await _db.SaveChangesAsync(ct);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Falha ao processar PDF para extração de texto.");
+                string msg5 = "Falha ao processar PDF para extração de texto.";
+                _logger.LogWarning(ex, msg5);
+                _db.Logs.Add(new Log { Message = msg5, Date = DateTime.Now });
+                await _db.SaveChangesAsync(ct);
+                // Continua mesmo assim (XML poderá ir vazio)
             }
 
-            // 3) Guardar ficheiro em disco
+            // 4) Guardar ficheiro em disco
             var baseRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
             var uploadsRoot = Path.Combine(baseRoot, "uploads", "cv");
             Directory.CreateDirectory(uploadsRoot);
@@ -164,11 +227,19 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             try
             {
                 await System.IO.File.WriteAllBytesAsync(fullPath, pdfBytes, ct);
+
+                string msg6 = $"Ficheiro guardado com sucesso: {safeFileName}.";
                 _logger.LogInformation("Ficheiro guardado com sucesso: {File}.", safeFileName);
+                _db.Logs.Add(new Log { Message = msg6, Date = DateTime.Now });
+                await _db.SaveChangesAsync(ct);
             }
             catch (Exception ex)
             {
+                string msg7 = $"Erro ao guardar ficheiro {safeFileName}.";
                 _logger.LogError(ex, "Erro ao guardar ficheiro {File}.", safeFileName);
+                _db.Logs.Add(new Log { Message = msg7, Date = DateTime.Now });
+                await _db.SaveChangesAsync(ct);
+
                 return Problem(title: "Erro ao guardar o ficheiro",
                                detail: ex.Message,
                                statusCode: StatusCodes.Status500InternalServerError);
@@ -178,12 +249,12 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var relativeUrl = $"/uploads/cv/{safeFileName}";
             var absoluteUrl = $"{Request.Scheme}://{Request.Host}{relativeUrl}";
 
-            // 4) Construir entidade
+            // 5) Construir entidade
             var candidate = new JobCandidate
             {
                 BusinessEntityId = null,
-                Resume = resumeXml,
-                CvFileUrl = relativeUrl,
+                Resume = resumeXml,         // ⚠ Não logar conteúdo do XML
+                CvFileUrl = relativeUrl,    // OK logar o nome/URL do ficheiro
                 ModifiedDate = now,
 
                 BirthDate = form.BirthDate,
@@ -194,7 +265,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 FirstName = form.FirstName,
                 LastName = form.LastName,
 
-                PasswordHash = "DevOnly!234",
+                PasswordHash = "DevOnly!234", // ⚠ Evitar em produção
                 Role = "employee"
             };
 
@@ -203,22 +274,37 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             try
             {
                 await _db.SaveChangesAsync(ct);
+
+                string msg8 = $"JobCandidate criado com sucesso. ID={candidate.JobCandidateId}, ficheiro={safeFileName}.";
                 _logger.LogInformation("JobCandidate criado com sucesso. ID={ID}, ficheiro={File}.", candidate.JobCandidateId, safeFileName);
+                _db.Logs.Add(new Log { Message = msg8, Date = DateTime.Now });
+                await _db.SaveChangesAsync(ct);
             }
             catch (Exception ex)
             {
                 try { System.IO.File.Delete(fullPath); } catch { /* ignore */ }
+
+                string msg9 = $"Erro ao gravar JobCandidate. Ficheiro removido: {safeFileName}.";
                 _logger.LogError(ex, "Erro ao gravar JobCandidate. Ficheiro removido: {File}.", safeFileName);
+                _db.Logs.Add(new Log { Message = msg9, Date = DateTime.Now });
+                await _db.SaveChangesAsync(ct);
+
                 return Problem(title: "Erro ao persistir o candidato",
                                detail: ex.Message,
                                statusCode: StatusCodes.Status500InternalServerError);
             }
 
+            // 6) Resposta
             var result = new
             {
                 jobCandidateId = candidate.JobCandidateId,
                 fileUrl = absoluteUrl
             };
+
+            string msg10 = $"Upload e criação concluídos. ID={candidate.JobCandidateId}.";
+            _logger.LogInformation(msg10);
+            _db.Logs.Add(new Log { Message = msg10, Date = DateTime.Now });
+            await _db.SaveChangesAsync(ct);
 
             return Created($"/api/v1/jobcandidates/{candidate.JobCandidateId}", result);
         }
@@ -232,41 +318,66 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                    bytes[3] == 0x46; // "%PDF"
         }
 
-
         // DELETE: api/v1/jobcandidate/{id}
         [HttpDelete("{id}")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(int id)
         {
-            _logger.LogInformation("Recebida requisição para eliminar JobCandidate com ID={ID}.", id);
+            // 1) Pedido recebido
+            string msg1 = $"Recebida requisição para eliminar JobCandidate com ID={id}.";
+            _logger.LogInformation(msg1);
+            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
 
             try
             {
+                // 2) Procurar o candidato
                 var jobcandidate = await _db.JobCandidates.FindAsync(id);
 
+                // 3) Não encontrado
                 if (jobcandidate == null)
                 {
-                    _logger.LogWarning("JobCandidate não encontrado para ID={ID}.", id);
+                    string msg2 = $"JobCandidate não encontrado para ID={id}.";
+                    _logger.LogWarning(msg2);
+                    _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
+
                     return NotFound();
                 }
 
-                _logger.LogInformation("JobCandidate encontrado para ID={ID}. A eliminar...", id);
+                // 4) Encontrado — a eliminar
+                string msg3 = $"JobCandidate encontrado para ID={id}. A eliminar...";
+                _logger.LogInformation(msg3);
+                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
+                // 5) Remover e persistir
                 _db.JobCandidates.Remove(jobcandidate);
                 await _db.SaveChangesAsync();
 
-                _logger.LogInformation("JobCandidate eliminado com sucesso. ID={ID}.", id);
+                string msg4 = $"JobCandidate eliminado com sucesso. ID={id}.";
+                _logger.LogInformation(msg4);
+                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
                 return NoContent();
             }
             catch (DbUpdateException dbEx)
             {
-                _logger.LogError(dbEx, "Erro ao eliminar JobCandidate com ID={ID}.", id);
+                string msg5 = $"Erro ao eliminar JobCandidate com ID={id}.";
+                _logger.LogError(dbEx, msg5);
+                _db.Logs.Add(new Log { Message = msg5, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao eliminar o candidato.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro inesperado ao eliminar JobCandidate com ID={ID}.", id);
+                string msg6 = $"Erro inesperado ao eliminar JobCandidate com ID={id}.";
+                _logger.LogError(ex, msg6);
+                _db.Logs.Add(new Log { Message = msg6, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao eliminar o candidato.");
             }
         }
