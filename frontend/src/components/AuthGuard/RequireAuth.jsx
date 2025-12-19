@@ -8,6 +8,10 @@ export default function RequireAuthWithOwner({ allowedRoles = [], children }) {
   const role = localStorage.getItem("role");
   const userId = localStorage.getItem("businessEntityId");
 
+  if(allowedRoles.includes(role)){
+    return children;
+  }
+
   if (!token) {
     return <Navigate to="/login" />;
   }
@@ -20,15 +24,6 @@ export default function RequireAuthWithOwner({ allowedRoles = [], children }) {
     return <Navigate to="/forbidden" />;
   }
 
-  if (role === "employee") {
-    if (!id) {
-      return <Navigate to={`/profile/${userId}`} />;
-    }
-
-    if (String(id) !== String(userId)) {
-      return <Navigate to="/forbidden" />;
-    }
-  }
 
   return children;
 }
