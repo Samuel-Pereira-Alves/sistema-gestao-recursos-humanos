@@ -59,10 +59,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             return user;
         }
 
-        /// <summary>
-        /// Semeia um Employee ativo (CurrentFlag = true) para o mesmo BusinessEntityID do SystemUser.
-        /// Isto é necessário porque o AuthController só autentica se existir funcionário ativo.
-        /// </summary>
         private Employee SeedEmployee(AdventureWorksContext ctx, int businessEntityId)
         {
             var emp = new Employee
@@ -78,7 +74,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
                 SalariedFlag = true,
                 VacationHours = 10,
                 SickLeaveHours = 0,
-                CurrentFlag = true,               // 👈 essencial para passar no Login
+                CurrentFlag = true,              
                 ModifiedDate = DateTime.UtcNow
             };
 
@@ -93,7 +89,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             // Arrange
             var ctx = BuildContext();
             var user = SeedUser(ctx);
-            SeedEmployee(ctx, user.BusinessEntityID); // 👈 garante funcionário ativo
+            SeedEmployee(ctx, user.BusinessEntityID); 
             var config = BuildConfig();
             var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object);
 
