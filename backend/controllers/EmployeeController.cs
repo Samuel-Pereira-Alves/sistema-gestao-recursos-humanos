@@ -32,10 +32,15 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> GetAll()
         {
-            _logger.LogInformation("Recebida requisição para obter todos os Employees (Role=admin).");
+            // 1) Pedido recebido
+            string msg1 = "Recebida requisição para obter todos os Employees (Role=admin).";
+            _logger.LogInformation(msg1);
+            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
 
             try
             {
+                // 2) Consulta com includes
                 var employees = await _db.Employees
                     .Include(e => e.PayHistories)
                     .Include(e => e.DepartmentHistories)
@@ -43,14 +48,24 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     .Include(e => e.Person)
                     .ToListAsync();
 
-                _logger.LogInformation("Encontrados {Count} Employees.", employees.Count);
+                // 3) Resultado
+                string msg2 = $"Encontrados {employees.Count} Employees.";
+                _logger.LogInformation(msg2);
+                _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
+                // 4) Mapeamento e retorno
                 var employeesDto = _mapper.Map<List<EmployeeDto>>(employees);
                 return Ok(employeesDto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter lista de Employees.");
+                // 5) Erro
+                string msg3 = "Erro ao obter lista de Employees.";
+                _logger.LogError(ex, msg3);
+                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao obter os empregados.");
             }
         }
@@ -60,10 +75,15 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [Authorize(Roles = "admin, employee")]
         public async Task<IActionResult> GetEmployee(int id)
         {
-            _logger.LogInformation("Recebida requisição para obter Employee com ID={ID}. Roles permitidas: admin, employee.", id);
+            // 1) Pedido recebido
+            string msg1 = $"Recebida requisição para obter Employee com ID={id}. Roles permitidas: admin, employee.";
+            _logger.LogInformation(msg1);
+            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
 
             try
             {
+                // 2) Consulta com includes
                 var employee = await _db.Employees
                     .Include(e => e.PayHistories)
                     .Include(e => e.DepartmentHistories)
@@ -71,25 +91,38 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     .Include(e => e.Person)
                     .FirstOrDefaultAsync(e => e.BusinessEntityID == id);
 
+                // 3) Não encontrado
                 if (employee == null)
                 {
-                    _logger.LogWarning("Employee não encontrado para ID={ID}.", id);
+                    string msg2 = $"Employee não encontrado para ID={id}.";
+                    _logger.LogWarning(msg2);
+                    _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
+
                     return NotFound();
                 }
 
-                _logger.LogInformation("Employee encontrado para ID={ID}.", id);
+                // 4) Encontrado
+                string msg3 = $"Employee encontrado para ID={id}.";
+                _logger.LogInformation(msg3);
+                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
+                // 5) Mapeamento e retorno
                 var employeeDto = _mapper.Map<EmployeeDto>(employee);
                 return Ok(employeeDto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter Employee com ID={ID}.", id);
+                // 6) Erro
+                string msg4 = $"Erro ao obter Employee com ID={id}.";
+                _logger.LogError(ex, msg4);
+                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao obter o empregado.");
             }
         }
-
-
 
         // POST: api/v1/employee
         // [HttpPost]
@@ -129,91 +162,137 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(int id)
         {
-            _logger.LogInformation("Recebida requisição para eliminar (soft delete) Employee com ID={ID}.", id);
+            // 1) Pedido recebido
+            string msg1 = $"Recebida requisição para eliminar (soft delete) Employee com ID={id}.";
+            _logger.LogInformation(msg1);
+            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
+
             try
             {
+                // 2) Procurar o empregado
                 var employee = await _db.Employees.FindAsync(id);
 
+                // 3) Não encontrado
                 if (employee == null)
                 {
-                    _logger.LogWarning("Employee não encontrado para ID={ID}.", id);
+                    string msg2 = $"Employee não encontrado para ID={id}.";
+                    _logger.LogWarning(msg2);
+                    _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
+
                     return NotFound();
                 }
 
-                _logger.LogInformation("Employee encontrado para ID={ID}. A marcar como inativo...", id);
+                // 4) Encontrado — a marcar como inativo
+                string msg3 = $"Employee encontrado para ID={id}. A marcar como inativo...";
+                _logger.LogInformation(msg3);
+                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
                 employee.CurrentFlag = false;
                 employee.ModifiedDate = DateTime.Now;
 
                 await _db.SaveChangesAsync();
 
-                _logger.LogInformation("Employee marcado como inativo com sucesso. ID={ID}.", id);
+                // 5) Sucesso
+                string msg4 = $"Employee marcado como inativo com sucesso. ID={id}.";
+                _logger.LogInformation(msg4);
+                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
+                // Caso futuro: execução de SP (comentada)
                 // await _db.Database.ExecuteSqlRawAsync("EXEC HumanResources.uspDeleteEmployee {0}", id);
 
                 return NoContent();
             }
             catch (DbUpdateException dbEx)
             {
-                _logger.LogError(dbEx, "Erro ao atualizar Employee (soft delete) para ID={ID}.", id);
+                string msg5 = $"Erro ao atualizar Employee (soft delete) para ID={id}.";
+                _logger.LogError(dbEx, msg5);
+                _db.Logs.Add(new Log { Message = msg5, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao atualizar o empregado.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro inesperado ao eliminar (soft delete) Employee com ID={ID}.", id);
+                string msg6 = $"Erro inesperado ao eliminar (soft delete) Employee com ID={id}.";
+                _logger.LogError(ex, msg6);
+                _db.Logs.Add(new Log { Message = msg6, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao eliminar o empregado.");
             }
         }
 
-
         // PATCH: api/v1/employee/{id}
-
         [HttpPatch("{id}")]
         [Authorize(Roles = "admin, employee")]
+
+        [HttpPatch("employees/{id:int}")]
         public async Task<IActionResult> Patch(int id, [FromBody] EmployeeDto employeeDto)
         {
-            _logger.LogInformation("Recebida requisição para atualizar parcialmente Employee com ID={ID}.", id);
+            // 1) Pedido recebido
+            string msg1 = $"Recebida requisição para atualizar parcialmente Employee com ID={id}.";
+            _logger.LogInformation(msg1);
+            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
+            await _db.SaveChangesAsync();
 
-            // Validação básica de ID e DTO
+            // 2) Validações básicas
             if (employeeDto is null)
             {
-                _logger.LogWarning("DTO ausente no corpo da requisição para Patch de Employee ID={ID}.", id);
+                string msg2 = $"DTO ausente no corpo da requisição para Patch de Employee ID={id}.";
+                _logger.LogWarning(msg2);
+                _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return BadRequest("Body is required.");
             }
+
             if (id != employeeDto.BusinessEntityID)
             {
+                string msg3 = $"ID no path ({id}) difere do ID no corpo ({employeeDto.BusinessEntityID}).";
                 _logger.LogWarning("ID no path ({PathId}) difere do ID no corpo ({BodyId}).", id, employeeDto.BusinessEntityID);
+                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return BadRequest("Path ID must match body BusinessEntityID.");
             }
 
             try
             {
-                // Carregar Employee + Person
+                // 3) Carregar Employee + Person
                 var employee = await _db.Employees
                     .Include(e => e.Person)
                     .FirstOrDefaultAsync(e => e.BusinessEntityID == id);
 
                 if (employee == null)
                 {
-                    _logger.LogWarning("Employee não encontrado para ID={ID}.", id);
+                    string msg4 = $"Employee não encontrado para ID={id}.";
+                    _logger.LogWarning(msg4);
+                    _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
+                    await _db.SaveChangesAsync();
+
                     return NotFound();
                 }
 
-                _logger.LogInformation("Employee encontrado para ID={ID}. A aplicar alterações parciais...", id);
+                string msg5 = $"Employee encontrado para ID={id}. A aplicar alterações parciais…";
+                _logger.LogInformation(msg5);
+                _db.Logs.Add(new Log { Message = msg5, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
-                // Strings
+                // 4) Aplicar alterações (apenas campos presentes/válidos)
                 if (!string.IsNullOrEmpty(employeeDto.LoginID)) employee.LoginID = employeeDto.LoginID;
                 if (!string.IsNullOrEmpty(employeeDto.JobTitle)) employee.JobTitle = employeeDto.JobTitle;
                 if (!string.IsNullOrEmpty(employeeDto.Gender)) employee.Gender = employeeDto.Gender;
                 if (!string.IsNullOrEmpty(employeeDto.MaritalStatus)) employee.MaritalStatus = employeeDto.MaritalStatus;
                 if (!string.IsNullOrEmpty(employeeDto.NationalIDNumber)) employee.NationalIDNumber = employeeDto.NationalIDNumber;
 
-                // Numéricos e booleanos (apenas se diferentes do default)
                 if (employeeDto.VacationHours != default(short)) employee.VacationHours = employeeDto.VacationHours;
                 if (employeeDto.SickLeaveHours != default(short)) employee.SickLeaveHours = employeeDto.SickLeaveHours;
                 if (employeeDto.SalariedFlag != default(bool)) employee.SalariedFlag = employeeDto.SalariedFlag;
 
-                // Datas
                 if (employeeDto.HireDate != default(DateTime)) employee.HireDate = employeeDto.HireDate;
                 if (employeeDto.BirthDate != default(DateTime)) employee.BirthDate = employeeDto.BirthDate;
 
@@ -237,22 +316,33 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 await _db.SaveChangesAsync();
 
-                _logger.LogInformation("Patch aplicado com sucesso para Employee ID={ID}.", id);
+                string msg6 = $"Patch aplicado com sucesso para Employee ID={id}.";
+                _logger.LogInformation(msg6);
+                _db.Logs.Add(new Log { Message = msg6, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
 
                 return Ok(_mapper.Map<EmployeeDto>(employee));
             }
             catch (DbUpdateException dbEx)
             {
-                _logger.LogError(dbEx, "Erro ao persistir alterações do Patch para Employee ID={ID}.", id);
+                string msg7 = $"Erro ao persistir alterações do Patch para Employee ID={id}.";
+                _logger.LogError(dbEx, msg7);
+                _db.Logs.Add(new Log { Message = msg7, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao atualizar o empregado.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro inesperado ao aplicar Patch para Employee ID={ID}.", id);
+                string msg8 = $"Erro inesperado ao aplicar Patch para Employee ID={id}.";
+                _logger.LogError(ex, msg8);
+                _db.Logs.Add(new Log { Message = msg8, Date = DateTime.Now });
+                await _db.SaveChangesAsync();
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao atualizar o empregado.");
             }
         }
-
+        
         //Secção de Aprovação de candidatura
         private static string GenerateUsername(Person person)
         {
