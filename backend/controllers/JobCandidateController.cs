@@ -253,8 +253,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var candidate = new JobCandidate
             {
                 BusinessEntityId = null,
-                Resume = resumeXml,         // ⚠ Não logar conteúdo do XML
-                CvFileUrl = relativeUrl,    // OK logar o nome/URL do ficheiro
+                Resume = resumeXml,         
+                CvFileUrl = relativeUrl,    
                 ModifiedDate = now,
 
                 BirthDate = form.BirthDate,
@@ -265,7 +265,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 FirstName = form.FirstName,
                 LastName = form.LastName,
 
-                PasswordHash = "DevOnly!234", // ⚠ Evitar em produção
+                PasswordHash = "DevOnly!234", // Evitar em produção
                 Role = "employee"
             };
 
