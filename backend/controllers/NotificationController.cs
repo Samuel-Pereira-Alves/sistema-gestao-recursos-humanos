@@ -165,7 +165,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     var notif = new Notification
                     {
                         Message = dto.Message,
-                        BusinessEntityID = user.BusinessEntityID
+                        BusinessEntityID = user.BusinessEntityID,
+                        CreatedAt = DateTime.UtcNow
                     };
                     created.Add(notif);
                     _db.Notifications.Add(notif);
