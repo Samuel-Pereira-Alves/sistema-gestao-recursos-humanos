@@ -229,6 +229,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 // 3) Consulta
                 var notifications = await _db.Notifications
                     .Where(notif => notif.BusinessEntityID == businessEntityId)
+                    .OrderByDescending(notif => notif.CreatedAt)
                     .ToListAsync();
 
                 string msg3 = $"Encontradas {notifications.Count} notificações para BusinessEntityID={businessEntityId}.";

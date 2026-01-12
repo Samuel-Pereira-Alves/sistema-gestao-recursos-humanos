@@ -2,49 +2,9 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { addNotificationForUser } from "../../utils/notificationBus";
 import BackButton from "../../components/Button/BackButton";
+import Pagination from "../../components/Pagination/Pagination";
 
-function formatDate(dateStr) {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  if (isNaN(d)) return "—";
-  return d.toLocaleDateString("pt-PT");
-}
-
-function formatCurrencyEUR(value) {
-  if (value == null) return "—";
-  const n = Number(value);
-  if (Number.isNaN(n)) return "—";
-  return n.toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
-}
-
-function freqLabel(code) {
-  switch (Number(code)) {
-    case 1:
-      return "Mensal";
-    case 2:
-      return "Semanal";
-    default:
-      return code != null ? `Código ${code}` : "—";
-  }
-}
-
-function normalizarTexto(t) {
-  if (!t) return "";
-  return String(t)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-function toIdString(id) {
-  if (id == null) return "";
-  return String(id).trim();
-}
-
-function dateInputToIsoMidnight(dateStr) {
-  if (!dateStr) return "";
-  return `${dateStr}T00:00:00`;
-}
+import {freqLabel,formatCurrencyEUR,formatDate, normalizarTexto, toIdString, dateInputToIsoMidnight} from "../../utils/formatters"
 
 export default function Pagamentos() {
   const [loading, setLoading] = useState(true);
@@ -52,9 +12,9 @@ export default function Pagamentos() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [employees, setEmployees] = useState([]);
-  const itemsPerPage = 7;
-
   const [pagamentos, setPagamentos] = useState([]);
+  
+  const itemsPerPage = 5;
 
   const fetchEmployees = async () => {
     try {
@@ -510,29 +470,12 @@ export default function Pagamentos() {
               )}
 
               {/* Pagination */}
-              <div className="border-top p-3">
-                <div className="d-flex justify-content-between align-items-center">
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    type="button"
-                  >
-                    ← Anterior
-                  </button>
-                  <span className="text-muted small">
-                    Página {currentPage} de {totalPages}
-                  </span>
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    type="button"
-                  >
-                    Próxima →
-                  </button>
-                </div>
-              </div>
+               <Pagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                setPage={setCurrentPage}
+                              />
+              
             </>
           )}
         </div>

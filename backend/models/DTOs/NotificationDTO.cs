@@ -9,5 +9,7 @@ namespace sistema_gestao_recursos_humanos.backend.models.dtos
         public int ID { get; set; }
         public string Message { get; set; } = string.Empty;
         public int BusinessEntityID { get; set; }
+        
+        public DateTime CreatedAt  {get; set;} = DateTime.Now;
     }
 }

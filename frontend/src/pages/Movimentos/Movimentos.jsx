@@ -2,30 +2,9 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { addNotificationForUser } from "../../utils/notificationBus";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
-
-function formatDate(dateStr) {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  if (isNaN(d)) return "—";
-  return d.toLocaleDateString("pt-PT");
-}
-
-function normalize(t) {
-  if (!t) return "";
-  return String(t)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function idToString(id) {
-  if (id == null) return "";
-  return String(id).trim();
-}
-function dateInputToIsoMidnight(dateStr) {
-  return dateStr ? `${dateStr}T00:00:00` : "";
-}
+import Pagination from "../../components/Pagination/Pagination";
+import { formatDate,normalize, idToString, dateInputToIsoMidnight } from "../../utils/formatters";
+import Navbar from "../../components/Navbar/Navbar";
 
 const getBusinessEntityID = (h) =>
   h?.businessEntityID ??
@@ -66,12 +45,11 @@ export default function Movimentos() {
   const [fetchError, setFetchError] = useState(null);
   const [items, setItems] = useState([]);
   const [employees, setEmployees] = useState([]);
-
   const [departments, setDepartments] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 7;
+  
+  const itemsPerPage = 5;
 
   const fetchEmployees = async () => {
     try {
@@ -93,8 +71,6 @@ export default function Movimentos() {
           const nameB = (b.person?.firstName || "").toLowerCase();
           return nameA.localeCompare(nameB);
         });
-
-      console.log(employeesExceptActual.length)
 
       setEmployees(employeesExceptActual)
     } catch (error) {
@@ -447,12 +423,12 @@ export default function Movimentos() {
             </div>
           ) : (
             <input
-              type="text"
-              className="form-control"
-              placeholder="Procurar por ID, colaborador, departamento, grupo ou data..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              aria-label="Pesquisar histórico de departamentos"
+            type="text"
+            className="form-control"
+            placeholder="Procurar por ID, colaborador, departamento, grupo ou data..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            aria-label="Pesquisar histórico de departamentos"
             />
           )}
         </div>
@@ -489,11 +465,11 @@ export default function Movimentos() {
                       const groupName = getGroupName(h);
                       const start = getStartDate(h);
                       const end = getEndDate(h);
-
+                      
                       const key = `${getBusinessEntityID(h)}|${getDepartmentID(
                         h
                       )}|${getShiftID(h)}|${start}`;
-
+                      
                       return (
                         <tr key={key}>
                           <td className="px-4 py-3">
@@ -516,14 +492,14 @@ export default function Movimentos() {
                                 className="btn btn-outline-primary"
                                 onClick={() => openEdit(h)}
                                 disabled={localStorage.getItem("businessEntityId") == employee.businessEntityID}
-                              >
+                                >
                                 Editar
                               </button>
                               <button
                                 disabled={localStorage.getItem("businessEntityId") == employee.businessEntityID}
                                 className="btn btn-outline-danger"
                                 onClick={() => openDelete(h)}
-                              >
+                                >
                                 Eliminar
                               </button>
                             </div>
@@ -545,7 +521,7 @@ export default function Movimentos() {
                   const key = `${getBusinessEntityID(h)}|${getDepartmentID(
                     h
                   )}|${getShiftID(h)}|${start}`;
-
+                  
                   return (
                     <div key={key} className="border-bottom p-3">
                       <h6 className="mb-1">
@@ -598,29 +574,12 @@ export default function Movimentos() {
               )}
 
               {/* Pagination */}
-              <div className="border-top p-3">
-                <div className="d-flex justify-content-between align-items-center">
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    type="button"
-                  >
-                    ← Anterior
-                  </button>
-                  <span className="text-muted small">
-                    Página {currentPage} de {totalPages}
-                  </span>
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    type="button"
-                  >
-                    Próxima →
-                  </button>
-                </div>
-              </div>
+               <Pagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                setPage={setCurrentPage}
+                                />
+              
             </>
           )}
         </div>
@@ -633,10 +592,10 @@ export default function Movimentos() {
       {/* Modal Create/Edit */}
       {action.open && (
         <div
-          className="modal fade show d-block"
-          tabIndex="-1"
-          role="dialog"
-          style={{ background: "rgba(0,0,0,0.5)" }}
+        className="modal fade show d-block"
+        tabIndex="-1"
+        role="dialog"
+        style={{ background: "rgba(0,0,0,0.5)" }}
           aria-modal="true"
         >
           <div className="modal-dialog">
@@ -674,7 +633,7 @@ export default function Movimentos() {
                               form: { ...s.form, businessEntityID: e.target.value },
                             }))
                           }
-                        >
+                          >
 
 
                           {employees.map((emp) => {
@@ -708,8 +667,8 @@ export default function Movimentos() {
                           <option value="">— Seleciona departamento —</option>
                           {departments.map((d) => (
                             <option
-                              key={String(d.departmentID)}
-                              value={String(d.departmentID)}
+                            key={String(d.departmentID)}
+                            value={String(d.departmentID)}
                             >
                               {d.name}
                             </option>
@@ -777,7 +736,7 @@ export default function Movimentos() {
                           value={action.keys.businessEntityID}
                           disabled
                           readOnly
-                        />
+                          />
                       </div>
 
                       <div className="col-6">
@@ -789,7 +748,7 @@ export default function Movimentos() {
                           )}
                           disabled
                           readOnly
-                        />
+                          />
                       </div>
 
                       <div className="col-6">
@@ -799,7 +758,7 @@ export default function Movimentos() {
                           value={resolveShiftLabel(action.keys.shiftID)}
                           disabled
                           readOnly
-                        />
+                          />
                       </div>
 
                       <div className="col-6">
@@ -821,8 +780,8 @@ export default function Movimentos() {
                           className="form-control"
                           value={
                             action.form.endDate
-                              ? action.form.endDate.substring(0, 10)
-                              : ""
+                            ? action.form.endDate.substring(0, 10)
+                            : ""
                           }
                           onChange={(e) =>
                             setAction((s) => ({
@@ -833,7 +792,7 @@ export default function Movimentos() {
                               },
                             }))
                           }
-                        />
+                          />
                       </div>
                     </>
                   )}
@@ -843,7 +802,7 @@ export default function Movimentos() {
                 <button
                   className="btn btn-outline-secondary"
                   onClick={closeAction}
-                >
+                  >
                   Cancelar
                 </button>
                 <button
@@ -853,7 +812,7 @@ export default function Movimentos() {
                     action.loading ||
                     (action.mode === "create" &&
                       (!action.form.departmentID || !action.form.shiftID))
-                  }
+                    }
                 >
                   {action.loading
                     ? action.mode === "create"

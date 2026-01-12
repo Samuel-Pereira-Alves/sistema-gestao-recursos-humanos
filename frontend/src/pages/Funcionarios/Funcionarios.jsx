@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BackButton from "../../components/Button/BackButton";
+import Pagination from "../../components/Pagination/Pagination";
 
 function Funcionarios() {
   const navigate = useNavigate();
@@ -11,7 +12,7 @@ function Funcionarios() {
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
   const viewProfile = (funcionarioId) => {
     const id = funcionarioId;
@@ -263,27 +264,11 @@ function Funcionarios() {
                 </div>
 
                 {/* Pagination */}
-                <div className="border-top p-3 ">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                    >
-                      ← Anterior
-                    </button>
-                    <span className="text-muted small">
-                      Página {currentPage} de {totalPages}
-                    </span>
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                    >
-                      Próxima →
-                    </button>
-                  </div>
-                </div>
+                <Pagination
+                                 currentPage={currentPage}
+                                 totalPages={totalPages}
+                                 setPage={setCurrentPage}
+                               />
               </>
             )}
           </div>

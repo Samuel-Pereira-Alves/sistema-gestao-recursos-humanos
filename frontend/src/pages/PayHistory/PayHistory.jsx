@@ -1,43 +1,18 @@
 import React, { useEffect, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
-
-function formatDate(dateStr) {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  if (isNaN(d)) return "—";
-  return d.toLocaleDateString("pt-PT");
-}
-
-function formatCurrencyEUR(value) {
-  if (value == null) return "—";
-  const n = Number(value);
-  if (Number.isNaN(n)) return "—";
-  return n.toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
-}
-
-function freqLabel(code) {
-  switch (Number(code)) {
-    case 1:
-      return "Mensal";
-    case 2:
-      return "Quinzenal";
-    default:
-      return code != null ? `Código ${code}` : "—";
-  }
-}
+import { formatDate, formatCurrencyEUR, freqLabel } from "../../utils/formatters"
+import Pagination from "../../components/Pagination/Pagination";
 
 export default function PayHistoryList() {
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
-
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
-
   const [payments, setPayments] = useState([]);
-
   const [employeeId, setEmployeeId] = useState(null);
   const [employee, setEmployee] = useState(null);
+
+  const itemsPerPage = 5;
 
   useEffect(() => {
     const id = localStorage.getItem("businessEntityId");
@@ -48,16 +23,16 @@ export default function PayHistoryList() {
       return;
     }
 
-    
     async function load() {
       const token = localStorage.getItem("authToken");
       setLoading(true);
       setFetchError(null);
       try {
         const res = await fetch(`http://localhost:5136/api/v1/employee/${id}`, {
-          headers: { Accept: "application/json",
-                    "Authorization": `Bearer ${token}`,
-           },
+          headers: {
+            Accept: "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
         });
         if (!res.ok)
           throw new Error(`Erro ao carregar pagamentos (HTTP ${res.status})`);
@@ -73,9 +48,8 @@ export default function PayHistoryList() {
             (a, b) => new Date(b.rateChangeDate) - new Date(a.rateChangeDate)
           )
           .map((p, idx) => ({
-            key: `${p.payHistoryId ?? idx}-${p.employeeId}-${
-              p.rateChangeDate ?? idx
-            }`,
+            key: `${p.payHistoryId ?? idx}-${p.employeeId}-${p.rateChangeDate ?? idx
+              }`,
             payHistoryId: p.payHistoryId ?? null,
             employeeId: p.employeeId ?? null,
             rateChangeDate: p.rateChangeDate ?? null,
@@ -165,7 +139,7 @@ export default function PayHistoryList() {
                         </tr>
                       ) : (
                         currentPayments.map((p, idx) => {
-                          const seq = indexOfFirst + idx + 1; 
+                          const seq = indexOfFirst + idx + 1;
                           return (
                             <tr key={p.key}>
                               <td className="px-4 py-3">{seq}</td>
@@ -222,30 +196,11 @@ export default function PayHistoryList() {
                   )}
                 </div>
 
-                {/* Pagination */}
-                <div className="border-top p-3">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      type="button"
-                    >
-                      ← Anterior
-                    </button>
-                    <span className="text-muted small">
-                      Página {currentPage} de {totalPages}
-                    </span>
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      type="button"
-                    >
-                      Próxima →
-                    </button>
-                  </div>
-                </div>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  setPage={setCurrentPage}
+                />
               </>
             )}
           </div>

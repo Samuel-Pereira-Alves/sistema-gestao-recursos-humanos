@@ -1,25 +1,20 @@
-
 import React, { useEffect, useRef, useState } from "react";
 import {
   subscribe,
   getNotifications,
   clearNotifications,
   syncNotificationsFromServer,
+  deleteNotification
 } from "../../utils/notificationBus";
+import './NotificationBell.css'
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [allItems, setAllItems] = useState(() => getNotifications());
-  const [role, setRole] = useState(() => getRoleFromStorage());        
-  const [userId, setUserId] = useState(() => getUserIdFromStorage()); 
   const dropdownRef = useRef(null);
   const bellBtnRef = useRef(null);
 
   useEffect(() => {
-    const r = getRoleFromStorage();
-    const u = getUserIdFromStorage();
-    setRole(r);
-    setUserId(u);
     syncNotificationsFromServer();
   }, []);
 
@@ -90,13 +85,14 @@ export default function NotificationBell() {
         id="notifications-menu"
         ref={dropdownRef}
         className={`dropdown-menu shadow ${open ? "show" : ""}`}
-        style={{ minWidth: 280, maxWidth: 360, maxHeight: 400, overflowY: "auto" }}
+        style={{ minWidth: 300, maxWidth: 380, maxHeight: 400, overflowY: "auto", marginRight: -29}}
       >
-        <div className="px-3 py-2 border-bottom d-flex justify-content-between align-items-center">
+        <div className="px-3 py-2  d-flex justify-content-between align-items-center">
           <strong>Notificações</strong>
           {allItems.length > 0 && (
             <button className="btn btn-sm btn-outline-secondary" onClick={clearNotifications}>
-              Limpar
+              Limpar Tudo
+
             </button>
           )}
         </div>
@@ -104,13 +100,23 @@ export default function NotificationBell() {
         {allItems.length === 0 ? (
           <div className="px-3 py-3 text-muted">Sem notificações.</div>
         ) : (
-          <ul className="list-unstyled mb-0">
+
+          <ul className="list-unstyled mb-0 notifications-menu">
             {allItems.map((n) => (
-              <li key={`${n.id}`} className="px-3 py-2 border-bottom">
+              <li
+                key={`${n.id}`}
+                className="px-3 py-2 border-top d-flex align-items-center justify-content-between"
+              >
                 <div className="text-wrap">{n.message}</div>
+
+                <button onClick={() => deleteNotification(n.id)} className="btn btn-link p-0 icon-hover ms-3">
+                  <i className="bi bi-trash fs-6 text-black"></i>
+                </button>
+
               </li>
             ))}
           </ul>
+
         )}
       </div>
     </li>
@@ -122,7 +128,7 @@ function getRoleFromStorage() {
     const raw = window?.localStorage?.getItem("role");
     const v = String(raw || "").trim().toLowerCase();
     if (v === "admin" || v === "employee") return v;
-    return "employee"; 
+    return "employee";
   } catch {
     return "employee";
   }
@@ -133,7 +139,7 @@ function getUserIdFromStorage() {
     const raw = window?.localStorage?.getItem("businessEntityId");
     const v = String(raw || "").trim();
     console.debug("[NotificationBell] getUserIdFromStorage ->", v);
-    return v; 
+    return v;
   } catch {
     return "";
   }

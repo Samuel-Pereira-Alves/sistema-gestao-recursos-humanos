@@ -49,6 +49,21 @@ export async function clearNotifications() {
   _emit();
 }
 
+export async function deleteNotification(id){
+  const token = localStorage.getItem("authToken");
+  await fetch(`http://localhost:5136/api/v1/notification/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }).catch((err) => {
+      console.error('Failed to delete notification from server:', err);
+    });
+    _notifications = _notifications.filter(n => n.id != id);
+    _emit();
+}
+
 export async function removeNotifications() {
   const token = localStorage.getItem("authToken");
 
