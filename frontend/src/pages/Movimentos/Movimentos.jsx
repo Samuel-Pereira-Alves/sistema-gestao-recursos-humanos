@@ -65,12 +65,42 @@ export default function Movimentos() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [items, setItems] = useState([]);
+  const [employees, setEmployees] = useState([]);
 
   const [departments, setDepartments] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
+
+  const fetchEmployees = async () => {
+    try {
+      const token = localStorage.getItem("authToken")
+      const response = await fetch("http://localhost:5136/api/v1/employee", {
+        headers: {
+          Accept: "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+      })
+      const idStr = localStorage.getItem("businessEntityId");
+      const id = Number(idStr)
+      const data = await response.json()
+
+      const employeesExceptActual = data
+        .filter(e => e.businessEntityID !== id)
+        .sort((a, b) => {
+          const nameA = (a.person?.firstName || "").toLowerCase();
+          const nameB = (b.person?.firstName || "").toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+
+      console.log(employeesExceptActual.length)
+
+      setEmployees(employeesExceptActual)
+    } catch (error) {
+
+    }
+  }
 
   const fetchData = useCallback(async () => {
     try {
@@ -116,6 +146,7 @@ export default function Movimentos() {
 
   useEffect(() => {
     fetchData();
+    fetchEmployees();
   }, [fetchData]);
 
   useEffect(() => {
@@ -480,14 +511,16 @@ export default function Movimentos() {
                             {formatDate(end)}
                           </td>
                           <td className="px-4 py-3 text-end">
-                            <div className="btn-group btn-group-sm">
+                            <div className="d-flex justify-content-end gap-2">
                               <button
                                 className="btn btn-outline-primary"
                                 onClick={() => openEdit(h)}
+                                disabled={localStorage.getItem("businessEntityId") == employee.businessEntityID}
                               >
                                 Editar
                               </button>
                               <button
+                                disabled={localStorage.getItem("businessEntityId") == employee.businessEntityID}
                                 className="btn btn-outline-danger"
                                 onClick={() => openDelete(h)}
                               >
@@ -630,21 +663,34 @@ export default function Movimentos() {
                   {action.mode === "create" ? (
                     <>
                       <div className="col-6">
-                        <label className="form-label">ID - Funcionário</label>
-                        <input
-                          type="number"
-                          className="form-control"
-                          value={action.form.businessEntityID}
+                        <label className="form-label">Funcionário</label>
+
+                        <select
+                          className="form-select"
+                          value={action.form.businessEntityID ?? ""} 
                           onChange={(e) =>
                             setAction((s) => ({
                               ...s,
-                              form: {
-                                ...s.form,
-                                businessEntityID: e.target.value,
-                              },
+                              form: { ...s.form, businessEntityID: e.target.value },
                             }))
                           }
-                        />
+                        >
+
+
+                          {employees.map((emp) => {
+                            const id = emp.businessEntityID ?? emp.id; 
+                            const first = emp.person?.firstName ?? "";
+                            const middle = emp.person?.middleName ?? "";
+                            const last = emp.person?.lastName ?? "";
+                            const fullName = [first, middle, last].filter(Boolean).join(" ") || "Sem nome";
+
+                            return (
+                              <option key={id} value={id}>
+                                {fullName} {emp.jobTitle ? `— ${emp.jobTitle}` : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
                       </div>
 
                       <div className="col-6">
