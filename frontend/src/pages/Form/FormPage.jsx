@@ -1,21 +1,25 @@
-
-import React, { useState } from "react";
-import Navbar from "../../components/Navbar/Navbar";
+import React, { useRef, useState } from "react";
 import { addNotification } from "../../utils/notificationBus";
+import axios from "axios";
 
-function Form({ hideNavbar = false, variant = "default", onCancel }) {
+function Form({ onCancel }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [nationalIDNumber, setNationalIDNumber] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [maritalStatus, setMaritalStatus] = useState("");
   const [gender, setGender] = useState("");
-
   const [ficheiro, setFicheiro] = useState(null);
 
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+
+  const [dragActive, setDragActive] = useState(false);
+  const inputRef = useRef(null);
+
+  const [uploadProgress, setUploadProgress] = useState(null);
+  const [uploadMsg, setUploadMsg] = useState("");
 
   const MAX_SIZE_MB = 5;
   const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024;
@@ -66,17 +70,98 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
     return newErrors;
   };
 
-  const handleFileChange = (e) => {
-    const f = e.target.files?.[0] || null;
+  const applyFile = (f) => {
     setSuccessMsg("");
+    setUploadMsg("");
     const newErrors = validateFile(f);
     setErrors((prev) => ({ ...prev, ...newErrors }));
-    setFicheiro(Object.keys(newErrors).length ? null : f);
+    if (Object.keys(newErrors).length) {
+      setFicheiro(null);
+    } else {
+      setFicheiro(f);
+      setUploadMsg("Ficheiro pronto para envio.");
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const f = e.target.files?.[0] || null;
+    applyFile(f);
+  };
+
+  const preventDefaults = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragOver = (e) => {
+    preventDefaults(e);
+    setDragActive(true);
+    setUploadMsg("Solta o PDF para anexar…");
+  };
+
+  const handleDragLeave = (e) => {
+    preventDefaults(e);
+    setDragActive(false);
+    setUploadMsg("");
+  };
+
+  const handleDrop = (e) => {
+    preventDefaults(e);
+    setDragActive(false);
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      applyFile(files[0]);
+      e.dataTransfer.clearData();
+    }
+  };
+
+  const handleZoneClick = () => {
+    inputRef.current?.click();
+  };
+
+  const handleZoneKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleZoneClick();
+    }
+  };
+
+  const resetUploadUI = () => {
+    setUploadProgress(null);
+    setUploadMsg("");
+  };
+
+  const doUpload = async (formData) => {
+    await axios.post("http://localhost:5136/api/v1/jobcandidate/upload", formData, {
+      onUploadProgress: (evt) => {
+        if (evt.total) {
+          const percent = Math.round((evt.loaded / evt.total) * 100);
+          setUploadProgress(percent);
+          setUploadMsg(percent < 100 ? "A enviar…" : "A finalizar…");
+        } else {
+          setUploadMsg("A enviar…");
+        }
+      }
+    });
+  };
+
+  const clearForm = () => {
+    setFicheiro(null);
+    setErrors({});
+    setFirstName("");
+    setLastName("");
+    setNationalIDNumber("");
+    setBirthDate("");
+    setMaritalStatus("");
+    setGender("");
+    if (inputRef.current) inputRef.current.value = "";
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSuccessMsg("");
+    resetUploadUI();
+
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -85,6 +170,9 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
 
     try {
       setSending(true);
+      setUploadProgress(0);
+      setUploadMsg("A iniciar envio…");
+
       const formData = new FormData();
       formData.append("cv", ficheiro);
       formData.append("FirstName", firstName.trim());
@@ -94,44 +182,38 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
       formData.append("MaritalStatus", maritalStatus);
       formData.append("Gender", gender);
 
-      const resp = await fetch("http://localhost:5136/api/v1/jobcandidate/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        throw new Error(text || "Falha ao enviar candidatura");
-      }
+      await doUpload(formData);
 
       addNotification(
         `Nova candidatura: ${firstName} ${lastName} – verifica o painel.`,
         "admin"
       );
 
+      setUploadProgress(100);
+      setUploadMsg("Concluído.");
       setSuccessMsg("Candidatura enviada com sucesso! Obrigado.");
-      setFicheiro(null);
-      setErrors({});
-      setFirstName("");
-      setLastName("");
-      setNationalIDNumber("");
-      setBirthDate("");
-      setMaritalStatus("");
-      setGender("");
 
-      if (variant === "embedded" && typeof onCancel === "function") {
+      clearForm();
+
+      if (typeof onCancel === "function") {
         setTimeout(() => onCancel(), 900);
       }
     } catch (err) {
       console.error(err);
       setErrors({ ficheiro: err.message || "Ocorreu um erro ao enviar. Tenta novamente." });
+      setUploadMsg("Falha no envio.");
+      setUploadProgress(null);
     } finally {
       setSending(false);
+      setTimeout(() => {
+        setUploadMsg("");
+        setUploadProgress(null);
+      }, 2500);
     }
   };
 
-  if (variant === "embedded") {
-    return <div className="candidatura-embedded w-100" style={{ maxWidth: "640px" }}>
+  return (
+    <div className="candidatura-embedded w-100" style={{ maxWidth: "640px" }}>
       <form onSubmit={handleSubmit} noValidate className="simple-form">
         <header className="mb-3 text-center">
           <h6 className="mb-1">Dados do candidato e CV (PDF)</h6>
@@ -151,6 +233,7 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
 
         {/* Campos de texto */}
         <div className="row g-3">
+          {/* Primeiro Nome */}
           <div className="col-md-6">
             <label htmlFor="firstName" className="form-label fw-semibold">
               Primeiro nome <span className="text-danger">*</span>
@@ -166,6 +249,7 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
             {errors.firstName && <div className="invalid-feedback">{errors.firstName}</div>}
           </div>
 
+          {/* Apelido */}
           <div className="col-md-6">
             <label htmlFor="lastName" className="form-label fw-semibold">
               Apelido <span className="text-danger">*</span>
@@ -181,9 +265,10 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
             {errors.lastName && <div className="invalid-feedback">{errors.lastName}</div>}
           </div>
 
+          {/* Nº Cartao Cidadao */}
           <div className="col-md-6">
             <label htmlFor="nationalIDNumber" className="form-label fw-semibold">
-              Nº Identificação Nacional <span className="text-danger">*</span>
+              Nº Cartão Cidadão <span className="text-danger">*</span>
             </label>
             <input
               id="nationalIDNumber"
@@ -205,6 +290,7 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
             )}
           </div>
 
+          {/* Data de nascimento */}
           <div className="col-md-6">
             <label htmlFor="birthDate" className="form-label fw-semibold">
               Data de nascimento <span className="text-danger">*</span>
@@ -220,6 +306,7 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
             {errors.birthDate && <div className="invalid-feedback">{errors.birthDate}</div>}
           </div>
 
+          {/* Estado civil */}
           <div className="col-md-6">
             <label htmlFor="maritalStatus" className="form-label fw-semibold">
               Estado civil <span className="text-danger">*</span>
@@ -237,6 +324,7 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
             {errors.maritalStatus && <div className="invalid-feedback">{errors.maritalStatus}</div>}
           </div>
 
+          {/* Género */}
           <div className="col-md-6">
             <label htmlFor="gender" className="form-label fw-semibold">
               Género <span className="text-danger">*</span>
@@ -260,31 +348,78 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
           <label htmlFor="cv-input" className="form-label fw-semibold">
             CV (PDF) <span className="text-danger">*</span>
           </label>
+
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={handleZoneClick}
+            onKeyDown={handleZoneKeyDown}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border rounded-3 p-4 text-center ${dragActive ? "bg-light border-dark" : "border-secondary-subtle"}`}
+            style={{ cursor: "pointer" }}
+            aria-label="Arraste o ficheiro PDF aqui ou clique para selecionar"
+            aria-describedby="cv-help"
+          >
+            {!ficheiro ? (
+              <>
+                <div className="fw-semibold">Arraste o ficheiro PDF aqui</div>
+                <div className="text-muted small">ou clique para selecionar</div>
+                <div id="cv-help" className="text-muted small mt-2">
+                  Apenas PDF. Tamanho máximo: {MAX_SIZE_MB}MB.
+                </div>
+                {uploadMsg && <div className="mt-2 small">{uploadMsg}</div>}
+              </>
+            ) : (
+              <div className="selected-file my-1">
+                <div className="file-pill d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-body-tertiary" title={ficheiro.name}>
+                  <span className="file-name text-truncate" style={{ maxWidth: 260 }}>
+                    {ficheiro.name}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFicheiro(null);
+                      if (inputRef.current) inputRef.current.value = "";
+                      resetUploadUI();
+                    }}
+                    aria-label="Remover ficheiro selecionado"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Barra de progresso */}
+          {uploadProgress !== null && (
+            <div className="mt-2">
+              <div className="progress" role="progressbar" aria-valuenow={uploadProgress} aria-valuemin="0" aria-valuemax="100">
+                <div className="progress-bar" style={{ width: `${uploadProgress}%` }}>
+                  {uploadProgress}%
+                </div>
+              </div>
+              {uploadMsg && <div className="small text-muted mt-1">{uploadMsg}</div>}
+            </div>
+          )}
+
+          {/* Clique para inserir PDF */}
           <input
+            ref={inputRef}
             id="cv-input"
             type="file"
             accept=".pdf,application/pdf"
-            className={`form-control form-control-lg input-gray ${errors.ficheiro ? "is-invalid" : ""}`}
+            className="d-none"
             onChange={handleFileChange}
           />
-          {errors.ficheiro && <div className="invalid-feedback">{errors.ficheiro}</div>}
-        </div>
 
-        {ficheiro && (
-          <div className="selected-file my-2">
-            <div className="file-pill" title={ficheiro.name}>
-              <span className="file-name">{ficheiro.name}</span>
-              <button
-                type="button"
-                className="btn btn-sm btn-clear"
-                onClick={() => setFicheiro(null)}
-                aria-label="Remover ficheiro selecionado"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
+          {errors.ficheiro && <div className="invalid-feedback d-block mt-2">{errors.ficheiro}</div>}
+        </div>
 
         {/* Botões */}
         <div className="d-flex gap-2 mt-4">
@@ -306,29 +441,12 @@ function Form({ hideNavbar = false, variant = "default", onCancel }) {
             </button>
           )}
         </div>
-      </form>
-    </div>;
-  }
 
-  return (
-    <div>
-      {!hideNavbar && <Navbar />}
-      <main
-        className="d-flex justify-content-center"
-        style={{ minHeight: "100vh", paddingTop: "80px", paddingLeft: "1rem", paddingRight: "1rem" }}
-      >
-        <div className="candidatura-full w-100" style={{ maxWidth: "720px" }}>
-          <div className="card candidatura-card border-0 shadow-sm">
-            <div className="card-body p-4 p-md-5">
-              <h2 className="mb-3 text-center">Submissão de Candidatura</h2>
-              <p className="text-muted text-center mb-4">
-                Preenche os teus dados e carrega o teu CV em formato PDF.
-              </p>
-              {UploadUI}
-            </div>
-          </div>
-        </div>
-      </main>
+        {/* Mensagem de sucesso */}
+        {successMsg && (
+          <div className="alert alert-success mt-3">{successMsg}</div>
+        )}
+      </form>
     </div>
   );
 }
