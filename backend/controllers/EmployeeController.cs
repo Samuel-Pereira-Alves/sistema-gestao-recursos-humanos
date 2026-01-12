@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using BCrypt.Net;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
@@ -75,6 +76,20 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [Authorize(Roles = "admin, employee")]
         public async Task<IActionResult> GetEmployee(int id)
         {
+
+            // Extract claims from JWT
+            var role = HttpContext.User.FindFirst(ClaimTypes.Role)?.Value;
+            var tokenBusinessEntityId = HttpContext.User.FindFirst("BusinessEntityID")?.Value;
+
+            if (role != "admin")
+            {
+                if (string.IsNullOrEmpty(tokenBusinessEntityId) || tokenBusinessEntityId != id.ToString())
+                {
+                    _logger.LogWarning($"Tentativa de acesso não autorizada. ID solicitado={id}, ID no token={tokenBusinessEntityId}.");
+                    return Forbid();
+                }
+            }
+
             // 1) Pedido recebido
             string msg1 = $"Recebida requisição para obter Employee com ID={id}. Roles permitidas: admin, employee.";
             _logger.LogInformation(msg1);

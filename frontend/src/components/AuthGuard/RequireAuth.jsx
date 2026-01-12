@@ -1,29 +1,30 @@
 import React from "react";
-import { Navigate, useParams, useLocation } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 
 export default function RequireAuthWithOwner({ allowedRoles = [], children }) {
-  const { id } = useParams();        
-
+  const { id } = useParams();
   const token = localStorage.getItem("authToken");
   const role = localStorage.getItem("role");
   const userId = localStorage.getItem("businessEntityId");
 
-  if(allowedRoles.includes(role)){
-    return children;
-  }
-
+  // If not authenticated, go to login
   if (!token) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
 
-  if (!allowedRoles || allowedRoles.length === 0) {
-    return children;
+  // If role not allowed at all, forbid
+  if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
+    return <Navigate to="/forbidden" replace />;
   }
 
-  if (!allowedRoles.includes(role)) {
-    return <Navigate to="/forbidden" />;
+  // Owner-or-admin rule: if there's a route param id
+  // - admin: always allowed
+  // - employee: only allowed if id === userId
+  if (id && role !== "admin") {
+    if (userId == null || id !== String(userId)) {
+      return <Navigate to="/forbidden" replace />;
+    }
   }
-
 
   return children;
 }

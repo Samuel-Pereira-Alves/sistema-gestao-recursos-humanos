@@ -40,7 +40,7 @@ function App() {
           </AuthGuard>
         }
       />
-      <Route
+      {/* <Route
         path="/profile/:id?"
         element={
           <AuthGuard allowedRoles={['admin']}>
@@ -52,6 +52,23 @@ function App() {
         path="/profile/"
         element={
           <AuthGuard allowedRoles={['employee', 'admin']}>
+            <Profile />
+          </AuthGuard>
+        }
+      /> */}
+
+      <Route
+        path="/profile"
+        element={
+          <AuthGuard allowedRoles={['admin', 'employee']}>
+            <Profile />
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/profile/:id"
+        element={
+          <AuthGuard allowedRoles={['admin', 'employee']}>
             <Profile />
           </AuthGuard>
         }
