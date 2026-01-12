@@ -15,7 +15,7 @@ function Funcionarios() {
 
   const viewProfile = (funcionarioId) => {
     const id = funcionarioId;
-    navigate(`/profile?id=${id}`);
+    navigate(`/profile/${id}`);
   };
 
   const fetchFuncionarios = async () => {
