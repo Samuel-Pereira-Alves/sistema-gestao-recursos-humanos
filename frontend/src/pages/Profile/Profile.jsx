@@ -16,10 +16,13 @@ function getDepartamentoAtualNome(funcionario) {
 }
 
 export default function Profile() {
-  const navigate = useNavigate();
   const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const userId = params.get("id") ;
+  const navigate = useNavigate();
   const role = localStorage.getItem("role");
-  const canEdit = role == "admin" ? true : false;
+  const id = localStorage.getItem("businessEntityId");
+  const canEdit = role == "admin" &&  userId!=null && id != userId  ? true : false;
 
   const [departments, setDepartments] = useState([]);
   const [employee, setEmployee] = useState(null);

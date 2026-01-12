@@ -77,35 +77,47 @@ function Home() {
           <section className="mt-5">
             <h5>Área do colaborador</h5>
             <div className="row g-3 mt-2">
+
               <div className="col-md-4">
                 <div className="card h-100">
-                  <div className="card-body">
+                  <div className="card-body d-flex flex-column">
                     <h6 className="card-title">Perfil</h6>
-                    <p className="card-text">Consulta e atualiza os teus dados pessoais.</p>
-                    <Link className="btn btn-outline-primary" to="/profile">Ir para Perfil</Link>
+                    <p className="card-text">
+                      Consulta e atualiza os teus dados pessoais.
+                    </p>
+                    <Link className="btn btn-outline-primary mt-auto" to="/profile">
+                      Ir para Perfil
+                    </Link>
                   </div>
                 </div>
               </div>
 
               <div className="col-md-4">
                 <div className="card h-100">
-                  <div className="card-body">
+                  <div className="card-body d-flex flex-column">
                     <h6 className="card-title">Pagamentos</h6>
                     <p className="card-text">Consulta histórico de pagamentos e recibos.</p>
-                    <Link className="btn btn-outline-primary" to="/payhistory">Ver Pagamentos</Link>
+                    <Link className="btn btn-outline-primary mt-auto" to="/payhistory">
+                      Ver Pagamentos
+                    </Link>
                   </div>
                 </div>
               </div>
 
               <div className="col-md-4">
                 <div className="card h-100">
-                  <div className="card-body">
+                  <div className="card-body d-flex flex-column">
                     <h6 className="card-title">Departamentos</h6>
-                    <p className="card-text">Informação sobre os teus departamentos e equipa.</p>
-                    <Link className="btn btn-outline-primary" to="/dephistory">Ver Departamentos</Link>
+                    <p className="card-text">
+                      Informação sobre os teus departamentos e equipa.
+                    </p>
+                    <Link className="btn btn-outline-primary mt-auto" to="/dephistory">
+                      Ver Departamentos
+                    </Link>
                   </div>
                 </div>
               </div>
+
             </div>
           </section>
         )}
@@ -115,45 +127,55 @@ function Home() {
             <h5>Área de administração</h5>
             <div className="row g-3 mt-2">
 
+
               <div className="col-md-4">
                 <div className="card h-100">
-                  <div className="card-body">
+                  <div className="card-body d-flex flex-column">
                     <h6 className="card-title">Candidatos</h6>
                     <p className="card-text">Rever candidaturas e pipeline de recrutamento.</p>
-                    <Link className="btn btn-outline-dark" to="/candidatos">Ver Candidatos</Link>
+                    <Link className="btn btn-outline-dark mt-auto" to="/candidatos">
+                      Ver Candidatos
+                    </Link>
                   </div>
                 </div>
               </div>
 
               <div className="col-md-4">
                 <div className="card h-100">
-                  <div className="card-body">
+                  <div className="card-body d-flex flex-column">
                     <h6 className="card-title">Funcionários</h6>
                     <p className="card-text">Gestão de colaboradores e dados contratuais.</p>
-                    <Link className="btn btn-outline-dark" to="/funcionarios">Gestão de Funcionários</Link>
+                    <Link className="btn btn-outline-dark mt-auto" to="/funcionarios">
+                      Gestão de Funcionários
+                    </Link>
                   </div>
                 </div>
               </div>
 
               <div className="col-md-4">
                 <div className="card h-100 mt-3 mt-md-0">
-                  <div className="card-body">
+                  <div className="card-body d-flex flex-column">
                     <h6 className="card-title">Pagamentos</h6>
                     <p className="card-text">Historico de Pagamentos feitos aos Colaboradores.</p>
-                    <Link className="btn btn-outline-dark" to="/gestao-pagamentos">Gestão de Pagamentos Efetuados</Link>
+                    <Link className="btn btn-outline-dark mt-auto" to="/gestao-pagamentos">
+                      Gestão de Pagamentos Efetuados
+                    </Link>
                   </div>
                 </div>
               </div>
 
               <div className="col-md-4">
                 <div className="card h-100 mt-3 mt-md-0">
-                  <div className="card-body">
+                  <div className="card-body d-flex flex-column">
                     <h6 className="card-title">Movimentos de Departamento</h6>
                     <p className="card-text">Gerir movimentos de Departamento.</p>
-                    <Link className="btn btn-outline-dark" to="/gestao-movimentos">Gestão de Movimentos de Departamento</Link>
+                    <Link className="btn btn-outline-dark mt-auto" to="/gestao-movimentos">
+                      Gestão de Movimentos de Departamento
+                    </Link>
                   </div>
                 </div>
               </div>
+
             </div>
           </section>
         )}

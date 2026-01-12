@@ -38,7 +38,7 @@ function normalizarTexto(t) {
 }
 function toIdString(id) {
   if (id == null) return "";
-  return String(id).trim(); 
+  return String(id).trim();
 }
 
 function dateInputToIsoMidnight(dateStr) {
@@ -51,9 +51,37 @@ export default function Pagamentos() {
   const [fetchError, setFetchError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [employees, setEmployees] = useState([]);
   const itemsPerPage = 7;
 
   const [pagamentos, setPagamentos] = useState([]);
+
+  const fetchEmployees = async () => {
+    try {
+      const token = localStorage.getItem("authToken")
+      const response = await fetch("http://localhost:5136/api/v1/employee", {
+        headers: {
+          Accept: "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+      })
+      const idStr = localStorage.getItem("businessEntityId");
+      const id = Number(idStr)
+      const data = await response.json()
+
+      const employeesExceptActual = data
+        .filter(e => e.businessEntityID !== id)
+        .sort((a, b) => {
+          const nameA = (a.person?.firstName || "").toLowerCase();
+          const nameB = (b.person?.firstName || "").toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+
+      setEmployees(employeesExceptActual)
+    } catch (error) {
+
+    }
+  }
 
   const fetchPagamentos = useCallback(async () => {
     try {
@@ -94,6 +122,7 @@ export default function Pagamentos() {
   }, []);
 
   useEffect(() => {
+    fetchEmployees();
     fetchPagamentos();
   }, [fetchPagamentos]);
 
@@ -133,8 +162,8 @@ export default function Pagamentos() {
 
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
-  const currentPagamentos = pagamentosFiltrados.slice(indexOfFirst,indexOfLast);
-  const totalPages = Math.max(1,Math.ceil(pagamentosFiltrados.length / itemsPerPage));
+  const currentPagamentos = pagamentosFiltrados.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.max(1, Math.ceil(pagamentosFiltrados.length / itemsPerPage));
 
   const [editOpen, setEditOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
@@ -142,7 +171,7 @@ export default function Pagamentos() {
   const [editKeys, setEditKeys] = useState({
     businessEntityID: "",
     rateChangeDate: "",
-  }); 
+  });
   const [editForm, setEditForm] = useState({ rate: "", payFrequency: "1" });
 
   const openEdit = (p) => {
@@ -176,7 +205,8 @@ export default function Pagamentos() {
 
       const resp = await fetch(url, {
         method: "PATCH",
-        headers: {"Content-Type": "application/json",
+        headers: {
+          "Content-Type": "application/json",
           Accept: "application/json",
           Authorization: `Bearer ${token}`,
         },
@@ -220,13 +250,13 @@ export default function Pagamentos() {
     try {
       const token = localStorage.getItem("authToken");
       setDeleteLoadingId(`${businessEntityID}|${rateChangeDate}`);
-      const resp = await fetch(url, { 
-        method: "DELETE" ,
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+      const resp = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
       if (!resp.ok) {
         const text = await resp.text();
@@ -282,11 +312,11 @@ export default function Pagamentos() {
 
       const resp = await fetch("http://localhost:5136/api/v1/payhistory", {
         method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(body),
       });
 
@@ -294,7 +324,7 @@ export default function Pagamentos() {
         const text = await resp.text();
         throw new Error(text || "Falha ao criar registo.");
       }
-      
+
       await fetchPagamentos();
       setCreateOpen(false);
       resetCreateForm();
@@ -338,7 +368,7 @@ export default function Pagamentos() {
             <input
               type="text"
               className="form-control"
-              placeholder="Procurar por ID (businessEntityID), colaborador, frequência, valor ou data..."
+              placeholder="Procurar por ID, colaborador, frequência, valor ou data..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               aria-label="Pesquisar pagamentos"
@@ -364,7 +394,7 @@ export default function Pagamentos() {
                     <tr>
                       <th className="px-4 py-3">Colaborador</th>
                       <th className="px-4 py-3">Valor</th>
-                      <th className="px-4 py-3">Data</th>
+                      <th className="px-4 py-3 ">Data</th>
                       <th className="px-4 py-3 text-center">Frequência</th>
                       <th className="px-4 py-3 text-end">Ações</th>
                     </tr>
@@ -394,8 +424,9 @@ export default function Pagamentos() {
                             {freqLabel(p.payFrequency)}
                           </td>
                           <td className="px-4 py-3 text-end">
-                            <div className="btn-group btn-group-sm">
+                            <div className="d-flex justify-content-end gap-2">
                               <button
+                                disabled={localStorage.getItem("businessEntityId") == (p.employee?.businessEntityID ?? p.businessEntityID)}
                                 className="btn btn-outline-primary"
                                 onClick={() => openEdit(p)}
                               >
@@ -403,7 +434,7 @@ export default function Pagamentos() {
                               </button>
                               <button
                                 className="btn btn-outline-danger"
-                                disabled={deleting}
+                                disabled={localStorage.getItem("businessEntityId") == (p.employee?.businessEntityID ?? p.businessEntityID)}
                                 onClick={() => handleDelete(p)}
                               >
                                 {deleting ? "A eliminar..." : "Eliminar"}
@@ -479,29 +510,29 @@ export default function Pagamentos() {
               )}
 
               {/* Pagination */}
-                <div className="border-top p-3">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      type="button"
-                    >
-                      ← Anterior
-                    </button>
-                    <span className="text-muted small">
-                      Página {currentPage} de {totalPages}
-                    </span>
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      type="button"
-                    >
-                      Próxima →
-                    </button>
-                  </div>
+              <div className="border-top p-3">
+                <div className="d-flex justify-content-between align-items-center">
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    type="button"
+                  >
+                    ← Anterior
+                  </button>
+                  <span className="text-muted small">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    type="button"
+                  >
+                    Próxima →
+                  </button>
                 </div>
+              </div>
             </>
           )}
         </div>
@@ -630,20 +661,40 @@ export default function Pagamentos() {
                 )}
 
                 <div className="row g-3">
-                  <div className="col-6">
-                    <label className="form-label">ID - Funcionário</label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      value={createForm.businessEntityID}
-                      onChange={(e) =>
-                        setCreateForm((f) => ({
-                          ...f,
-                          businessEntityID: e.target.value,
-                        }))
-                      }
-                    />
+
+                  <div className="row g-3">
+                    <div className="col-6">
+                      <label className="form-label">Funcionário</label>
+
+                      <select
+                        className="form-select"
+                        value={createForm.businessEntityID ?? ""}
+                        onChange={(e) =>
+                          setCreateForm((f) => ({
+                            ...f,
+                            businessEntityID: e.target.value === "" ? null : Number(e.target.value),
+                          }))
+                        }
+                      >
+
+
+                        {employees.map((emp) => {
+                          const id = emp.businessEntityID ?? emp.id;
+                          const first = emp.person?.firstName ?? "";
+                          const middle = emp.person?.middleName ?? "";
+                          const last = emp.person?.lastName ?? "";
+                          const fullName = [first, middle, last].filter(Boolean).join(" ") || "Sem nome";
+
+                          return (
+                            <option key={id} value={id}>
+                              {fullName}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
                   </div>
+
                   <div className="col-6">
                     <label className="form-label">Data </label>
                     <input

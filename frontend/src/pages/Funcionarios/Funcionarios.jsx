@@ -209,7 +209,7 @@ function Funcionarios() {
                             </td>
 
                             <td className="px-4 py-3 text-end">
-                              <div className="btn-group btn-group-sm">
+                              <div className="d-flex justify-content-end gap-2">
                                 <button
                                   className="btn btn-sm btn-outline-secondary flex-fill"
                                   onClick={() =>
@@ -219,6 +219,7 @@ function Funcionarios() {
                                   Ver Perfil
                                 </button>
                                 <button
+                                  disabled = {localStorage.getItem("businessEntityId") == id}
                                   className="btn btn-outline-danger"
                                   onClick={() => handleDelete(f)}
                                 >

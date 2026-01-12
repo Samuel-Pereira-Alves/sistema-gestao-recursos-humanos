@@ -63,12 +63,12 @@ function Navbar() {
     window.location.href = "/";
   };
 
-  const initials = (userName || "U")
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+
+  const first = localStorage.getItem("firstName") || "";
+  const last = localStorage.getItem("lastName") || "";
+
+  const initials = `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || "U";
+
 
   useEffect(() => {
     function handleClickOutside(e) {
