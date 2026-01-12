@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { addNotification } from "../../utils/notificationBus";
 import BackButton from "../../components/Button/BackButton";
 
 function getDepartamentoAtualNome(funcionario) {
   const historicos = funcionario?.departmentHistories ?? [];
   if (historicos.length === 0) return "Sem departamento";
+  //se data atual entre data de fim e inicio
   const atual = historicos.find((h) => h.endDate == null);
   const escolhido =
     atual ??
@@ -20,6 +21,7 @@ export default function Profile() {
   const params = new URLSearchParams(location.search);
   const userId = params.get("id") ;
   const navigate = useNavigate();
+  const { id: routeId } = useParams()
   const role = localStorage.getItem("role");
   const id = localStorage.getItem("businessEntityId");
   const canEdit = role == "admin" &&  userId!=null && id != userId  ? true : false;
@@ -58,31 +60,33 @@ export default function Profile() {
   }, []);
 
   const getEmployeeId = () => {
+    if (routeId) return routeId;
+
     const params = new URLSearchParams(location.search);
     const fromQuery = params.get("id");
+    if (fromQuery) return fromQuery;
 
     const fromStorage = localStorage.getItem("businessEntityId");
-    return fromQuery ?? fromStorage ?? null;
+    return fromStorage ?? null;
   };
 
-  useEffect(() => {
-    const id = getEmployeeId();
+  const targetId = getEmployeeId();
 
+  useEffect(() => {
     const fetchEmployee = async () => {
       try {
         const token = localStorage.getItem("authToken");
         setLoading(true);
         setFetchError(null);
-        const response = await fetch(
-          `http://localhost:5136/api/v1/employee/${id}`, {
+
+        const response = await fetch(`http://localhost:5136/api/v1/employee/${targetId}`, {
           method: "GET",
           headers: {
             Accept: "application/json",
             Authorization: `Bearer ${token}`,
           },
-        },
+        });
 
-        );
         if (!response.ok)
           throw new Error(
             `Erro ao carregar funcionário (HTTP ${response.status})`
@@ -100,8 +104,15 @@ export default function Profile() {
       }
     };
 
-    fetchEmployee();
-  }, [navigate, location.search]);
+    //   fetchEmployee();
+    // }, [navigate, location.search]);
+
+    if (targetId != null) {
+      // reset before fetching a new id
+      setEmployee(null);
+      fetchEmployee();
+    }
+  }, [targetId]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -185,7 +196,7 @@ export default function Profile() {
         },
       }
       );
-      
+
       if (refreshResponse.ok) {
         const updated = await refreshResponse.json();
         setEmployee(updated);
