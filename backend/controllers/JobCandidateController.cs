@@ -246,15 +246,13 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
 
             var now = DateTime.UtcNow;
-            var relativeUrl = $"/uploads/cv/{safeFileName}";
-            var absoluteUrl = $"{Request.Scheme}://{Request.Host}{relativeUrl}";
 
             // 5) Construir entidade
             var candidate = new JobCandidate
             {
                 BusinessEntityId = null,
-                Resume = resumeXml,         
-                CvFileUrl = relativeUrl,    
+                Resume = resumeXml,
+                CvFileBytes = pdfBytes,
                 ModifiedDate = now,
 
                 BirthDate = form.BirthDate,
@@ -297,8 +295,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             // 6) Resposta
             var result = new
             {
-                jobCandidateId = candidate.JobCandidateId,
-                fileUrl = absoluteUrl
+                jobCandidateId = candidate.JobCandidateId
+
             };
 
             string msg10 = $"Upload e criação concluídos. ID={candidate.JobCandidateId}.";
@@ -308,6 +306,19 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             return Created($"/api/v1/jobcandidates/{candidate.JobCandidateId}", result);
         }
+
+
+        [HttpGet("{id}/cv")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> GetCv(int id)
+        {
+            var candidate = await _db.JobCandidates.FindAsync(id);
+            if (candidate == null || candidate.CvFileBytes == null)
+                return NotFound();
+
+            return File(candidate.CvFileBytes, "application/pdf", $"cv_{id}.pdf");
+        }
+
 
         private static bool IsPdf(byte[] bytes)
         {

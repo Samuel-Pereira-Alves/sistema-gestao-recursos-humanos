@@ -26,9 +26,7 @@ export default function Candidatos() {
       const mapped = (data || []).map((d) => ({
         id: d.jobCandidateId,
         numero: d.jobCandidateId,
-        nome: d.firstName + " " + d.lastName,
-        cvXml: d.resume || "",
-        cvPdfUrl: d.cvFileUrl ? `http://localhost:5136/${d.cvFileUrl}` : "",
+        nome: d.firstName + " " + d.lastName
       }));
 
       setCandidatos(mapped);
@@ -68,19 +66,33 @@ export default function Candidatos() {
   }, [searchTerm]);
 
   // Abrir PDF numa nova aba 
-  const abrirCvPdf = (url) => {
-    if (!url) return alert("CV PDF não disponível.");
-    const win = window.open(url, "_blank", "noopener,noreferrer");
-    if (!win) {
-      const a = document.createElement("a");
-      a.href = url;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
-  };
+  
+const downloadCvPdf = async (id) => {
+  try {
+    const token = localStorage.getItem("authToken");
+    const response = await fetch(`http://localhost:5136/api/v1/jobcandidate/${id}/cv`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) throw new Error("Erro ao baixar o arquivo");
+
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = `CV_${id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error(error);
+    alert("Falha ao baixar o CV.");
+  }
+};
+
 
   const aprovarCandidato = async (id) => {
     try {
@@ -223,8 +235,8 @@ export default function Candidatos() {
                         <td className="px-4 py-3 text-center">
                           <button
                             className="btn btn-sm btn-outline-primary text-center"
-                            onClick={() => abrirCvPdf(c.cvPdfUrl)}
-                            disabled={!c.cvPdfUrl}
+                            onClick={() => downloadCvPdf(c.id)}
+                            
                             type="button"
                           >
                             Ver CV (PDF)
@@ -277,8 +289,7 @@ export default function Candidatos() {
                     <div className="d-flex gap-2">
                       <button
                         className="btn btn-sm btn-outline-primary flex-fill"
-                        onClick={() => abrirCvPdf(c.cvPdfUrl)}
-                        disabled={!c.cvPdfUrl}
+                        onClick={() => downloadCvPdf(c.id)}
                         type="button"
                       >
                         Ver CV (PDF)

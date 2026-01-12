@@ -10,7 +10,7 @@ namespace sistema_gestao_recursos_humanos.backend.models
         public int? BusinessEntityId { get; set; }
         public string? Resume { get; set; }
 
-        public string? CvFileUrl { get; set; }
+        public byte[]? CvFileBytes { get; set; }
         
         public DateTime ModifiedDate { get; set; }
 
