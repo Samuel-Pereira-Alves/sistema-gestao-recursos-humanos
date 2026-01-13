@@ -207,7 +207,7 @@ function Form({ onCancel }) {
 
       addNotification(
         `Nova candidatura: ${firstName} ${lastName} – verifica o painel.`,
-        "admin"
+        "admin", {type: "CANDIDATE"}
       );
 
       setUploadProgress(100);

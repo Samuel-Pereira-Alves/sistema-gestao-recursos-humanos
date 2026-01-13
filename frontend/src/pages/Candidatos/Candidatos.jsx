@@ -144,7 +144,7 @@ export default function Candidatos() {
         fetchCandidatos();
         addNotification(
           `O candidato ${nome} foi aprovado como funcionário.`,
-          "admin"
+          "admin", {type: "DEPARTMENT"}
         );
       } else {
         throw new Error(`Falha ao aprovar candidato`);
@@ -184,7 +184,7 @@ export default function Candidatos() {
 
       setCandidatos((prev) => prev.filter((c) => c.id !== id));
       alert("Candidato eliminado com sucesso.");
-      addNotification(`O candidato ${nome} foi recusado.`, "admin");
+      addNotification(`O candidato ${nome} foi recusado.`, "admin", {type: "CANDIDATE"});
     } catch (err) {
       console.error(err);
       setError("Erro ao eliminar candidato. Tenta novamente.");

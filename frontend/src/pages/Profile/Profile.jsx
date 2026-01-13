@@ -17,10 +17,14 @@ function getDepartamentoAtualNome(funcionario) {
 }
 
 export default function Profile() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const userId = params.get("id") ;
+  const navigate = useNavigate();
   const { id: routeId } = useParams()
   const role = localStorage.getItem("role");
-  const actualId = localStorage.getItem("businessEntityId");
-  const canEdit = role == "admin" && routeId != actualId  ? true : false;
+  const id = localStorage.getItem("businessEntityId");
+  const canEdit = role == "admin" &&  userId!=null && id != userId  ? true : false;
 
   const [departments, setDepartments] = useState([]);
   const [employee, setEmployee] = useState(null);
@@ -180,12 +184,12 @@ export default function Profile() {
 
       addNotification(
         `O perfil do funcionário ${employee.person?.firstName} ${employee.person?.lastName} foi atualizado.`,
-        "admin"
+        "admin", {type: "PROFILE"}
       );
       
       addNotificationForUser(
         `O seu perfil foi atualizado pelo RH.`,
-        id
+        id, {type: "PROFILE"}
       );
 
       const refreshResponse = await fetch(

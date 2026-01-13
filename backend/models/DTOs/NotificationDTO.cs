@@ -11,5 +11,7 @@ namespace sistema_gestao_recursos_humanos.backend.models.dtos
         public int BusinessEntityID { get; set; }
         
         public DateTime CreatedAt  {get; set;}
+
+        public string? Type {get; set;}
     }
 }

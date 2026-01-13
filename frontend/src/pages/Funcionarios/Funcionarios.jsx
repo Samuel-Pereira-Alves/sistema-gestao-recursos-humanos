@@ -74,7 +74,7 @@ function Funcionarios() {
       
       addNotification(
         `O funcionário ${getNomeCompleto(p)} saiu dos quadros das empresa.`,
-        "admin"
+        "admin", {type: "EMPLOYEES"}
       );
     } catch (e) {
       console.error(e);

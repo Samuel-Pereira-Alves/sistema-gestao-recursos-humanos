@@ -178,7 +178,7 @@ export default function Pagamentos() {
         throw new Error(text || "Falha ao editar registo.");
       }
       await fetchPagamentos();
-      addNotificationForUser("O seu registo de Pagamento foi atualizado.", editKeys.businessEntityID);
+      addNotificationForUser("O seu registo de Pagamento foi atualizado.", editKeys.businessEntityID, {type: "PAYMENT"});
       setEditOpen(false);
     } catch (e) {
       setEditError(e.message || "Erro ao editar registo.");
@@ -223,7 +223,7 @@ export default function Pagamentos() {
         throw new Error(text || "Falha ao eliminar registo.");
       }
       await fetchPagamentos();
-      addNotificationForUser("O seu registo de Pagamento foi eliminado.", editKeys.businessEntityID);
+      addNotificationForUser("O seu registo de Pagamento foi eliminado.", editKeys.businessEntityID, {type: "PAYMENT"});
     } catch (e) {
       alert(e.message || "Erro ao eliminar registo.");
     } finally {
@@ -286,7 +286,7 @@ export default function Pagamentos() {
         throw new Error(text || "Falha ao criar registo.");
       }
       await fetchPagamentos();
-      addNotificationForUser("Foi criado um novo registo de Pagamento associado ao seu perfil.", body.businessEntityID );
+      addNotificationForUser("Foi criado um novo registo de Pagamento associado ao seu perfil.", body.businessEntityID, {type: "PAYMENT"});
       setCreateOpen(false);
       resetCreateForm();
     } catch (e) {
