@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
 import { addNotification } from "../../utils/notificationBus";
+import axios from 'axios';
 
 export default function Candidatos() {
   const [isLoading, setIsLoading] = useState(false);
@@ -27,6 +28,7 @@ export default function Candidatos() {
         id: d.jobCandidateId,
         numero: d.jobCandidateId,
         nome: d.firstName + " " + d.lastName,
+        email: d.email
       }));
 
       setCandidatos(mapped);
@@ -94,6 +96,34 @@ export default function Candidatos() {
       alert("Falha ao baixar o CV.");
     }
   };
+
+  //enviar email
+  async function sendEmail(email, condition) {
+
+    var frase = condition === false
+      ? "Infelizmente, a sua candidatura não foi aprovada nesta fase do processo. Agradecemos o seu interesse e o tempo dedicado à candidatura. Continuaremos a considerar o seu perfil para futuras oportunidades compatíveis."
+      : "Parabéns! A sua candidatura foi aprovada nesta fase do processo. Em breve entraremos em contacto para lhe fornecer mais detalhes sobre os próximos passos. Obrigado pelo seu interesse e confiança.";
+
+      console.log(email)
+    try {
+
+      await axios.post('http://localhost:5136/api/email/send', {
+        to: email,
+        subject: 'Feedback Candidatura',
+        text: frase
+      },{
+        headers: {"Content-Type": "application/json"}
+      }
+    );
+    } catch (e) {
+      if (e.response) {
+        console.error('Erro API:', e.response.data);
+      } else {
+        console.error('Erro rede/CORS:', e.message);
+      }
+    }
+  }
+
 
   const aprovarCandidato = async (id, nome) => {
     try {
@@ -246,7 +276,10 @@ export default function Candidatos() {
                           <div className="btn-group btn-group-sm" role="group">
                             <button
                               className="btn btn-outline-success"
-                              onClick={() => aprovarCandidato(c.id, c.nome)}
+                              onClick={() => {
+                                aprovarCandidato(c.id, c.nome);
+                                sendEmail(c.email, true)
+                              }}
                               disabled={isLoading}
                               type="button"
                             >
@@ -254,7 +287,10 @@ export default function Candidatos() {
                             </button>
                             <button
                               className="btn btn-outline-danger"
-                              onClick={() => eliminarCandidato(c.id, c.nome)}
+                              onClick={() => {
+                                eliminarCandidato(c.id, c.nome);
+                                sendEmail(c.email, false);
+                              }}
                               disabled={isLoading}
                               type="button"
                             >
