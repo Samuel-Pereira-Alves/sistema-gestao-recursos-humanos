@@ -1,12 +1,13 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Xml.Linq;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
 using sistema_gestao_recursos_humanos.backend.models.tools;
-using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using System.Security.Cryptography;
 
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
@@ -19,7 +20,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<JobCandidateController> _logger;
 
-        public JobCandidateController(AdventureWorksContext db, IMapper mapper, IWebHostEnvironment env, ILogger<JobCandidateController> logger)
+        public JobCandidateController(
+            AdventureWorksContext db,
+            IMapper mapper,
+            IWebHostEnvironment env,
+            ILogger<JobCandidateController> logger)
         {
             _db = db;
             _mapper = mapper;
@@ -27,113 +32,107 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             _logger = logger;
         }
 
-        //GET: api/v1/jobcandidate
+        // -----------------------
+        // Helpers
+        // -----------------------
+        private void AddLog(string message)
+        {
+            _db.Logs.Add(new Log { Message = message, Date = DateTime.UtcNow });
+        }
+
+        private static bool IsPdf(byte[] bytes)
+        {
+            // Assinatura "%PDF"
+            return bytes.Length > 4 &&
+                   bytes[0] == 0x25 &&
+                   bytes[1] == 0x50 &&
+                   bytes[2] == 0x44 &&
+                   bytes[3] == 0x46;
+        }
+
+        // -----------------------
+        // GET: api/v1/jobcandidate
+        // -----------------------
         [HttpGet]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> GetAll()
+        public async Task<ActionResult<List<JobCandidateDto>>> GetAll(CancellationToken ct)
         {
-            // 1) Pedido recebido
-            string msg1 = "Recebida requisição para obter todos os JobCandidates.";
-            _logger.LogInformation(msg1);
-            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation("Recebida requisição para obter todos os JobCandidates.");
+            AddLog("Recebida requisição para obter todos os JobCandidates.");
 
             try
             {
-                // 2) Consulta
                 var candidates = await _db.JobCandidates
+                    .AsNoTracking()
                     .OrderByDescending(c => c.ModifiedDate)
-                    .ToListAsync();
+                    .ToListAsync(ct);
 
-                // 3) Resultado
-                string msg2 = $"Encontrados {candidates.Count} JobCandidates.";
-                _logger.LogInformation(msg2);
-                _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogInformation("Encontrados {Count} JobCandidates.", candidates.Count);
+                AddLog($"Encontrados {candidates.Count} JobCandidates.");
+                await _db.SaveChangesAsync(ct);
 
-                // 4) Mapeamento e retorno
                 var dto = _mapper.Map<List<JobCandidateDto>>(candidates);
                 return Ok(dto);
             }
             catch (Exception ex)
             {
-                // 5) Erro
-                string msg3 = "Erro ao obter lista de JobCandidates.";
-                _logger.LogError(ex, msg3);
-                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogError(ex, "Erro ao obter lista de JobCandidates.");
+                AddLog("Erro ao obter lista de JobCandidates.");
+                await _db.SaveChangesAsync(ct);
 
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao obter os candidatos.");
+                return Problem(
+                    title: "Erro ao obter candidatos",
+                    detail: "Ocorreu um erro ao obter os candidatos.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
         }
 
+        // -----------------------
         // GET: api/v1/jobcandidate/{id}
-        [HttpGet("{id}")]
+        // -----------------------
+        [HttpGet("{id:int}")]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> Get(int id)
+        public async Task<ActionResult<JobCandidateDto>> Get(int id, CancellationToken ct)
         {
-            // 1) Pedido recebido
-            string msg1 = $"Recebida requisição para obter JobCandidate com ID={id}.";
-            _logger.LogInformation(msg1);
-            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation("Recebida requisição para obter JobCandidate com ID={Id}.", id);
+            AddLog($"Recebida requisição para obter JobCandidate com ID={id}.");
+            await _db.SaveChangesAsync(ct);
 
             try
             {
-                // 2) Consulta
                 var candidate = await _db.JobCandidates
-                    .FirstOrDefaultAsync(jc => jc.JobCandidateId == id);
+                    .FirstOrDefaultAsync(jc => jc.JobCandidateId == id, ct);
 
-                // 3) Não encontrado
-                if (candidate == null)
+                if (candidate is null)
                 {
-                    string msg2 = $"JobCandidate não encontrado para ID={id}.";
-                    _logger.LogWarning(msg2);
-                    _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-
+                    _logger.LogWarning("JobCandidate não encontrado para ID={Id}.", id);
+                    AddLog($"JobCandidate não encontrado para ID={id}.");
+                    await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
-                // 4) Encontrado
-                string msg3 = $"JobCandidate encontrado para ID={id}.";
-                _logger.LogInformation(msg3);
-                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogInformation("JobCandidate encontrado para ID={Id}.", id);
+                AddLog($"JobCandidate encontrado para ID={id}.");
+                await _db.SaveChangesAsync(ct);
 
-                // 5) Mapeamento e retorno
-                var dto = _mapper.Map<JobCandidateDto>(candidate);
-                return Ok(dto);
+                return Ok(_mapper.Map<JobCandidateDto>(candidate));
             }
             catch (Exception ex)
             {
-                // 6) Erro
-                string msg4 = $"Erro ao obter JobCandidate com ID={id}.";
-                _logger.LogError(ex, msg4);
-                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogError(ex, "Erro ao obter JobCandidate com ID={Id}.", id);
+                AddLog($"Erro ao obter JobCandidate com ID={id}.");
+                await _db.SaveChangesAsync(ct);
 
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao obter o candidato.");
+                return Problem(
+                    title: "Erro ao obter candidato",
+                    detail: "Ocorreu um erro ao obter o candidato.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
         }
 
-        // POST: api/v1/jobcandidate
-        // [HttpPost]
-        // public async Task<IActionResult> Create(JobCandidateDto dto)
-        // {
-        //     var candidate = _mapper.Map<JobCandidate>(dto);
-        //     candidate.ModifiedDate = DateTime.Now;
-
-        //     _db.JobCandidates.Add(candidate);
-        //     await _db.SaveChangesAsync();
-
-        //     return CreatedAtAction(nameof(Get),
-        //         new { id = candidate.JobCandidateId },
-        //         _mapper.Map<JobCandidateDto>(candidate));
-        // }
-
-
-        // POST: api/v1/jobcandidates/upload
+        // -----------------------
+        // POST: api/v1/jobcandidate/upload
+        // -----------------------
         [HttpPost("upload")]
         [Consumes("multipart/form-data")]
         [RequestSizeLimit(50_000_000)]
@@ -142,35 +141,30 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [AllowAnonymous]
         public async Task<IActionResult> UploadAndCreate([FromForm] JobCandidateCreateForm form, CancellationToken ct)
         {
-            // 1) Pedido recebido
-            string msg1 = "Recebida requisição para upload de CV e criação de JobCandidate.";
-            _logger.LogInformation(msg1);
-            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
+            _logger.LogInformation("Recebida requisição para upload de CV e criação de JobCandidate.");
+            AddLog("Recebida requisição para upload de CV e criação de JobCandidate.");
             await _db.SaveChangesAsync(ct);
 
-            // 2) Validação do ficheiro
+            // 1) Validação do ficheiro
             var cv = form.Cv;
             if (cv is null || cv.Length == 0)
             {
-                string msg2 = "Nenhum ficheiro enviado.";
-                _logger.LogWarning(msg2);
-                _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
+                _logger.LogWarning("Nenhum ficheiro enviado.");
+                AddLog("Nenhum ficheiro enviado.");
                 await _db.SaveChangesAsync(ct);
-
                 return BadRequest(new { message = "Nenhum ficheiro enviado." });
             }
 
             var ext = Path.GetExtension(cv.FileName);
             if (!string.Equals(ext, ".pdf", StringComparison.OrdinalIgnoreCase))
             {
-                string msg3 = $"Ficheiro inválido: extensão {ext}. Esperado .pdf.";
                 _logger.LogWarning("Ficheiro inválido: extensão {Ext}. Esperado .pdf.", ext);
-                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
+                AddLog($"Ficheiro inválido: extensão {ext}. Esperado .pdf.");
                 await _db.SaveChangesAsync(ct);
-
                 return BadRequest(new { message = "O ficheiro deve ser um PDF (.pdf)." });
             }
 
+            // 2) Ler bytes do PDF (com cancelamento)
             byte[] pdfBytes;
             await using (var ms = new MemoryStream())
             {
@@ -180,40 +174,36 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             if (!IsPdf(pdfBytes))
             {
-                string msg4 = "Conteúdo inválido: ficheiro não é um PDF válido.";
-                _logger.LogWarning(msg4);
-                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
+                _logger.LogWarning("Conteúdo inválido: ficheiro não é um PDF válido.");
+                AddLog("Conteúdo inválido: ficheiro não é um PDF válido.");
                 await _db.SaveChangesAsync(ct);
-
                 return BadRequest(new { message = "Conteúdo inválido: o ficheiro não é um PDF válido." });
             }
 
-            // 3) Extrair texto + construir XML
+            // 3) Extrair texto + construir XML (best-effort)
             string resumeXml = string.Empty;
             try
             {
                 _logger.LogInformation("A processar PDF para extração de texto.");
-                _db.Logs.Add(new Log { Message = "A processar PDF para extração de texto.", Date = DateTime.Now });
+                AddLog("A processar PDF para extração de texto.");
                 await _db.SaveChangesAsync(ct);
 
                 using var parseStream = new MemoryStream(pdfBytes, writable: false);
-                var text = PdfTextExtractor.ExtractAllText(parseStream);
-                var resumeData = ResumeParser.ParseFromText(text);
-
+                var text = PdfTextExtractor.ExtractAllText(parseStream);          // mantém comportamento atual
+                var resumeData = ResumeParser.ParseFromText(text);                // idem
                 if (resumeData != null)
                     resumeXml = AdventureWorksResumeXmlBuilder.Build(resumeData);
 
-                _logger.LogInformation("Extração de texto concluída (XML construído? {HasXml}).", !string.IsNullOrEmpty(resumeXml));
-                _db.Logs.Add(new Log { Message = $"Extração de texto concluída (XML construído? {!string.IsNullOrEmpty(resumeXml)}).", Date = DateTime.Now });
+                _logger.LogInformation("Extração concluída (XML construído? {HasXml}).", !string.IsNullOrEmpty(resumeXml));
+                AddLog($"Extração de texto concluída (XML construído? {!string.IsNullOrEmpty(resumeXml)}).");
                 await _db.SaveChangesAsync(ct);
             }
             catch (Exception ex)
             {
-                string msg5 = "Falha ao processar PDF para extração de texto.";
-                _logger.LogWarning(ex, msg5);
-                _db.Logs.Add(new Log { Message = msg5, Date = DateTime.Now });
+                // Prossegue mesmo sem XML
+                _logger.LogWarning(ex, "Falha ao processar PDF para extração de texto.");
+                AddLog("Falha ao processar PDF para extração de texto.");
                 await _db.SaveChangesAsync(ct);
-                // Continua mesmo assim (XML poderá ir vazio)
             }
 
             // 4) Guardar ficheiro em disco
@@ -227,43 +217,37 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             try
             {
                 await System.IO.File.WriteAllBytesAsync(fullPath, pdfBytes, ct);
-
-                string msg6 = $"Ficheiro guardado com sucesso: {safeFileName}.";
                 _logger.LogInformation("Ficheiro guardado com sucesso: {File}.", safeFileName);
-                _db.Logs.Add(new Log { Message = msg6, Date = DateTime.Now });
+                AddLog($"Ficheiro guardado com sucesso: {safeFileName}.");
                 await _db.SaveChangesAsync(ct);
             }
             catch (Exception ex)
             {
-                string msg7 = $"Erro ao guardar ficheiro {safeFileName}.";
                 _logger.LogError(ex, "Erro ao guardar ficheiro {File}.", safeFileName);
-                _db.Logs.Add(new Log { Message = msg7, Date = DateTime.Now });
+                AddLog($"Erro ao guardar ficheiro {safeFileName}.");
                 await _db.SaveChangesAsync(ct);
 
-                return Problem(title: "Erro ao guardar o ficheiro",
-                               detail: ex.Message,
-                               statusCode: StatusCodes.Status500InternalServerError);
+                return Problem(
+                    title: "Erro ao guardar o ficheiro",
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
 
+            // 5) Construir entidade e persistir
             var now = DateTime.UtcNow;
-
-            // 5) Construir entidade
             var candidate = new JobCandidate
             {
                 BusinessEntityId = null,
                 Resume = resumeXml,
                 CvFileBytes = pdfBytes,
                 ModifiedDate = now,
-
                 BirthDate = form.BirthDate,
                 NationalIDNumber = form.NationalIDNumber,
                 MaritalStatus = form.MaritalStatus,
                 Gender = form.Gender,
-
                 FirstName = form.FirstName,
                 LastName = form.LastName,
-
-                PasswordHash = "DevOnly!234", // Evitar em produção
+                PasswordHash = "DevOnly!234",  // TODO: Em produção, gerar uma password temporária segura
                 Role = "employee"
             };
 
@@ -272,124 +256,103 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             try
             {
                 await _db.SaveChangesAsync(ct);
-
-                string msg8 = $"JobCandidate criado com sucesso. ID={candidate.JobCandidateId}, ficheiro={safeFileName}.";
                 _logger.LogInformation("JobCandidate criado com sucesso. ID={ID}, ficheiro={File}.", candidate.JobCandidateId, safeFileName);
-                _db.Logs.Add(new Log { Message = msg8, Date = DateTime.Now });
+                AddLog($"JobCandidate criado com sucesso. ID={candidate.JobCandidateId}, ficheiro={safeFileName}.");
                 await _db.SaveChangesAsync(ct);
             }
             catch (Exception ex)
             {
                 try { System.IO.File.Delete(fullPath); } catch { /* ignore */ }
-
-                string msg9 = $"Erro ao gravar JobCandidate. Ficheiro removido: {safeFileName}.";
                 _logger.LogError(ex, "Erro ao gravar JobCandidate. Ficheiro removido: {File}.", safeFileName);
-                _db.Logs.Add(new Log { Message = msg9, Date = DateTime.Now });
+                AddLog($"Erro ao gravar JobCandidate. Ficheiro removido: {safeFileName}.");
                 await _db.SaveChangesAsync(ct);
 
-                return Problem(title: "Erro ao persistir o candidato",
-                               detail: ex.Message,
-                               statusCode: StatusCodes.Status500InternalServerError);
+                return Problem(
+                    title: "Erro ao persistir o candidato",
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
 
             // 6) Resposta
-            var result = new
-            {
-                jobCandidateId = candidate.JobCandidateId
+            var result = new { jobCandidateId = candidate.JobCandidateId };
 
-            };
-
-            string msg10 = $"Upload e criação concluídos. ID={candidate.JobCandidateId}.";
-            _logger.LogInformation(msg10);
-            _db.Logs.Add(new Log { Message = msg10, Date = DateTime.Now });
+            _logger.LogInformation("Upload e criação concluídos. ID={ID}.", candidate.JobCandidateId);
+            AddLog($"Upload e criação concluídos. ID={candidate.JobCandidateId}.");
             await _db.SaveChangesAsync(ct);
 
-            return Created($"/api/v1/jobcandidates/{candidate.JobCandidateId}", result);
+            return CreatedAtAction(nameof(Get), new { id = candidate.JobCandidateId }, result);
         }
 
-
-        [HttpGet("{id}/cv")]
+        // -----------------------
+        // GET: api/v1/jobcandidate/{id}/cv
+        // -----------------------
+        [HttpGet("{id:int}/cv")]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> GetCv(int id)
+        public async Task<IActionResult> GetCv(int id, CancellationToken ct)
         {
-            var candidate = await _db.JobCandidates.FindAsync(id);
-            if (candidate == null || candidate.CvFileBytes == null)
+            var candidate = await _db.JobCandidates.FirstOrDefaultAsync(c => c.JobCandidateId == id, ct);
+            if (candidate is null || candidate.CvFileBytes is null)
                 return NotFound();
 
             return File(candidate.CvFileBytes, "application/pdf", $"cv_{id}.pdf");
         }
 
-
-        private static bool IsPdf(byte[] bytes)
-        {
-            return bytes.Length > 4 &&
-                   bytes[0] == 0x25 &&
-                   bytes[1] == 0x50 &&
-                   bytes[2] == 0x44 &&
-                   bytes[3] == 0x46; // "%PDF"
-        }
-
+        // -----------------------
         // DELETE: api/v1/jobcandidate/{id}
-        [HttpDelete("{id}")]
+        // -----------------------
+        [HttpDelete("{id:int}")]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
-            // 1) Pedido recebido
-            string msg1 = $"Recebida requisição para eliminar JobCandidate com ID={id}.";
-            _logger.LogInformation(msg1);
-            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation("Recebida requisição para eliminar JobCandidate com ID={Id}.", id);
+            AddLog($"Recebida requisição para eliminar JobCandidate com ID={id}.");
+            await _db.SaveChangesAsync(ct);
 
             try
             {
-                // 2) Procurar o candidato
-                var jobcandidate = await _db.JobCandidates.FindAsync(id);
+                var jobcandidate = await _db.JobCandidates.FirstOrDefaultAsync(c => c.JobCandidateId == id, ct);
 
-                // 3) Não encontrado
-                if (jobcandidate == null)
+                if (jobcandidate is null)
                 {
-                    string msg2 = $"JobCandidate não encontrado para ID={id}.";
-                    _logger.LogWarning(msg2);
-                    _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-
+                    _logger.LogWarning("JobCandidate não encontrado para ID={Id}.", id);
+                    AddLog($"JobCandidate não encontrado para ID={id}.");
+                    await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
-                // 4) Encontrado — a eliminar
-                string msg3 = $"JobCandidate encontrado para ID={id}. A eliminar...";
-                _logger.LogInformation(msg3);
-                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogInformation("JobCandidate encontrado para ID={Id}. A eliminar…", id);
+                AddLog($"JobCandidate encontrado para ID={id}. A eliminar…");
 
-                // 5) Remover e persistir
                 _db.JobCandidates.Remove(jobcandidate);
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(ct);
 
-                string msg4 = $"JobCandidate eliminado com sucesso. ID={id}.";
-                _logger.LogInformation(msg4);
-                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogInformation("JobCandidate eliminado com sucesso. ID={Id}.", id);
+                AddLog($"JobCandidate eliminado com sucesso. ID={id}.");
+                await _db.SaveChangesAsync(ct);
 
                 return NoContent();
             }
             catch (DbUpdateException dbEx)
             {
-                string msg5 = $"Erro ao eliminar JobCandidate com ID={id}.";
-                _logger.LogError(dbEx, msg5);
-                _db.Logs.Add(new Log { Message = msg5, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogError(dbEx, "Erro ao eliminar JobCandidate com ID={Id}.", id);
+                AddLog($"Erro ao eliminar JobCandidate com ID={id}.");
+                await _db.SaveChangesAsync(ct);
 
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao eliminar o candidato.");
+                return Problem(
+                    title: "Erro ao eliminar",
+                    detail: "Erro ao eliminar o candidato.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
             catch (Exception ex)
             {
-                string msg6 = $"Erro inesperado ao eliminar JobCandidate com ID={id}.";
-                _logger.LogError(ex, msg6);
-                _db.Logs.Add(new Log { Message = msg6, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogError(ex, "Erro inesperado ao eliminar JobCandidate com ID={Id}.", id);
+                AddLog($"Erro inesperado ao eliminar JobCandidate com ID={id}.");
+                await _db.SaveChangesAsync(ct);
 
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao eliminar o candidato.");
+                return Problem(
+                    title: "Erro ao eliminar",
+                    detail: "Ocorreu um erro ao eliminar o candidato.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
         }
     }
