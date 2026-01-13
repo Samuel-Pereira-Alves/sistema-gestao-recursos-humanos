@@ -10,6 +10,7 @@ function Form({ onCancel }) {
   const [maritalStatus, setMaritalStatus] = useState("");
   const [gender, setGender] = useState("");
   const [ficheiro, setFicheiro] = useState(null);
+  const [email, setEmail] = useState("");
 
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
@@ -148,6 +149,7 @@ function Form({ onCancel }) {
   const clearForm = () => {
     setFicheiro(null);
     setErrors({});
+    setEmail("");
     setFirstName("");
     setLastName("");
     setNationalIDNumber("");
@@ -176,6 +178,7 @@ function Form({ onCancel }) {
       const formData = new FormData();
       formData.append("cv", ficheiro);
       formData.append("FirstName", firstName.trim());
+      formData.append("Email", email);
       formData.append("LastName", lastName.trim());
       formData.append("NationalIDNumber", nationalIDNumber.trim());
       formData.append("BirthDate", birthDate);
@@ -183,6 +186,24 @@ function Form({ onCancel }) {
       formData.append("Gender", gender);
 
       await doUpload(formData);
+
+      //enviar email
+      try {
+
+        await axios.post('http://localhost:5136/api/email/send', {
+          to: email,
+          subject: 'Candidatura',
+          text: 'A sua candidatura foi recebida. Iremos analisá-la e responder brevemente!'
+        });
+        console.log('OK:', data);
+      } catch (e) {
+        if (e.response) {
+          console.error('Erro API:', e.response.data);
+        } else {
+          console.error('Erro rede/CORS:', e.message);
+        }
+      }
+
 
       addNotification(
         `Nova candidatura: ${firstName} ${lastName} – verifica o painel.`,
@@ -263,6 +284,21 @@ function Form({ onCancel }) {
               autoComplete="family-name"
             />
             {errors.lastName && <div className="invalid-feedback">{errors.lastName}</div>}
+          </div>
+
+          {/* Email */}
+          <div className="col-md-6">
+            <label htmlFor="email" className="form-label fw-semibold">
+              Email <span className="text-danger">*</span>
+            </label>
+            <input
+              id="email"
+              type="email"
+              className={`form-control input-gray ${errors.email ? "is-invalid" : ""}`}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
           </div>
 
           {/* Nº Cartao Cidadao */}

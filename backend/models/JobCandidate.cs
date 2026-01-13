@@ -11,6 +11,7 @@ namespace sistema_gestao_recursos_humanos.backend.models
         public string? Resume { get; set; }
 
         public byte[]? CvFileBytes { get; set; }
+        public string? Email {get; set;}
         
         public DateTime ModifiedDate { get; set; }
 

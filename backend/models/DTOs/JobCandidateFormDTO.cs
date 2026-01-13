@@ -23,6 +23,7 @@ public class JobCandidateCreateForm
     [FromForm(Name = "LastName")]
 
     public string LastName { get; set; } = string.Empty;
+    public string Email {get; set;}
 
     [StringLength(64)]
     public string Role { get; set; } = string.Empty;

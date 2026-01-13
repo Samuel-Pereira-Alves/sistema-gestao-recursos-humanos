@@ -85,7 +85,7 @@ function Home() {
                     <p className="card-text">
                       Consulta e atualiza os teus dados pessoais.
                     </p>
-                    <Link className="btn btn-outline-primary mt-auto" to="/profile">
+                    <Link className="btn btn-outline-primary mt-auto" to={`/profile/${localStorage.getItem("businessEntityId")}`}>
                       Ir para Perfil
                     </Link>
                   </div>

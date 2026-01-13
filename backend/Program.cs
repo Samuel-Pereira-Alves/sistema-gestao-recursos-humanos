@@ -39,6 +39,10 @@ builder.Services
         };
     });
 
+
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
+builder.Services.AddScoped<IEmailService, EmailService>();
+
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
@@ -88,4 +92,5 @@ app.UseSwaggerUI(c =>
 });
 
 app.MapControllers();
+
 app.Run();

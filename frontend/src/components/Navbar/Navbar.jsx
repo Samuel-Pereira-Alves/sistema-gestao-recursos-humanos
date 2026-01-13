@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import NotificationBell from "../NotificationBell/NotificationBell";
+import axios from 'axios';
 
 function Navbar() {
   const [open, setOpen] = useState(false);
