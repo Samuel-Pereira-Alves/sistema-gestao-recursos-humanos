@@ -65,7 +65,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         // GET: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
-        [HttpGet("{businessEntityId:int}/{departmentId:short}/{shiftId:byte}/{startDate}")]
+        [HttpGet("{businessEntityId:int}/{departmentId:int}/{shiftId:int}/{startDate}")]
         [Authorize(Roles = "admin")]
         public async Task<ActionResult<DepartmentHistoryDto>> Get(
             int businessEntityId,
@@ -234,7 +234,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         // PATCH: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
-        [HttpPatch("{businessEntityId:int}/{departmentId:short}/{shiftId:byte}/{startDate}")]
+        [HttpPatch("{businessEntityId:int}/{departmentId:int}/{shiftId:int}/{startDate}")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Patch(
             int businessEntityId,
@@ -405,7 +405,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         // DELETE: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
-        [HttpDelete("{businessEntityId:int}/{departmentId:short}/{shiftId:byte}/{startDate}")]
+        [HttpDelete("{businessEntityId:int}/{departmentId:int}/{shiftId:int}/{startDate}")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(
             int businessEntityId,
