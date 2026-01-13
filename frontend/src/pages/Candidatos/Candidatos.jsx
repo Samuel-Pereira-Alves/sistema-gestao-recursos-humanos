@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
+import { addNotification } from "../../utils/notificationBus";
 
 export default function Candidatos() {
   const [isLoading, setIsLoading] = useState(false);
@@ -19,14 +20,13 @@ export default function Candidatos() {
           Authorization: `Bearer ${token}`,
         },
       });
-      if (!res.ok)
-        throw new Error(`Falha ao obter candidatos (${res.status})`);
+      if (!res.ok) throw new Error(`Falha ao obter candidatos (${res.status})`);
       const data = await res.json();
 
       const mapped = (data || []).map((d) => ({
         id: d.jobCandidateId,
         numero: d.jobCandidateId,
-        nome: d.firstName + " " + d.lastName
+        nome: d.firstName + " " + d.lastName,
       }));
 
       setCandidatos(mapped);
@@ -48,11 +48,10 @@ export default function Candidatos() {
 
   const filtered = useMemo(() => {
     const term = (searchTerm || "").toLowerCase().trim();
-    return candidatos.filter(
-      (c) =>
-        String(c.nome || "")
-          .toLowerCase()
-          .includes(term)
+    return candidatos.filter((c) =>
+      String(c.nome || "")
+        .toLowerCase()
+        .includes(term)
     );
   }, [candidatos, searchTerm]);
 
@@ -65,86 +64,97 @@ export default function Candidatos() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  // Abrir PDF numa nova aba 
-  
-const downloadCvPdf = async (id) => {
-  try {
-    const token = localStorage.getItem("authToken");
-    const response = await fetch(`http://localhost:5136/api/v1/jobcandidate/${id}/cv`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  // Abrir PDF numa nova aba
 
-    if (!response.ok) throw new Error("Erro ao baixar o arquivo");
+  const downloadCvPdf = async (id) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(
+        `http://localhost:5136/api/v1/jobcandidate/${id}/cv`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
+      if (!response.ok) throw new Error("Erro ao baixar o arquivo");
 
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = `CV_${id}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
 
-    URL.revokeObjectURL(blobUrl);
-  } catch (error) {
-    console.error(error);
-    alert("Falha ao baixar o CV.");
-  }
-};
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `CV_${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
 
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error(error);
+      alert("Falha ao baixar o CV.");
+    }
+  };
 
-  const aprovarCandidato = async (id) => {
+  const aprovarCandidato = async (id, nome) => {
     try {
       const token = localStorage.getItem("authToken");
       setIsLoading(true);
-      const res = await fetch(`http://localhost:5136/api/v1/employee/approve/${id}`, {
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        method: "POST",
-      });
+      const res = await fetch(
+        `http://localhost:5136/api/v1/employee/approve/${id}`,
+        {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          method: "POST",
+        }
+      );
       if (res.ok) {
         alert("Candidato aprovado com sucesso.");
         fetchCandidatos();
-      }
-      else {
+        addNotification(
+          `O candidato ${nome} foi aprovado como funcionário.`,
+          "admin"
+        );
+      } else {
         throw new Error(`Falha ao aprovar candidato`);
       }
     } catch (err) {
-
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const eliminarCandidato = async (id) => {
+  const eliminarCandidato = async (id, nome) => {
     try {
       if (!confirm("Tens a certeza que queres eliminar este candidato?"))
         return;
       setIsLoading(true);
       setError("");
       const token = localStorage.getItem("authToken");
-      const res = await fetch(`http://localhost:5136/api/v1/jobcandidate/${id}`, {
-        method: "DELETE",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await fetch(
+        `http://localhost:5136/api/v1/jobcandidate/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
       if (!res.ok) {
         let details = "";
         try {
           const txt = await res.text();
           details = txt ? ` Detalhes: ${txt}` : "";
-        } catch { }
+        } catch {}
         throw new Error(`Falha ao eliminar (HTTP ${res.status}).${details}`);
       }
 
       setCandidatos((prev) => prev.filter((c) => c.id !== id));
-
       alert("Candidato eliminado com sucesso.");
+      addNotification(`O candidato ${nome} foi recusado.`, "admin");
     } catch (err) {
       console.error(err);
       setError("Erro ao eliminar candidato. Tenta novamente.");
@@ -208,19 +218,10 @@ const downloadCvPdf = async (id) => {
                 <table className="table table-hover mb-0">
                   <thead className="table-light">
                     <tr>
-                      <th className="px-4 py-3 text-center" >
-                        Nº Candidato
-                      </th>
-                      <th className="px-4 py-3 text-center" >
-                        Nome
-                      </th>
+                      <th className="px-4 py-3 text-center">Nº Candidato</th>
+                      <th className="px-4 py-3 text-center">Nome</th>
                       <th className="px-4 py-3 text-center">CV</th>
-                      <th
-                        className="px-4 py-3 text-center"
-
-                      >
-                        Ações
-                      </th>
+                      <th className="px-4 py-3 text-center">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -236,20 +237,16 @@ const downloadCvPdf = async (id) => {
                           <button
                             className="btn btn-sm btn-outline-primary text-center"
                             onClick={() => downloadCvPdf(c.id)}
-                            
                             type="button"
                           >
                             Ver CV (PDF)
                           </button>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <div
-                            className="btn-group btn-group-sm"
-                            role="group"
-                          >
+                          <div className="btn-group btn-group-sm" role="group">
                             <button
                               className="btn btn-outline-success"
-                              onClick={() => aprovarCandidato(c.id)}
+                              onClick={() => aprovarCandidato(c.id, c.nome)}
                               disabled={isLoading}
                               type="button"
                             >
@@ -257,7 +254,7 @@ const downloadCvPdf = async (id) => {
                             </button>
                             <button
                               className="btn btn-outline-danger"
-                              onClick={() => eliminarCandidato(c.id)}
+                              onClick={() => eliminarCandidato(c.id, c.nome)}
                               disabled={isLoading}
                               type="button"
                             >
@@ -347,4 +344,4 @@ const downloadCvPdf = async (id) => {
       </div>
     </div>
   );
-};
+}

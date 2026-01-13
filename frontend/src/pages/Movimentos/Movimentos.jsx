@@ -257,6 +257,7 @@ export default function Movimentos() {
         throw new Error(text || `Falha ao apagar registo (HTTP ${resp.status}).`);
       }
       await fetchData();
+      addNotificationForUser("Foi eliminado um movimento de departamentos no seu perfil.", beid);
     } catch (e) {
       window.alert("Erro", e.message || "Erro ao apagar registo.", "error");
     }
@@ -329,6 +330,7 @@ export default function Movimentos() {
         });
         if (!resp.ok)
           throw new Error((await resp.text()) || "Falha ao criar registo.");
+         addNotificationForUser("Foi criado um registo de movimentos para o seu perfil.", businessEntityID );
       } else {
         const { businessEntityID, departmentID, shiftID, startDate } = keys;
         if (!businessEntityID || !departmentID || !shiftID || !startDate)
@@ -352,9 +354,11 @@ export default function Movimentos() {
         );
         if (!resp.ok)
           throw new Error((await resp.text()) || "Falha ao editar registo.");
+
+         addNotificationForUser("O seu registo de Movimentos de Departamentos foi atualizado pelo RH.", keys.businessEntityID );
       }
 
-      addNotificationForUser("A sua movimentação de Departamento foi atualizada com sucesso.", form.businessEntityID);
+     
 
       await fetchData();
       closeAction();

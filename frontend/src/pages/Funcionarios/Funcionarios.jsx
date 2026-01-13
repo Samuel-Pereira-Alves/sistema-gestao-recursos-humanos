@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
+import { addNotification } from "../../utils/notificationBus";
 
 function Funcionarios() {
   const navigate = useNavigate();
@@ -23,9 +24,9 @@ function Funcionarios() {
     try {
       const token = localStorage.getItem("authToken");
       setLoading(true);
-      
+
       const response = await fetch("http://localhost:5136/api/v1/employee/", {
-        method: "GET", 
+        method: "GET",
         headers: {
           Accept: "application/json",
           Authorization: `Bearer ${token}`,
@@ -63,13 +64,18 @@ function Funcionarios() {
       const token = localStorage.getItem("authToken");
       const resp = await fetch(url, {
         method: "DELETE",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       await fetchFuncionarios();
+      
+      addNotification(
+        `O funcionário ${getNomeCompleto(p)} saiu dos quadros das empresa.`,
+        "admin"
+      );
     } catch (e) {
       console.error(e);
       alert(e?.message || "Erro ao eliminar colaborador.");
@@ -195,7 +201,7 @@ function Funcionarios() {
                     </thead>
                     <tbody>
                       {currentFuncionarios.map((f) => {
-                        const id = f.businessEntityID ?? f.id; 
+                        const id = f.businessEntityID ?? f.id;
                         const isDeleting =
                           String(deleteLoadingId) === String(id);
 
@@ -220,7 +226,10 @@ function Funcionarios() {
                                   Ver Perfil
                                 </button>
                                 <button
-                                  disabled = {localStorage.getItem("businessEntityId") == id}
+                                  disabled={
+                                    localStorage.getItem("businessEntityId") ==
+                                    id
+                                  }
                                   className="btn btn-outline-danger"
                                   onClick={() => handleDelete(f)}
                                 >
@@ -265,10 +274,10 @@ function Funcionarios() {
 
                 {/* Pagination */}
                 <Pagination
-                                 currentPage={currentPage}
-                                 totalPages={totalPages}
-                                 setPage={setCurrentPage}
-                               />
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  setPage={setCurrentPage}
+                />
               </>
             )}
           </div>

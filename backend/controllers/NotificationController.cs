@@ -65,6 +65,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             try
             {
                 var notification = _mapper.Map<Notification>(dto);
+                notification.CreatedAt = DateTime.UtcNow;
                 _db.Notifications.Add(notification);
                 await _db.SaveChangesAsync();
 

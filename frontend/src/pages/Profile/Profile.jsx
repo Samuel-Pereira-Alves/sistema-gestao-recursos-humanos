@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
-import { addNotification } from "../../utils/notificationBus";
+import { addNotification, addNotificationForUser } from "../../utils/notificationBus";
 import BackButton from "../../components/Button/BackButton";
 
 function getDepartamentoAtualNome(funcionario) {
@@ -185,6 +185,11 @@ export default function Profile() {
       addNotification(
         `O perfil do funcionário ${employee.person?.firstName} ${employee.person?.lastName} foi atualizado.`,
         "admin"
+      );
+      
+      addNotificationForUser(
+        `O seu perfil foi atualizado pelo RH.`,
+        id
       );
 
       const refreshResponse = await fetch(
