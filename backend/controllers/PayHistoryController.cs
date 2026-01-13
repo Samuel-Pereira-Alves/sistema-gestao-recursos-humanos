@@ -6,8 +6,6 @@ using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
 
-
-
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
     [ApiController]
@@ -25,72 +23,54 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             _logger = logger;
         }
 
-        // // GET: api/v1/payhistory
-        // [HttpGet]
-        // [Authorize(Roles = "admin")]
-        // public async Task<IActionResult> GetAll()
-        // {
-        //     var histories = await _db.PayHistories.ToListAsync();
-        //     var dto = _mapper.Map<List<PayHistoryDto>>(histories);
-        //     return Ok(dto);
-        // }
-
-        // GET: api/v1/payhistory/{businessEntityId}
-        // [HttpGet("{businessEntityId}")]
-        // public async Task<IActionResult> GetAllByEmployee(int businessEntityId)
-        // {
-        //     var histories = await _db.PayHistories
-        //         .Where(ph => ph.BusinessEntityID == businessEntityId)
-        //         .OrderByDescending(ph => ph.RateChangeDate)
-        //         .ToListAsync();
-
-        //     var dtos = _mapper.Map<List<PayHistoryDto>>(histories);
-        //     return Ok(dtos);
-        // }
-
+        private void AddLog(string message) =>
+            _db.Logs.Add(new Log { Message = message, Date = DateTime.UtcNow });
 
         // GET: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
-        [HttpGet("{businessEntityId}/{rateChangeDate}")]
-        [Authorize(Roles ="admin")]
-        public async Task<IActionResult> Get(int businessEntityId, DateTime rateChangeDate)
+        [HttpGet("{businessEntityId:int}/{rateChangeDate}")]
+        [Authorize(Roles = "admin")]
+        public async Task<ActionResult<PayHistoryDto>> Get(int businessEntityId, DateTime rateChangeDate, CancellationToken ct)
         {
+            _logger.LogInformation("Iniciando procura de PayHistory para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
+            AddLog($"Procura PayHistory: BEID={businessEntityId}, RateChangeDate={rateChangeDate:o}");
+            await _db.SaveChangesAsync(ct);
 
-            string message = $"Inicia procura de histórico de pagamento para o ID BusinessEntityId={businessEntityId} com a data RateChangeDate=${rateChangeDate}.";
-            _logger.LogInformation(message);
-            _db.Logs.Add(new Log { Message = message, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
-
-            var history = await _db.PayHistories
-                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
-                                         && ph.RateChangeDate == rateChangeDate);
-
-            if (history == null)
+            try
             {
-                string message2 = $"Nenhum registo encontrado para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-                _logger.LogWarning(message2);
-                _db.Logs.Add(new Log { Message = message2, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-                return NotFound();
-            }
+                var history = await _db.PayHistories
+                    .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId && ph.RateChangeDate == rateChangeDate, ct);
 
-            string message3 = $"Registo Encontrado para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-            _logger.LogInformation(message3);
-            _db.Logs.Add(new Log { Message = message3, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
-            var dto = _mapper.Map<PayHistoryDto>(history);
-            return Ok(dto);
+                if (history is null)
+                {
+                    _logger.LogWarning("Nenhum registo encontrado para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
+                    AddLog("Nenhum registo encontrado.");
+                    await _db.SaveChangesAsync(ct);
+                    return NotFound();
+                }
+
+                return Ok(_mapper.Map<PayHistoryDto>(history));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter PayHistory.");
+                AddLog($"Erro ao obter PayHistory: {ex.Message}");
+                await _db.SaveChangesAsync(ct);
+
+                return Problem(title: "Erro ao consultar", detail: "Ocorreu um erro ao obter PayHistory.", statusCode: 500);
+            }
         }
 
-       
         // POST: api/v1/payhistory
         [HttpPost]
-        [Authorize(Roles ="admin")]
-        public async Task<IActionResult> Create(PayHistoryDto dto)
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> Create([FromBody] PayHistoryDto dto, CancellationToken ct)
         {
-            string message4 = $"A iniciar a criação de um registo de pagamento para o BusinessEntityId={dto.BusinessEntityID} na data RateChangeDate={dto.RateChangeDate}.";
-            _logger.LogInformation(message4);
-            _db.Logs.Add(new Log { Message = message4, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation("A iniciar criação de PayHistory para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", dto.BusinessEntityID, dto.RateChangeDate);
+            AddLog("Criação de PayHistory iniciada.");
+            await _db.SaveChangesAsync(ct);
+
+            if (dto is null)
+                return BadRequest(new { message = "Body é obrigatório" });
 
             try
             {
@@ -98,184 +78,142 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 history.ModifiedDate = DateTime.UtcNow;
 
                 _db.PayHistories.Add(history);
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(ct);
 
-                string message5 = $"Registo de Pagamento criado com sucesso.";
-                _logger.LogInformation(message5);
-                _db.Logs.Add(new Log { Message = message5, Date = DateTime.Now });
+                _logger.LogInformation("PayHistory criado com sucesso para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", history.BusinessEntityID, history.RateChangeDate);
+                AddLog("PayHistory criado com sucesso.");
+                await _db.SaveChangesAsync(ct);
 
                 return CreatedAtAction(nameof(Get),
                     new { businessEntityId = history.BusinessEntityID, rateChangeDate = history.RateChangeDate },
                     _mapper.Map<PayHistoryDto>(history));
             }
-            catch (DbUpdateException ex)
+            catch (DbUpdateException dbEx)
             {
-                string message6 = $"Erro ao criar o registo para BusinessEntityId={dto.BusinessEntityID} na data RateChangeDate={dto.RateChangeDate}.";
-                _logger.LogError(ex, message6);
-                _db.Logs.Add(new Log { Message = message6, Date = DateTime.Now });
-               
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao criar registo.");
+                _logger.LogError(dbEx, "Erro ao criar PayHistory.");
+                AddLog($"Erro ao criar PayHistory: {dbEx.Message}");
+                await _db.SaveChangesAsync(ct);
+
+                return Problem(title: "Erro ao criar", detail: "Erro ao persistir PayHistory.", statusCode: 500);
             }
             catch (Exception ex)
             {
-                string message7 = $"Erro ao criar o registo para o BusinessEntityId={dto.BusinessEntityID}.";
-                _logger.LogError(ex, message7);
-                _db.Logs.Add(new Log { Message = message7, Date = DateTime.Now });
+                _logger.LogError(ex, "Erro inesperado ao criar PayHistory.");
+                AddLog($"Erro inesperado ao criar PayHistory: {ex.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro inesperado no servidor.");
+                return Problem(title: "Erro inesperado", detail: "Ocorreu um erro ao criar PayHistory.", statusCode: 500);
             }
         }
 
-        // PUT: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
-        // [HttpPut("{businessEntityId}/{rateChangeDate}")]
-        // public async Task<IActionResult> Update(int businessEntityId, DateTime rateChangeDate, PayHistoryDto dto)
-        // {
-        //     var history = await _db.PayHistories
-        //         .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
-        //                                 && ph.RateChangeDate == rateChangeDate);
-
-        //     if (history == null) return NotFound();
-
-        //     _mapper.Map(dto, history);
-        //     history.ModifiedDate = DateTime.Now;
-
-        //     _db.Entry(history).State = EntityState.Modified;
-        //     await _db.SaveChangesAsync();
-
-        //     return NoContent();
-        // }
-
-        
         // PATCH: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
-        [HttpPatch("{businessEntityId}/{rateChangeDate}")]
-        [Authorize(Roles ="admin")]
-        public async Task<IActionResult> Patch(int businessEntityId, DateTime rateChangeDate, PayHistoryDto dto)
+        [HttpPatch("{businessEntityId:int}/{rateChangeDate}")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> Patch(int businessEntityId, DateTime rateChangeDate, [FromBody] PayHistoryDto dto, CancellationToken ct)
         {
-            string message8 = $"A iniciar atualização dos dados para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-            _logger.LogInformation(message8);
-            _db.Logs.Add(new Log { Message = message8, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation("A iniciar PATCH para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
+            AddLog("PATCH PayHistory iniciado.");
+            await _db.SaveChangesAsync(ct);
+
+            if (dto is null)
+                return BadRequest(new { message = "Body é obrigatório" });
 
             var history = await _db.PayHistories
-                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
-                                         && ph.RateChangeDate == rateChangeDate);
+                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId && ph.RateChangeDate == rateChangeDate, ct);
 
-            if (history == null)
-            {
-                string message9 = $"PATCH falhou: registo não encontrado para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-                _logger.LogWarning(message9);
-                _db.Logs.Add(new Log { Message = message9, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
+            if (history is null)
                 return NotFound();
-            }
 
             try
             {
                 if (dto.Rate != default(decimal)) history.Rate = dto.Rate;
                 if (dto.PayFrequency != default(byte)) history.PayFrequency = dto.PayFrequency;
-
                 history.ModifiedDate = DateTime.UtcNow;
-                string message10 = $"PATCH concluído com sucesso para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-                _logger.LogWarning(message10);
-                _db.Logs.Add(new Log { Message = message10, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+
+                await _db.SaveChangesAsync(ct);
+
+                _logger.LogInformation("PATCH concluído com sucesso para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
+                AddLog("PATCH PayHistory concluído.");
+                await _db.SaveChangesAsync(ct);
 
                 return Ok(_mapper.Map<PayHistoryDto>(history));
             }
-            catch (DbUpdateConcurrencyException ex)
+            catch (DbUpdateConcurrencyException dbEx)
             {
-                string message11 = $"Erro ao atualizar o registo do BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-                _logger.LogError(ex, message11);
-                _db.Logs.Add(new Log { Message = message11, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogError(dbEx, "Conflito de concorrência ao atualizar PayHistory.");
+                AddLog($"Conflito de concorrência: {dbEx.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                return StatusCode(StatusCodes.Status409Conflict, "Conflito de concorrência ao atualizar o registo.");
+                return Problem(title: "Conflito de concorrência", detail: "Erro ao atualizar PayHistory.", statusCode: 409);
             }
-            catch (DbUpdateException ex)
+            catch (DbUpdateException dbEx)
             {
-                string message12 = $"Erro ao atualizar os dados na BD para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-                _logger.LogError(ex, message12);
-                _db.Logs.Add(new Log { Message = message12, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogError(dbEx, "Erro ao atualizar PayHistory.");
+                AddLog($"Erro ao atualizar PayHistory: {dbEx.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao atualizar o registo.");
+                return Problem(title: "Erro ao atualizar", detail: "Erro ao persistir alterações.", statusCode: 500);
             }
             catch (Exception ex)
             {
-                string message13 = $"Erro inesperado no PATCH para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-                _logger.LogError(ex, message13);
-                _db.Logs.Add(new Log { Message = message13, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogError(ex, "Erro inesperado no PATCH de PayHistory.");
+                AddLog($"Erro inesperado no PATCH: {ex.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro inesperado no servidor.");
+                return Problem(title: "Erro inesperado", detail: "Ocorreu um erro ao atualizar PayHistory.", statusCode: 500);
             }
         }
 
         // DELETE: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
-        [HttpDelete("{businessEntityId}/{rateChangeDate}")]
-        [Authorize(Roles ="admin")]
-        public async Task<IActionResult> Delete(int businessEntityId, DateTime rateChangeDate)
+        [HttpDelete("{businessEntityId:int}/{rateChangeDate}")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> Delete(int businessEntityId, DateTime rateChangeDate, CancellationToken ct)
         {
-            string message14 = $"A iniciar o DELETE para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-            _logger.LogInformation(message14);
-            _db.Logs.Add(new Log { Message = message14, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation("A iniciar DELETE para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
+            AddLog("DELETE PayHistory iniciado.");
+            await _db.SaveChangesAsync(ct);
 
             var payhistory = await _db.PayHistories
-                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId
-                                         && ph.RateChangeDate == rateChangeDate);
+                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId && ph.RateChangeDate == rateChangeDate, ct);
 
-            if (payhistory == null)
-            {
-                string message15 = $"O DELETE falhou: registo não encontrado para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-                _logger.LogWarning(message15);
-                _db.Logs.Add(new Log { Message = message15, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
+            if (payhistory is null)
                 return NotFound();
-            }
 
             try
             {
                 _db.PayHistories.Remove(payhistory);
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(ct);
 
-                string message16 = $"DELETE concluído com sucesso para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-                _logger.LogInformation(message16);
-                _db.Logs.Add(new Log { Message = message16, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogInformation("DELETE concluído com sucesso para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
+                AddLog("DELETE PayHistory concluído.");
+                await _db.SaveChangesAsync(ct);
 
                 return NoContent();
             }
-            catch (DbUpdateConcurrencyException ex)
+            catch (DbUpdateConcurrencyException dbEx)
             {
-                string message17 = $"Conflito de concorrência ao apagar BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-                _logger.LogError(ex, message17);
-                _db.Logs.Add(new Log { Message = message17, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogError(dbEx, "Conflito de concorrência ao apagar PayHistory.");
+                AddLog($"Conflito ao apagar PayHistory: {dbEx.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                return StatusCode(StatusCodes.Status409Conflict, "Conflito de concorrência ao apagar o registo.");
+                return Problem(title: "Conflito de concorrência", detail: "Erro ao apagar PayHistory.", statusCode: 409);
             }
-            catch (DbUpdateException ex)
+            catch (DbUpdateException dbEx)
             {
-                string message18 = $"Erro ao apagar o registo da BD para o BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-                _logger.LogError(ex, message18);
-                _db.Logs.Add(new Log { Message = message18, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogError(dbEx, "Erro ao apagar PayHistory.");
+                AddLog($"Erro ao apagar PayHistory: {dbEx.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao apagar o registo.");
+                return Problem(title: "Erro ao apagar", detail: "Erro ao eliminar PayHistory.", statusCode: 500);
             }
             catch (Exception ex)
             {
-                string message19 = $"Erro inesperado no DELETE para BusinessEntityId={businessEntityId} na data RateChangeDate={rateChangeDate}.";
-                _logger.LogError(ex, message19);
-                _db.Logs.Add(new Log { Message = message19, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogError(ex, "Erro inesperado no DELETE de PayHistory.");
+                AddLog($"Erro inesperado no DELETE: {ex.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro inesperado no servidor.");
+                return Problem(title: "Erro inesperado", detail: "Ocorreu um erro ao eliminar PayHistory.", statusCode: 500);
             }
         }
-
     }
 }

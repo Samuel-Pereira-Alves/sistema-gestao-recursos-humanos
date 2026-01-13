@@ -14,7 +14,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
     {
         private readonly AdventureWorksContext _db;
         private readonly IMapper _mapper;
-
         private readonly ILogger<DepartmentHistoryController> _logger;
         public DepartmentHistoryController(AdventureWorksContext db, IMapper mapper, ILogger<DepartmentHistoryController> logger)
         {
@@ -23,94 +22,64 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             _logger = logger;
         }
 
-        // // GET: api/v1/departmenthistory
-        // [HttpGet]
-        // [Authorize(Roles ="admin, employee")]
-        // public async Task<IActionResult> GetAll()
-        // {
-        //     var histories = await _db.DepartmentHistories
-        //         .Include(dh => dh.Department)
-        //         .ToListAsync();
+        private void AddLog(string message) =>
+            _db.Logs.Add(new Log { Message = message, Date = DateTime.UtcNow });
 
-        //     var dto = _mapper.Map<List<DepartmentHistoryDto>>(histories);
-        //     return Ok(dto);
-        // }
-
-
+        // GET: api/v1/departmenthistory
         [HttpGet]
         [Authorize(Roles = "admin, employee")]
-
-        [HttpGet]
-        [Authorize(Roles = "admin, employee")]
-        public async Task<IActionResult> GetAll()
+        public async Task<ActionResult<List<DepartmentHistoryDto>>> GetAll(CancellationToken ct)
         {
-            string messageRequest = "Recebido pedido para obter o historico de Departmentos.";
-            _logger.LogInformation(messageRequest);
-            _db.Logs.Add(new Log { Message = messageRequest, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation("Recebido pedido para obter o histórico de Departamentos.");
+            AddLog("Recebido pedido para obter o histórico de Departamentos.");
+            await _db.SaveChangesAsync(ct);
 
             try
             {
                 var histories = await _db.DepartmentHistories
                     .Include(dh => dh.Department)
-                    .ToListAsync();
+                    .AsNoTracking()
+                    .ToListAsync(ct);
 
                 if (histories.Count == 0)
                 {
-                    string messageNoRecords = "Consulta de DepartmentHistories retornou 0 registos.";
-                    _logger.LogWarning(messageNoRecords);
-                    _db.Logs.Add(new Log { Message = messageNoRecords, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
+                    _logger.LogWarning("Consulta de DepartmentHistories retornou 0 registos.");
+                    AddLog("Consulta de DepartmentHistories retornou 0 registos.");
+                    await _db.SaveChangesAsync(ct);
                 }
 
                 var dto = _mapper.Map<List<DepartmentHistoryDto>>(histories);
-
-                string messageSuccess = "Consulta de DepartmentHistories concluída com sucesso.";
-                _logger.LogInformation(messageSuccess);
-                _db.Logs.Add(new Log { Message = messageSuccess, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
                 return Ok(dto);
-            }
-            catch (DbUpdateException dbEx)
-            {
-                string messageDbError = "Erro de base de dados ao obter DepartmentHistories.";
-                _logger.LogError(dbEx, messageDbError);
-
-                _db.Logs.Add(new Log
-                {
-                    Message = $"{messageDbError} Detalhes: {dbEx.Message}",
-                    Date = DateTime.Now
-                });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao consultar DepartmentHistories.");
             }
             catch (Exception ex)
             {
-                string messageUnexpectedError = "Erro inesperado ao obter DepartmentHistories.";
-                _logger.LogError(ex, messageUnexpectedError);
+                _logger.LogError(ex, "Erro ao obter DepartmentHistories.");
+                AddLog($"Erro ao obter DepartmentHistories: {ex.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                _db.Logs.Add(new Log
-                {
-                    Message = $"{messageUnexpectedError} Detalhes: {ex.Message}",
-                    Date = DateTime.Now
-                });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao obter DepartmentHistories.");
+                return Problem(
+                    title: "Erro ao consultar",
+                    detail: "Ocorreu um erro ao obter DepartmentHistories.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
         }
 
-        [HttpGet("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
+        // GET: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
+        [HttpGet("{businessEntityId:int}/{departmentId:short}/{shiftId:byte}/{startDate}")]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> Get(int businessEntityId, short departmentId, byte shiftId, DateTime startDate)
+        public async Task<ActionResult<DepartmentHistoryDto>> Get(
+            int businessEntityId,
+            short departmentId,
+            byte shiftId,
+            DateTime startDate,
+            CancellationToken ct)
         {
-            string messageRequest =
-                $"Pedido para obter DepartmentHistory recebido. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-            _logger.LogInformation(messageRequest);
-            _db.Logs.Add(new Log { Message = messageRequest, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation(
+                "Pedido para obter DepartmentHistory. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}",
+                businessEntityId, departmentId, shiftId, startDate);
+
+            AddLog($"Pedido para obter DepartmentHistory: {businessEntityId}/{departmentId}/{shiftId}/{startDate:o}");
+            await _db.SaveChangesAsync(ct);
 
             try
             {
@@ -120,151 +89,70 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                         dh.BusinessEntityID == businessEntityId &&
                         dh.DepartmentID == departmentId &&
                         dh.ShiftID == shiftId &&
-                        dh.StartDate == startDate);
+                        dh.StartDate == startDate, ct);
 
                 if (history is null)
                 {
-                    string messageNotFound =
-                        $"DepartmentHistory não encontrado. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-                    _logger.LogWarning(messageNotFound);
-                    _db.Logs.Add(new Log { Message = messageNotFound, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-
+                    _logger.LogWarning("DepartmentHistory não encontrado. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}",
+                        businessEntityId, departmentId, shiftId, startDate);
+                    AddLog("DepartmentHistory não encontrado.");
+                    await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
-                var dto = _mapper.Map<DepartmentHistoryDto>(history);
-
-                string messageSuccess =
-                    $"DepartmentHistory obtido com sucesso. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-                _logger.LogInformation(messageSuccess);
-                _db.Logs.Add(new Log { Message = messageSuccess, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return Ok(dto);
-            }
-            catch (DbUpdateException dbEx)
-            {
-                string messageDbError =
-                    $"Erro de base de dados ao obter DepartmentHistory. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-                _logger.LogError(dbEx, messageDbError);
-
-                _db.Logs.Add(new Log
-                {
-                    Message = $"{messageDbError} Detalhes: {dbEx.Message}",
-                    Date = DateTime.Now
-                });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    "Erro ao consultar DepartmentHistory.");
+                return Ok(_mapper.Map<DepartmentHistoryDto>(history));
             }
             catch (Exception ex)
             {
-                string messageUnexpectedError =
-                    $"Erro inesperado ao obter DepartmentHistory. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-                _logger.LogError(ex, messageUnexpectedError);
+                _logger.LogError(ex, "Erro ao obter DepartmentHistory.");
+                AddLog($"Erro ao obter DepartmentHistory: {ex.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                _db.Logs.Add(new Log
-                {
-                    Message = $"{messageUnexpectedError} Detalhes: {ex.Message}",
-                    Date = DateTime.Now
-                });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    "Ocorreu um erro ao obter DepartmentHistory.");
+                return Problem(
+                    title: "Erro ao consultar",
+                    detail: "Ocorreu um erro ao obter DepartmentHistory.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
         }
 
-
+        // POST: api/v1/departmenthistory
         [HttpPost]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> Create(DepartmentHistoryDto dto)
+        public async Task<IActionResult> Create([FromBody] DepartmentHistoryDto dto, CancellationToken ct)
         {
-            string messageRequest =
-                $"Recebido pedido para criar DepartmentHistory. BusinessEntityID={dto?.BusinessEntityID}, DepartmentId={dto?.DepartmentId}, ShiftID={dto?.ShiftID}, StartDate={dto?.StartDate}.";
-            _logger.LogInformation(messageRequest);
-            _db.Logs.Add(new Log { Message = messageRequest, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation("Recebido pedido para criar DepartmentHistory.");
+            AddLog("Recebido pedido para criar DepartmentHistory.");
+            await _db.SaveChangesAsync(ct);
 
             if (dto is null)
-            {
-                string messageNoBody = "Body não enviado no pedido de criação de DepartmentHistory.";
-                _logger.LogWarning(messageNoBody);
-                _db.Logs.Add(new Log { Message = messageNoBody, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
                 return BadRequest(new { message = "Body é obrigatório" });
-            }
 
             try
             {
-                // 1) Validar Employee (FK)
-                var employeeExists = await _db.Employees.AnyAsync(e => e.BusinessEntityID == dto.BusinessEntityID);
-                if (!employeeExists)
-                {
-                    string messageEmployeeNotFound =
-                        $"Criação falhou: Employee não encontrado. BusinessEntityID={dto.BusinessEntityID}.";
-                    _logger.LogWarning(messageEmployeeNotFound);
-                    _db.Logs.Add(new Log { Message = messageEmployeeNotFound, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-
+                // 1) Validate FKs
+                if (!await _db.Employees.AnyAsync(e => e.BusinessEntityID == dto.BusinessEntityID, ct))
                     return NotFound(new { message = "Employee não encontrado", businessEntityId = dto.BusinessEntityID });
-                }
 
-                // 2) Validar Department (FK)
                 if (dto.DepartmentId < short.MinValue || dto.DepartmentId > short.MaxValue)
-                {
-                    string messageDeptOutOfRange =
-                        $"Criação falhou: DepartmentId fora do intervalo de short. DepartmentId={dto.DepartmentId}.";
-                    _logger.LogWarning(messageDeptOutOfRange);
-                    _db.Logs.Add(new Log { Message = messageDeptOutOfRange, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-
                     return BadRequest(new { message = "DepartmentId fora do intervalo de short", departmentId = dto.DepartmentId });
-                }
 
-                var deptExists = await _db.Departments.AnyAsync(d => d.DepartmentID == (short)dto.DepartmentId);
-                if (!deptExists)
-                {
-                    string messageDeptNotFound =
-                        $"Criação falhou: Department não encontrado. DepartmentId={dto.DepartmentId}.";
-                    _logger.LogWarning(messageDeptNotFound);
-                    _db.Logs.Add(new Log { Message = messageDeptNotFound, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-
+                var deptIdShort = (short)dto.DepartmentId;
+                if (!await _db.Departments.AnyAsync(d => d.DepartmentID == deptIdShort, ct))
                     return NotFound(new { message = "Department não encontrado", departmentId = dto.DepartmentId });
-                }
 
-                // 3) Validar StartDate no range de SQL Server datetime
+                // 2) Validate StartDate (SQL Server datetime lower bound)
                 var minSqlDate = new DateTime(1753, 1, 1);
                 if (dto.StartDate < minSqlDate)
-                {
-                    string messageStartDateInvalid =
-                        $"Criação falhou: StartDate inválida para SQL Server datetime. StartDate={dto.StartDate}.";
-                    _logger.LogWarning(messageStartDateInvalid);
-                    _db.Logs.Add(new Log { Message = messageStartDateInvalid, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-
                     return BadRequest(new { message = "StartDate inválida para SQL Server datetime", startDate = dto.StartDate });
-                }
 
-                // 4) Evitar duplicado de PK composta
+                // 3) Avoid duplicate of composite PK
                 var exists = await _db.DepartmentHistories.AnyAsync(dh =>
                     dh.BusinessEntityID == dto.BusinessEntityID &&
-                    dh.DepartmentID == (short)dto.DepartmentId &&
+                    dh.DepartmentID == deptIdShort &&
                     dh.ShiftID == dto.ShiftID &&
-                    dh.StartDate == dto.StartDate);
+                    dh.StartDate == dto.StartDate, ct);
 
                 if (exists)
-                {
-                    string messageDup =
-                        $"Criação falhou: DepartmentHistory duplicado. BusinessEntityID={dto.BusinessEntityID}, DepartmentId={dto.DepartmentId}, ShiftID={dto.ShiftID}, StartDate={dto.StartDate}.";
-                    _logger.LogWarning(messageDup);
-                    _db.Logs.Add(new Log { Message = messageDup, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-
                     return Conflict(new
                     {
                         message = "Registo de DepartmentHistory já existe",
@@ -273,41 +161,43 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                         shiftId = dto.ShiftID,
                         startDate = dto.StartDate
                     });
-                }
 
-                // 4.1) Encerrar movimentos abertos anteriores (EndDate=null)
-                var lastMovements = await _db.DepartmentHistories
+                // 4) Transaction: close open movements + insert new one
+                await using var tx = await _db.Database.BeginTransactionAsync(ct);
+
+                // 4.1) Close previous open movements (EndDate == null)
+                var nowUtc = DateTime.UtcNow;
+                var openMovements = await _db.DepartmentHistories
                     .Where(dh => dh.BusinessEntityID == dto.BusinessEntityID && dh.EndDate == null)
-                    .ToListAsync();
+                    .ToListAsync(ct);
 
-                if (lastMovements.Count > 0)
+                if (openMovements.Count > 0)
                 {
-                    string messageClosing =
-                        $"Encontrados {lastMovements.Count} movimentos anteriores com EndDate=null para encerrar. BusinessEntityID={dto.BusinessEntityID}.";
-                    _logger.LogInformation(messageClosing);
-                    _db.Logs.Add(new Log { Message = messageClosing, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
+                    _logger.LogInformation("Encontrados {Count} movimentos abertos para encerrar. BusinessEntityID={BEID}",
+                        openMovements.Count, dto.BusinessEntityID);
+                    AddLog($"Encontrados {openMovements.Count} movimentos abertos para encerrar. BEID={dto.BusinessEntityID}");
 
-                    var now = DateTime.Now;
-                    foreach (var movement in lastMovements)
+                    foreach (var movement in openMovements)
                     {
-                        movement.EndDate = dto.StartDate;
-                        movement.ModifiedDate = now;
+                        movement.EndDate = dto.StartDate;   // encerra no início do novo
+                        movement.ModifiedDate = nowUtc;
                     }
                 }
 
-                // 5) Mapear e inserir
+                // 4.2) Create new history
                 var history = _mapper.Map<DepartmentHistory>(dto);
-                history.ModifiedDate = DateTime.Now;
+                history.DepartmentID = deptIdShort;   // ensure short cast
+                history.ModifiedDate = nowUtc;
 
                 _db.DepartmentHistories.Add(history);
-                await _db.SaveChangesAsync();
 
-                string messageSuccess =
-                    $"DepartmentHistory criado com sucesso. BusinessEntityID={history.BusinessEntityID}, DepartmentID={history.DepartmentID}, ShiftID={history.ShiftID}, StartDate={history.StartDate}.";
-                _logger.LogInformation(messageSuccess);
-                _db.Logs.Add(new Log { Message = messageSuccess, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+
+                _logger.LogInformation("DepartmentHistory criado com sucesso. BEID={BEID}, DeptID={DeptID}, ShiftID={ShiftID}, StartDate={StartDate:o}",
+                    history.BusinessEntityID, history.DepartmentID, history.ShiftID, history.StartDate);
+                AddLog($"DepartmentHistory criado: {history.BusinessEntityID}/{history.DepartmentID}/{history.ShiftID}/{history.StartDate:o}");
+                await _db.SaveChangesAsync(ct);
 
                 return CreatedAtAction(nameof(Get),
                     new
@@ -321,239 +211,135 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (DbUpdateException dbEx)
             {
-                string messageDbError =
-                    $"Erro ao gravar DepartmentHistory. BusinessEntityID={dto?.BusinessEntityID}, DepartmentId={dto?.DepartmentId}, ShiftID={dto?.ShiftID}, StartDate={dto?.StartDate}.";
-                _logger.LogError(dbEx, messageDbError);
+                _logger.LogError(dbEx, "Erro ao gravar DepartmentHistory.");
+                AddLog($"Erro ao gravar DepartmentHistory: {dbEx.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                _db.Logs.Add(new Log
-                {
-                    Message = $"{messageDbError} Detalhes: {dbEx.Message}",
-                    Date = DateTime.Now
-                });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao gravar DepartmentHistory.");
+                return Problem(
+                    title: "Erro ao gravar DepartmentHistory",
+                    detail: "Ocorreu um erro ao persistir o registo.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
             catch (Exception ex)
             {
-                string messageUnexpectedError =
-                    $"Erro inesperado ao criar DepartmentHistory. BusinessEntityID={dto?.BusinessEntityID}, DepartmentId={dto?.DepartmentId}, ShiftID={dto?.ShiftID}, StartDate={dto?.StartDate}.";
-                _logger.LogError(ex, messageUnexpectedError);
+                _logger.LogError(ex, "Erro inesperado ao criar DepartmentHistory.");
+                AddLog($"Erro inesperado ao criar DepartmentHistory: {ex.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                _db.Logs.Add(new Log
-                {
-                    Message = $"{messageUnexpectedError} Detalhes: {ex.Message}",
-                    Date = DateTime.Now
-                });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao criar DepartmentHistory.");
+                return Problem(
+                    title: "Erro ao criar",
+                    detail: "Ocorreu um erro ao criar DepartmentHistory.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
         }
 
-
-        // PUT: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
-        // [HttpPut("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
-        // public async Task<IActionResult> Update(int businessEntityId, short departmentId, byte shiftId, DateTime startDate, DepartmentHistoryDto dto)
-        // {
-        //     var history = await _db.DepartmentHistories
-        //         .FirstOrDefaultAsync(dh => dh.BusinessEntityID == businessEntityId
-        //                                 && dh.DepartmentID == departmentId
-        //                                 && dh.ShiftID == shiftId
-        //                                 && dh.StartDate == startDate);
-
-        //     if (history == null) return NotFound();
-
-        //     _mapper.Map(dto, history);
-        //     history.ModifiedDate = DateTime.Now;
-
-        //     _db.Entry(history).State = EntityState.Modified;
-        //     await _db.SaveChangesAsync();
-
-        //     return NoContent();
-        // }
-
-        
-        [HttpPatch("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
+        // PATCH: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
+        [HttpPatch("{businessEntityId:int}/{departmentId:short}/{shiftId:byte}/{startDate}")]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> Patch(int businessEntityId, short departmentId, byte shiftId, DateTime startDate, DepartmentHistoryDto dto)
+        public async Task<IActionResult> Patch(
+            int businessEntityId,
+            short departmentId,
+            byte shiftId,
+            DateTime startDate,
+            [FromBody] DepartmentHistoryDto dto,
+            CancellationToken ct)
         {
-            string messageRequest =
-                $"Recebido pedido para atualizar (PATCH) DepartmentHistory. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-            _logger.LogInformation(messageRequest);
-            _db.Logs.Add(new Log { Message = messageRequest, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation(
+                "Recebido PATCH para DepartmentHistory. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}",
+                businessEntityId, departmentId, shiftId, startDate);
+            AddLog($"PATCH DepartmentHistory: {businessEntityId}/{departmentId}/{shiftId}/{startDate:o}");
+            await _db.SaveChangesAsync(ct);
 
             if (dto is null)
-            {
-                string messageNoBody = "Body não enviado no PATCH de DepartmentHistory.";
-                _logger.LogWarning(messageNoBody);
-                _db.Logs.Add(new Log { Message = messageNoBody, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
                 return BadRequest(new { message = "Body é obrigatório" });
-            }
 
             try
             {
-                var history = await _db.DepartmentHistories
-                    .FirstOrDefaultAsync(dh =>
-                        dh.BusinessEntityID == businessEntityId &&
-                        dh.DepartmentID == departmentId &&
-                        dh.ShiftID == shiftId &&
-                        dh.StartDate == startDate);
+                var history = await _db.DepartmentHistories.FirstOrDefaultAsync(dh =>
+                    dh.BusinessEntityID == businessEntityId &&
+                    dh.DepartmentID == departmentId &&
+                    dh.ShiftID == shiftId &&
+                    dh.StartDate == startDate, ct);
 
                 if (history is null)
-                {
-                    string messageNotFound =
-                        $"PATCH falhou: DepartmentHistory não encontrado. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-                    _logger.LogWarning(messageNotFound);
-                    _db.Logs.Add(new Log { Message = messageNotFound, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-
                     return NotFound();
-                }
 
-                // Aplicar alterações permitidas (PATCH parcial)
+                if (dto.EndDate.HasValue && dto.EndDate.Value < history.StartDate)
+                    return BadRequest(new { message = "EndDate não pode ser anterior ao StartDate", endDate = dto.EndDate });
+
                 if (dto.EndDate.HasValue)
-                {
-                    // Validação simples: EndDate >= StartDate
-                    if (dto.EndDate.Value < history.StartDate)
-                    {
-                        string messageInvalidEndDate =
-                            $"PATCH inválido: EndDate anterior ao StartDate. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}, EndDate={dto.EndDate}.";
-                        _logger.LogWarning(messageInvalidEndDate);
-                        _db.Logs.Add(new Log { Message = messageInvalidEndDate, Date = DateTime.Now });
-                        await _db.SaveChangesAsync();
-
-                        return BadRequest(new { message = "EndDate não pode ser anterior ao StartDate", endDate = dto.EndDate });
-                    }
-
                     history.EndDate = dto.EndDate;
-                }
 
                 history.ModifiedDate = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
 
-                await _db.SaveChangesAsync();
-
-                string messageSuccess =
-                    $"PATCH de DepartmentHistory concluído com sucesso. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-                _logger.LogInformation(messageSuccess);
-                _db.Logs.Add(new Log { Message = messageSuccess, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return Ok(_mapper.Map<DepartmentHistoryDto>(history));
+                var outDto = _mapper.Map<DepartmentHistoryDto>(history);
+                return Ok(outDto);
             }
             catch (DbUpdateException dbEx)
             {
-                string messageDbError =
-                    $"Erro ao atualizar (PATCH) DepartmentHistory. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-                _logger.LogError(dbEx, messageDbError);
+                _logger.LogError(dbEx, "Erro ao atualizar (PATCH) DepartmentHistory.");
+                AddLog($"Erro ao atualizar (PATCH) DepartmentHistory: {dbEx.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                _db.Logs.Add(new Log
-                {
-                    Message = $"{messageDbError} Detalhes: {dbEx.Message}",
-                    Date = DateTime.Now
-                });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao gravar DepartmentHistory.");
+                return Problem(
+                    title: "Erro ao atualizar",
+                    detail: "Erro ao atualizar DepartmentHistory.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
             catch (Exception ex)
             {
-                string messageUnexpectedError =
-                    $"Erro inesperado no PATCH de DepartmentHistory. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-                _logger.LogError(ex, messageUnexpectedError);
+                _logger.LogError(ex, "Erro inesperado no PATCH de DepartmentHistory.");
+                AddLog($"Erro inesperado no PATCH de DepartmentHistory: {ex.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                _db.Logs.Add(new Log
-                {
-                    Message = $"{messageUnexpectedError} Detalhes: {ex.Message}",
-                    Date = DateTime.Now
-                });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao atualizar DepartmentHistory.");
+                return Problem(
+                    title: "Erro ao atualizar",
+                    detail: "Ocorreu um erro ao atualizar DepartmentHistory.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
         }
 
-
-
-        [HttpPost("{businessEntityId}")]
+        // POST: api/v1/departmenthistory/{businessEntityId}
+        [HttpPost("{businessEntityId:int}")]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> CreateByEmployee(int businessEntityId, [FromBody] DepartmentHistoryDto dto)
+        public async Task<IActionResult> CreateByEmployee(
+            int businessEntityId,
+            [FromBody] DepartmentHistoryDto dto,
+            CancellationToken ct)
         {
-            string messageRequest =
-                $"Received request to create DepartmentHistory by Employee. BusinessEntityID={businessEntityId}, DepartmentId={dto?.DepartmentId}, ShiftID={dto?.ShiftID}, StartDate={dto?.StartDate}.";
-            _logger.LogInformation(messageRequest);
-            _db.Logs.Add(new Log { Message = messageRequest, Date = DateTime.UtcNow });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation(
+                "Received request to create DepartmentHistory by Employee. BEID={BusinessEntityId}, DepartmentId={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}",
+                businessEntityId, dto?.DepartmentId, dto?.ShiftID, dto?.StartDate);
+            AddLog($"CreateByEmployee DepartmentHistory: BEID={businessEntityId}");
+            await _db.SaveChangesAsync(ct);
 
             if (dto is null)
-            {
-                string messageNoBody = "Creation failed: request body is null.";
-                _logger.LogWarning(messageNoBody);
-                _db.Logs.Add(new Log { Message = messageNoBody, Date = DateTime.UtcNow });
-                await _db.SaveChangesAsync();
-
                 return BadRequest(new { message = "Body is required" });
-            }
 
             try
             {
                 // 1) Validate Employee (FK)
-                var employeeExists = await _db.Employees.AnyAsync(e => e.BusinessEntityID == businessEntityId);
-                if (!employeeExists)
-                {
-                    string messageEmployeeNotFound =
-                        $"Creation failed: Employee not found. BusinessEntityID={businessEntityId}.";
-                    _logger.LogWarning(messageEmployeeNotFound);
-                    _db.Logs.Add(new Log { Message = messageEmployeeNotFound, Date = DateTime.UtcNow });
-                    await _db.SaveChangesAsync();
-
+                if (!await _db.Employees.AnyAsync(e => e.BusinessEntityID == businessEntityId, ct))
                     return NotFound(new { message = "Employee não encontrado", businessEntityId });
-                }
 
                 // 2) Validate Department (FK)
                 if (dto.DepartmentId < short.MinValue || dto.DepartmentId > short.MaxValue)
-                {
-                    string messageDeptOutOfRange =
-                        $"Creation failed: DepartmentId out of short range. DepartmentId={dto.DepartmentId}.";
-                    _logger.LogWarning(messageDeptOutOfRange);
-                    _db.Logs.Add(new Log { Message = messageDeptOutOfRange, Date = DateTime.UtcNow });
-                    await _db.SaveChangesAsync();
-
                     return BadRequest(new { message = "DepartmentId fora do intervalo de short", departmentId = dto.DepartmentId });
-                }
 
-                var deptExists = await _db.Departments.AnyAsync(d => d.DepartmentID == (short)dto.DepartmentId);
-                if (!deptExists)
-                {
-                    string messageDeptNotFound =
-                        $"Creation failed: Department not found. DepartmentId={dto.DepartmentId}.";
-                    _logger.LogWarning(messageDeptNotFound);
-                    _db.Logs.Add(new Log { Message = messageDeptNotFound, Date = DateTime.UtcNow });
-                    await _db.SaveChangesAsync();
-
+                var deptIdShort = (short)dto.DepartmentId;
+                if (!await _db.Departments.AnyAsync(d => d.DepartmentID == deptIdShort, ct))
                     return NotFound(new { message = "Department não encontrado", departmentId = dto.DepartmentId });
-                }
 
                 // 3) Ensure StartDate is within SQL Server datetime range
                 var minSqlDate = new DateTime(1753, 1, 1);
                 if (dto.StartDate < minSqlDate)
-                {
-                    string messageStartDateInvalid =
-                        $"Creation failed: StartDate invalid for SQL Server datetime. StartDate={dto.StartDate}.";
-                    _logger.LogWarning(messageStartDateInvalid);
-                    _db.Logs.Add(new Log { Message = messageStartDateInvalid, Date = DateTime.UtcNow });
-                    await _db.SaveChangesAsync();
-
                     return BadRequest(new { message = "StartDate inválida para SQL Server datetime", startDate = dto.StartDate });
-                }
 
                 // 4) Map DTO → Model and set BusinessEntityID
                 var history = _mapper.Map<DepartmentHistory>(dto);
                 history.BusinessEntityID = businessEntityId;
-                history.DepartmentID = (short)dto.DepartmentId;
+                history.DepartmentID = deptIdShort;
                 history.ModifiedDate = DateTime.UtcNow;
 
                 // 5) Avoid duplicate of composite PK
@@ -561,16 +347,9 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     dh.BusinessEntityID == history.BusinessEntityID &&
                     dh.DepartmentID == history.DepartmentID &&
                     dh.ShiftID == history.ShiftID &&
-                    dh.StartDate == history.StartDate);
+                    dh.StartDate == history.StartDate, ct);
 
                 if (exists)
-                {
-                    string messageDup =
-                        $"Creation failed: duplicate DepartmentHistory. BusinessEntityID={history.BusinessEntityID}, DepartmentID={history.DepartmentID}, ShiftID={history.ShiftID}, StartDate={history.StartDate}.";
-                    _logger.LogWarning(messageDup);
-                    _db.Logs.Add(new Log { Message = messageDup, Date = DateTime.UtcNow });
-                    await _db.SaveChangesAsync();
-
                     return Conflict(new
                     {
                         message = "Registo de DepartmentHistory já existe",
@@ -579,17 +358,16 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                         shiftId = history.ShiftID,
                         startDate = history.StartDate
                     });
-                }
 
                 // 6) Insert
                 _db.DepartmentHistories.Add(history);
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(ct);
 
-                string messageSuccess =
-                    $"DepartmentHistory created successfully. BusinessEntityID={history.BusinessEntityID}, DepartmentID={history.DepartmentID}, ShiftID={history.ShiftID}, StartDate={history.StartDate}.";
-                _logger.LogInformation(messageSuccess);
-                _db.Logs.Add(new Log { Message = messageSuccess, Date = DateTime.UtcNow });
-                await _db.SaveChangesAsync();
+                _logger.LogInformation(
+                    "DepartmentHistory created successfully (ByEmployee). BEID={BEID}, DeptID={DeptID}, ShiftID={ShiftID}, StartDate={StartDate:o}",
+                    history.BusinessEntityID, history.DepartmentID, history.ShiftID, history.StartDate);
+                AddLog("DepartmentHistory criado (ByEmployee).");
+                await _db.SaveChangesAsync(ct);
 
                 // 7) Response with Location to composite GET
                 return CreatedAtAction(nameof(Get),
@@ -598,116 +376,94 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                         businessEntityId = history.BusinessEntityID,
                         departmentId = history.DepartmentID,
                         shiftId = history.ShiftID,
-                        startDate = history.StartDate.ToString("o") // ISO 8601
+                        startDate = history.StartDate
                     },
                     _mapper.Map<DepartmentHistoryDto>(history));
             }
             catch (DbUpdateException dbEx)
             {
-                string messageDbError =
-                    $"Error persisting DepartmentHistory. BusinessEntityID={businessEntityId}, DepartmentID={dto?.DepartmentId}, ShiftID={dto?.ShiftID}, StartDate={dto?.StartDate}.";
-                _logger.LogError(dbEx, messageDbError);
+                _logger.LogError(dbEx, "Erro ao gravar DepartmentHistory (ByEmployee).");
+                AddLog($"Erro ao gravar DepartmentHistory (ByEmployee): {dbEx.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                _db.Logs.Add(new Log
-                {
-                    Message = $"{messageDbError} Details: {dbEx.Message}",
-                    Date = DateTime.UtcNow
-                });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao gravar DepartmentHistory.");
+                return Problem(
+                    title: "Erro ao gravar DepartmentHistory",
+                    detail: "Ocorreu um erro ao persistir o registo.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
             catch (Exception ex)
             {
-                string messageUnexpectedError =
-                    $"Unexpected error creating DepartmentHistory. BusinessEntityID={businessEntityId}, DepartmentID={dto?.DepartmentId}, ShiftID={dto?.ShiftID}, StartDate={dto?.StartDate}.";
-                _logger.LogError(ex, messageUnexpectedError);
+                _logger.LogError(ex, "Unexpected error creating DepartmentHistory (ByEmployee).");
+                AddLog($"Unexpected error creating DepartmentHistory (ByEmployee): {ex.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                _db.Logs.Add(new Log
-                {
-                    Message = $"{messageUnexpectedError} Details: {ex.Message}",
-                    Date = DateTime.UtcNow
-                });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao criar DepartmentHistory.");
+                return Problem(
+                    title: "Erro ao criar",
+                    detail: "Ocorreu um erro ao criar DepartmentHistory.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
         }
 
-
-
-        [HttpDelete("{businessEntityId}/{departmentId}/{shiftId}/{startDate}")]
+        // DELETE: api/v1/departmenthistory/{businessEntityId}/{departmentId}/{shiftId}/{startDate}
+        [HttpDelete("{businessEntityId:int}/{departmentId:short}/{shiftId:byte}/{startDate}")]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> Delete(int businessEntityId, short departmentId, byte shiftId, DateTime startDate)
+        public async Task<IActionResult> Delete(
+            int businessEntityId,
+            short departmentId,
+            byte shiftId,
+            DateTime startDate,
+            CancellationToken ct)
         {
-            string messageRequest =
-                $"Received request to delete DepartmentHistory. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-            _logger.LogInformation(messageRequest);
-            _db.Logs.Add(new Log { Message = messageRequest, Date = DateTime.UtcNow });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation(
+                "Received request to delete DepartmentHistory. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}",
+                businessEntityId, departmentId, shiftId, startDate);
+            AddLog("Received request to delete DepartmentHistory.");
+            await _db.SaveChangesAsync(ct);
 
             try
             {
-                var history = await _db.DepartmentHistories
-                    .FirstOrDefaultAsync(dh =>
-                        dh.BusinessEntityID == businessEntityId &&
-                        dh.DepartmentID == departmentId &&
-                        dh.ShiftID == shiftId &&
-                        dh.StartDate == startDate);
+                var history = await _db.DepartmentHistories.FirstOrDefaultAsync(dh =>
+                    dh.BusinessEntityID == businessEntityId &&
+                    dh.DepartmentID == departmentId &&
+                    dh.ShiftID == shiftId &&
+                    dh.StartDate == startDate, ct);
 
                 if (history is null)
-                {
-                    string messageNotFound =
-                        $"Delete failed: DepartmentHistory not found. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-                    _logger.LogWarning(messageNotFound);
-                    _db.Logs.Add(new Log { Message = messageNotFound, Date = DateTime.UtcNow });
-                    await _db.SaveChangesAsync();
-
                     return NotFound();
-                }
 
                 _db.DepartmentHistories.Remove(history);
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(ct);
 
-                string messageSuccess =
-                    $"DepartmentHistory deleted successfully. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-                _logger.LogInformation(messageSuccess);
-                _db.Logs.Add(new Log { Message = messageSuccess, Date = DateTime.UtcNow });
-                await _db.SaveChangesAsync();
+                _logger.LogInformation(
+                    "DepartmentHistory deleted successfully. BEID={BEID}, DeptID={DeptID}, ShiftID={ShiftID}, StartDate={StartDate:o}",
+                    businessEntityId, departmentId, shiftId, startDate);
+                AddLog("DepartmentHistory eliminado com sucesso.");
+                await _db.SaveChangesAsync(ct);
 
                 return NoContent();
             }
             catch (DbUpdateException dbEx)
             {
-                string messageDbError =
-                    $"Database error while deleting DepartmentHistory. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-                _logger.LogError(dbEx, messageDbError);
+                _logger.LogError(dbEx, "Database error while deleting DepartmentHistory.");
+                AddLog($"Database error while deleting DepartmentHistory: {dbEx.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                _db.Logs.Add(new Log
-                {
-                    Message = $"{messageDbError} Details: {dbEx.Message}",
-                    Date = DateTime.UtcNow
-                });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao eliminar DepartmentHistory.");
+                return Problem(
+                    title: "Erro ao eliminar DepartmentHistory",
+                    detail: "Erro ao eliminar o registo.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
             catch (Exception ex)
             {
-                string messageUnexpectedError =
-                    $"Unexpected error while deleting DepartmentHistory. BusinessEntityID={businessEntityId}, DepartmentID={departmentId}, ShiftID={shiftId}, StartDate={startDate}.";
-                _logger.LogError(ex, messageUnexpectedError);
+                _logger.LogError(ex, "Unexpected error while deleting DepartmentHistory.");
+                AddLog($"Unexpected error while deleting DepartmentHistory: {ex.Message}");
+                await _db.SaveChangesAsync(ct);
 
-                _db.Logs.Add(new Log
-                {
-                    Message = $"{messageUnexpectedError} Details: {ex.Message}",
-                    Date = DateTime.UtcNow
-                });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao eliminar DepartmentHistory.");
+                return Problem(
+                    title: "Erro ao eliminar",
+                    detail: "Ocorreu um erro ao eliminar DepartmentHistory.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
         }
-
     }
 }
