@@ -1,26 +1,32 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
-import { addNotification, addNotificationForUser } from "../../utils/notificationBus";
+import {
+  addNotification,
+  addNotificationForUser,
+} from "../../utils/notificationBus";
 import BackButton from "../../components/Button/BackButton";
-
-function getDepartamentoAtualNome(funcionario) {
-  const historicos = funcionario?.departmentHistories ?? [];
-  if (historicos.length === 0) return "Sem departamento";
-  //se data atual entre data de fim e inicio
-  const atual = historicos.find((h) => h.endDate == null);
-  const escolhido =
-    atual ??
-    historicos
-      .slice()
-      .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
-  return escolhido?.department?.name ?? "Departamento desconhecido";
-}
+import Avatar from "../../components/Avatar/Avatar";
+import Loading from "../../components/Loading/Loading";
+import ReadOnlyField from "../../components/ReadOnlyField/ReadOnlyField";
+import { getDepartamentoAtualNome, formatDate } from "../../utils/Utils";
+import {
+  getDepartments,
+  getEmployee,
+  updateEmployee,
+} from "../../Service/employeeService";
+import { getEmployeeId } from "../../utils/Utils";
 
 export default function Profile() {
-  const { id: routeId } = useParams()
-  const role = localStorage.getItem("role");
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const userId = params.get("id");
+  const navigate = useNavigate();
   const actualId = localStorage.getItem("businessEntityId");
-  const canEdit = role == "admin" && routeId != actualId  ? true : false;
+  const { id: routeId } = useParams();
+
+  const role = localStorage.getItem("role");
+
+  const canEdit = role == "admin" && routeId != actualId ? true : false;
 
   const [departments, setDepartments] = useState([]);
   const [employee, setEmployee] = useState(null);
@@ -30,67 +36,33 @@ export default function Profile() {
   const [saveError, setSaveError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
+  const targetId = getEmployeeId(routeId, location.search);
+
+  // Carrega departamentos 
   useEffect(() => {
-    const fetchDepartments = async () => {
+    (async () => {
       try {
         const token = localStorage.getItem("authToken");
-        const res = await fetch(
-          "http://localhost:5136/api/v1/departmenthistory",
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        if (!res.ok) throw new Error("Erro ao carregar departamentos");
-        const data = await res.json();
+        const data = await getDepartments(token);
         setDepartments(data);
       } catch (err) {
         console.error(err);
       }
-    };
-
-    fetchDepartments();
+    })();
   }, []);
 
-  const getEmployeeId = () => {
-    if (routeId) return routeId;
-
-    const params = new URLSearchParams(location.search);
-    const fromQuery = params.get("id");
-    if (fromQuery) return fromQuery;
-
-    const fromStorage = localStorage.getItem("businessEntityId");
-    return fromStorage ?? null;
-  };
-
-  const targetId = getEmployeeId();
-
+  // Carregar funcionário
   useEffect(() => {
-    const fetchEmployee = async () => {
+    const load = async () => {
+      if (targetId == null) return;
       try {
         const token = localStorage.getItem("authToken");
         setLoading(true);
         setFetchError(null);
-
-        const response = await fetch(`http://localhost:5136/api/v1/employee/${targetId}`, {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok)
-          throw new Error(
-            `Erro ao carregar funcionário (HTTP ${response.status})`
-          );
-        const data = await response.json();
+        setEmployee(null);
+        const data = await getEmployee(targetId, token);
         setEmployee(data);
       } catch (error) {
-        if (error.name === "AbortError") return;
         console.error(error);
         setFetchError(
           error.message || "Erro desconhecido ao obter funcionário."
@@ -99,43 +71,32 @@ export default function Profile() {
         setLoading(false);
       }
     };
-
-    //   fetchEmployee();
-    // }, [navigate, location.search]);
-
-    if (targetId != null) {
-      // reset before fetching a new id
-      setEmployee(null);
-      fetchEmployee();
-    }
-  }, [targetId]);
+    load();
+  }, [targetId, location.search, navigate]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-
-    if (name.startsWith('person.')) {
-      const key = name.split('.')[1];
+    if (name.startsWith("person.")) {
+      const key = name.split(".")[1];
       setEmployee((prev) => ({
         ...prev,
         person: {
           ...prev.person,
-          [key]: value
-        }
+          [key]: value,
+        },
       }));
       return;
     }
-
     setEmployee((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
   const handleSave = async () => {
-    const id = getEmployeeId();
+    const idToUpdate = getEmployeeId(routeId);
     setSaveError(null);
     setSuccessMessage(null);
-
     try {
       const payload = {
         businessEntityID: employee.businessEntityID,
@@ -144,13 +105,11 @@ export default function Profile() {
         jobTitle: employee.jobTitle,
         birthDate: employee.birthDate,
         maritalStatus: employee.maritalStatus,
-
         person: {
           firstName: employee.person?.firstName ?? "",
           middleName: employee.person?.middleName ?? "",
           lastName: employee.person?.lastName ?? "",
         },
-
         gender: employee.gender,
         hireDate: employee.hireDate,
         salariedFlag: employee.salariedFlag,
@@ -159,50 +118,21 @@ export default function Profile() {
       };
 
       const token = localStorage.getItem("authToken");
-
-      const response = await fetch(
-        `http://localhost:5136/api/v1/employee/${id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Erro ao atualizar: ${errorText}`);
-      }
+      await updateEmployee(idToUpdate, payload, token);
 
       addNotification(
         `O perfil do funcionário ${employee.person?.firstName} ${employee.person?.lastName} foi atualizado.`,
-        "admin", {type: "PROFILE"}
+        "admin",
+        { type: "PROFILE" }
       );
-      
       addNotificationForUser(
         `O seu perfil foi atualizado pelo RH.`,
-        id, {type: "PROFILE"}
+        idToUpdate,
+        { type: "PROFILE" }
       );
 
-      const refreshResponse = await fetch(
-        `http://localhost:5136/api/v1/employee/${id}`, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-      );
-
-      if (refreshResponse.ok) {
-        const updated = await refreshResponse.json();
-        setEmployee(updated);
-      }
-
+      const updated = await getEmployee(idToUpdate, token);
+      setEmployee(updated);
       setEditing(false);
       setSuccessMessage("Perfil atualizado com sucesso!");
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -212,13 +142,7 @@ export default function Profile() {
     }
   };
 
-  if (loading)
-    return (
-      <div className="container mt-5 text-center text-muted">
-        <div className="spinner-border text-secondary mb-3" role="status" />
-        <p className="mb-0">Carregando perfil...</p>
-      </div>
-    );
+  if (loading) return <Loading text="Carregando perfil..." />;
 
   if (fetchError)
     return (
@@ -241,6 +165,7 @@ export default function Profile() {
   return (
     <div className="container mt-4">
       <BackButton />
+
       <div className="d-flex align-items-center mb-3">
         <h2 className="ms-2 h3">Perfil do Funcionário</h2>
       </div>
@@ -265,15 +190,10 @@ export default function Profile() {
         </div>
 
         <div className="card-body p-4">
+          {/* Header com Avatar + Nome + Departamento */}
           <div className="d-flex align-items-center mb-4">
-            <div
-              className="rounded-circle bg-secondary bg-opacity-25 d-flex align-items-center justify-content-center me-3"
-              style={{ width: 56, height: 56 }}
-              aria-label="Avatar"
-            >
-              <span className="text-muted fw-bold">
-                {employee.person?.firstName?.charAt(0) ?? "?"}
-              </span>
+            <div className="me-3">
+              <Avatar name={employee.person?.firstName} />
             </div>
             <div>
               <div className="h6 mb-1 text-dark">
@@ -304,7 +224,6 @@ export default function Profile() {
                     onChange={handleChange}
                   />
                 </div>
-
                 <div className="col-md-6">
                   <label className="form-label text-muted">Nome do Meio</label>
                   <input
@@ -315,7 +234,6 @@ export default function Profile() {
                     onChange={handleChange}
                   />
                 </div>
-
                 <div className="col-md-6">
                   <label className="form-label text-muted">Último Nome</label>
                   <input
@@ -326,7 +244,6 @@ export default function Profile() {
                     onChange={handleChange}
                   />
                 </div>
-
                 <div className="col-md-6">
                   <label className="form-label text-muted">
                     Data de Nascimento
@@ -339,7 +256,6 @@ export default function Profile() {
                     onChange={handleChange}
                   />
                 </div>
-
                 <div className="col-md-6">
                   <label className="form-label text-muted">Estado Civil</label>
                   <select
@@ -353,7 +269,6 @@ export default function Profile() {
                     <option value="M">Casado(a)</option>
                   </select>
                 </div>
-
                 <div className="col-md-6">
                   <label className="form-label text-muted">Género</label>
                   <select
@@ -367,6 +282,7 @@ export default function Profile() {
                     <option value="F">Feminino</option>
                   </select>
                 </div>
+
                 {canEdit && (
                   <>
                     <div className="col-md-6">
@@ -379,7 +295,6 @@ export default function Profile() {
                         onChange={handleChange}
                       />
                     </div>
-
                     <div className="col-md-6">
                       <label className="form-label text-muted">
                         Cartão de Cidadão
@@ -392,7 +307,6 @@ export default function Profile() {
                         onChange={handleChange}
                       />
                     </div>
-
                     <div className="col-md-6">
                       <label className="form-label text-muted">
                         Horas de Férias
@@ -405,7 +319,6 @@ export default function Profile() {
                         onChange={handleChange}
                       />
                     </div>
-
                     <div className="col-md-6">
                       <label className="form-label text-muted">
                         Horas de Baixa
@@ -418,7 +331,6 @@ export default function Profile() {
                         onChange={handleChange}
                       />
                     </div>
-
                     <div className="col-md-6 d-flex align-items-center">
                       <div className="form-check mt-4">
                         <input
@@ -437,7 +349,6 @@ export default function Profile() {
                         </label>
                       </div>
                     </div>
-
                     <div className="col-md-6">
                       <label className="form-label text-muted">
                         Departamento atual
@@ -480,20 +391,24 @@ export default function Profile() {
                 <div className="col-md-6">
                   <div className="p-3 border rounded-3 bg-light">
                     <p className="mb-2 text-muted small">Identificação</p>
-                    <p className="mb-1">
-                      <strong>ID:</strong>{" "}
-                      <span className="badge bg-secondary bg-opacity-50 text-dark">
-                        {employee.businessEntityID}
-                      </span>
-                    </p>
-                    <p className="mb-1">
-                      <strong>Nome:</strong> {employee.person?.firstName}{" "}
-                      {employee.person?.lastName}
-                    </p>
-                    <p className="mb-0">
-                      <strong>Cartão de Cidadão:</strong>{" "}
-                      {employee.nationalIDNumber}
-                    </p>
+                    <ReadOnlyField
+                      label="ID"
+                      value={
+                        <span className="badge bg-secondary bg-opacity-50 text-dark">
+                          {employee.businessEntityID}
+                        </span>
+                      }
+                    />
+                    <ReadOnlyField
+                      label="Nome"
+                      value={`${employee.person?.firstName ?? ""} ${
+                        employee.person?.lastName ?? ""
+                      }`}
+                    />
+                    <ReadOnlyField
+                      label="Cartão de Cidadão"
+                      value={employee.nationalIDNumber}
+                    />
                   </div>
                 </div>
 
@@ -502,65 +417,69 @@ export default function Profile() {
                     <p className="mb-2 text-muted small">
                       Informações Pessoais
                     </p>
-                    <p className="mb-1">
-                      <strong>Data de Nascimento:</strong>{" "}
-                      {new Date(employee.birthDate).toLocaleDateString("pt-PT")}
-                    </p>
-                    <p className="mb-1">
-                      <strong>Estado Civil:</strong>{" "}
-                      {employee.maritalStatus === "S"
-                        ? "Solteiro(a)"
-                        : employee.maritalStatus === "M"
+                    <ReadOnlyField
+                      label="Data de Nascimento"
+                      value={formatDate(employee.birthDate)}
+                    />
+                    <ReadOnlyField
+                      label="Estado Civil"
+                      value={
+                        employee.maritalStatus === "S"
+                          ? "Solteiro(a)"
+                          : employee.maritalStatus === "M"
                           ? "Casado(a)"
-                          : employee.maritalStatus || "N/A"}
-                    </p>
-                    <p className="mb-0">
-                      <strong>Género:</strong>{" "}
-                      {employee.gender === "M"
-                        ? "Masculino"
-                        : employee.gender === "F"
+                          : employee.maritalStatus || "N/A"
+                      }
+                    />
+                    <ReadOnlyField
+                      label="Género"
+                      value={
+                        employee.gender === "M"
+                          ? "Masculino"
+                          : employee.gender === "F"
                           ? "Feminino"
-                          : employee.gender || "N/A"}
-                    </p>
+                          : employee.gender || "N/A"
+                      }
+                    />
                   </div>
                 </div>
 
                 <div className="col-md-6">
                   <div className="p-3 border rounded-3 bg-light">
                     <p className="mb-2 text-muted small">Cargo e Salário</p>
-                    <p className="mb-1">
-                      <strong>Cargo:</strong> {employee.jobTitle}
-                    </p>
-                    <p className="mb-0">
-                      <strong>Com Salário:</strong>{" "}
-                      {employee.salariedFlag ? (
-                        <span className="badge bg-success">Sim</span>
-                      ) : (
-                        <span className="badge bg-secondary">Não</span>
-                      )}
-                    </p>
+                    <ReadOnlyField label="Cargo" value={employee.jobTitle} />
+                    <ReadOnlyField
+                      label="Com Salário"
+                      value={
+                        employee.salariedFlag ? (
+                          <span className="badge bg-success">Sim</span>
+                        ) : (
+                          <span className="badge bg-secondary">Não</span>
+                        )
+                      }
+                    />
                   </div>
                 </div>
 
                 <div className="col-md-6">
                   <div className="p-3 border rounded-3 bg-light">
                     <p className="mb-2 text-muted small">Registos</p>
-                    <p className="mb-1">
-                      <strong>Data de Contratação:</strong>{" "}
-                      {new Date(employee.hireDate).toLocaleDateString("pt-PT")}
-                    </p>
-                    <p className="mb-1">
-                      <strong>Horas de Férias:</strong> {employee.vacationHours}
-                    </p>
-                    <p className="mb-1">
-                      <strong>Horas de Baixa:</strong> {employee.sickLeaveHours}
-                    </p>
-                    <p className="mb-0">
-                      <strong>Última Modificação:</strong>{" "}
-                      {new Date(employee.modifiedDate).toLocaleDateString(
-                        "pt-PT"
-                      )}
-                    </p>
+                    <ReadOnlyField
+                      label="Data de Contratação"
+                      value={formatDate(employee.hireDate)}
+                    />
+                    <ReadOnlyField
+                      label="Horas de Férias"
+                      value={employee.vacationHours}
+                    />
+                    <ReadOnlyField
+                      label="Horas de Baixa"
+                      value={employee.sickLeaveHours}
+                    />
+                    <ReadOnlyField
+                      label="Última Modificação"
+                      value={formatDate(employee.modifiedDate)}
+                    />
                   </div>
                 </div>
 
