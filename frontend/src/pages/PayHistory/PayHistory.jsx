@@ -1,211 +1,148 @@
+
 import React, { useEffect, useState } from "react";
-import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
-import { formatDate, formatCurrencyEUR, freqLabel } from "../../utils/formatters"
 import Pagination from "../../components/Pagination/Pagination";
+import { formatDate, formatCurrencyEUR, freqLabel } from "../../utils/formatters";
+import { getEmployee } from "../../Service/employeeService";
+import { mapPayHistories } from "../../utils/Utils";
+import { usePagination } from "../../utils/hooks";
 
 export default function PayHistoryList() {
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [payments, setPayments] = useState([]);
-  const [employeeId, setEmployeeId] = useState(null);
   const [employee, setEmployee] = useState(null);
+  const [payments, setPayments] = useState([]);
 
-  const itemsPerPage = 5;
+  const { currentPage, setCurrentPage, currentItems: currentPayments, totalPages } = usePagination(payments, 5);
 
   useEffect(() => {
     const id = localStorage.getItem("businessEntityId");
-    setEmployeeId(id);
-
     if (!id) {
       setFetchError("ID do funcionário não encontrado no localStorage.");
       return;
     }
 
-    async function load() {
+    const load = async () => {
       const token = localStorage.getItem("authToken");
       setLoading(true);
       setFetchError(null);
       try {
-        const res = await fetch(`http://localhost:5136/api/v1/employee/${id}`, {
-          headers: {
-            Accept: "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-        });
-        if (!res.ok)
-          throw new Error(`Erro ao carregar pagamentos (HTTP ${res.status})`);
-        const data = await res.json();
-
-        if (!Array.isArray(data)) {
-          setEmployee(data);
-        }
-
-        const list = (Array.isArray(data) ? data : data?.payHistories ?? [])
-          .slice()
-          .sort(
-            (a, b) => new Date(b.rateChangeDate) - new Date(a.rateChangeDate)
-          )
-          .map((p, idx) => ({
-            key: `${p.payHistoryId ?? idx}-${p.employeeId}-${p.rateChangeDate ?? idx
-              }`,
-            payHistoryId: p.payHistoryId ?? null,
-            employeeId: p.employeeId ?? null,
-            rateChangeDate: p.rateChangeDate ?? null,
-            rate: p.rate ?? null,
-            payFrequency: p.payFrequency ?? null,
-          }));
-
-        setPayments(list);
+        const data = await getEmployee(id, token);
+        setEmployee(data);
+        setPayments(mapPayHistories(data?.payHistories));
       } catch (err) {
-        if (err.name === "AbortError") return;
         console.error(err);
         setFetchError(err.message || "Erro desconhecido ao obter dados.");
       } finally {
         setLoading(false);
       }
-    }
+    };
 
     load();
   }, []);
 
-  const indexOfLast = currentPage * itemsPerPage;
-  const indexOfFirst = indexOfLast - itemsPerPage;
-  const currentPayments = payments.slice(indexOfFirst, indexOfLast);
-  const totalPages = Math.max(1, Math.ceil(payments.length / itemsPerPage));
-
   return (
-    <>
-      <div className="container mt-4">
-        <BackButton />
-        {/* Header */}
-        <div className="mb-4 d-flex justify-content-between align-items-center">
-          <h1 className="h3 mb-0">Histórico de Pagamentos</h1>
-          <div className="text-muted small">
-            {employee?.person ? (
-              <>
-                Funcionário:{" "}
-                <span>
-                  {employee.person.firstName} {employee.person.lastName}
-                </span>
-                {employeeId != null && employeeId !== "" && (
-                  <span className="ms-1 text-muted">#{employeeId}</span>
-                )}
-              </>
-            ) : (
-              <>Sem ID no localStorage</>
-            )}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="card border-0 shadow-sm">
-          <div className="card-body p-0">
-            {fetchError ? (
-              <div className="text-center py-5">
-                <div className="alert alert-light border text-muted d-inline-block">
-                  {fetchError}
-                </div>
-              </div>
-            ) : loading ? (
-              <div className="text-center py-5" aria-live="polite">
-                <div className="spinner-border text-secondary" role="status">
-                  <span className="visually-hidden">Carregando...</span>
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Desktop Table */}
-                <div className="table-responsive d-none d-md-block">
-                  <table className="table table-hover mb-0">
-                    <thead className="table-light">
-                      <tr>
-                        <th className="px-4 py-3">Pagamento</th>
-                        <th className="px-4 py-3">Valor</th>
-                        <th className="px-4 py-3">Data</th>
-                        <th className="px-4 py-3">Frequência</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentPayments.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={4}
-                            className="px-4 py-4 text-center text-muted"
-                          >
-                            Sem registos
-                          </td>
-                        </tr>
-                      ) : (
-                        currentPayments.map((p, idx) => {
-                          const seq = indexOfFirst + idx + 1;
-                          return (
-                            <tr key={p.key}>
-                              <td className="px-4 py-3">{seq}</td>
-                              <td className="px-4 py-3 text-muted">
-                                {formatCurrencyEUR(p.rate)}
-                              </td>
-                              <td className="px-4 py-3 text-muted">
-                                {formatDate(p.rateChangeDate)}
-                              </td>
-                              <td className="px-4 py-3 text-muted">
-                                {freqLabel(p.payFrequency)}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile Cards */}
-                <div className="d-md-none">
-                  {currentPayments.length === 0 ? (
-                    <div className="text-center p-3 text-muted">
-                      Sem registos
-                    </div>
-                  ) : (
-                    currentPayments.map((p, idx) => {
-                      const seq = indexOfFirst + idx + 1;
-                      return (
-                        <div
-                          key={p.key}
-                          className="card mb-2 border-0 shadow-sm"
-                        >
-                          <div className="card-body">
-                            <div className="d-flex justify-content-between align-items-start">
-                              <div className="fw-semibold">Pagamento {seq}</div>
-                              <span className="badge bg-secondary">
-                                {freqLabel(p.payFrequency)}
-                              </span>
-                            </div>
-                            <div className="mt-2 small text-muted">
-                              <span className="me-3">
-                                Data: {formatDate(p.rateChangeDate)}
-                              </span>
-                              <span className="fw-semibold text-dark">
-                                Valor: {formatCurrencyEUR(p.rate)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  setPage={setCurrentPage}
-                />
-              </>
-            )}
-          </div>
+    <div className="container mt-4">
+      <BackButton />
+      {/* Header */}
+      <div className="mb-4 d-flex justify-content-between align-items-center">
+        <h1 className="h3 mb-0">Histórico de Pagamentos</h1>
+        <div className="text-muted small">
+          {employee?.person ? (
+            <>
+              Funcionário:{" "}
+              <span>
+                {employee.person.firstName} {employee.person.lastName}
+              </span>
+              {employee.businessEntityID && (
+                <span className="ms-1 text-muted">#{employee.businessEntityID}</span>
+              )}
+            </>
+          ) : (
+            <>Sem ID no localStorage</>
+          )}
         </div>
       </div>
-    </>
+
+      {/* Content */}
+      <div className="card border-0 shadow-sm">
+        <div className="card-body p-0">
+          {fetchError ? (
+            <div className="text-center py-5">
+              <div className="alert alert-light border text-muted d-inline-block">{fetchError}</div>
+            </div>
+          ) : loading ? (
+            <div className="text-center py-5" aria-live="polite">
+              <div className="spinner-border text-secondary" role="status">
+                <span className="visually-hidden">Carregando...</span>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table */}
+              <div className="table-responsive d-none d-md-block">
+                <table className="table table-hover mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th className="px-4 py-3">Pagamento</th>
+                      <th className="px-4 py-3">Valor</th>
+                      <th className="px-4 py-3">Data</th>
+                      <th className="px-4 py-3">Frequência</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentPayments.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-4 text-center text-muted">
+                          Sem registos
+                        </td>
+                      </tr>
+                    ) : (
+                      currentPayments.map((p, idx) => {
+                        const seq = (currentPage - 1) * 5 + idx + 1;
+                        return (
+                          <tr key={p.key}>
+                            <td className="px-4 py-3">{seq}</td>
+                            <td className="px-4 py-3 text-muted">{formatCurrencyEUR(p.rate)}</td>
+                            <td className="px-4 py-3 text-muted">{formatDate(p.rateChangeDate)}</td>
+                            <td className="px-4 py-3 text-muted">{freqLabel(p.payFrequency)}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="d-md-none">
+                {currentPayments.length === 0 ? (
+                  <div className="text-center p-3 text-muted">Sem registos</div>
+                ) : (
+                  currentPayments.map((p, idx) => {
+                    const seq = (currentPage - 1) * 5 + idx + 1;
+                    return (
+                      <div key={p.key} className="card mb-2 border-0 shadow-sm">
+                        <div className="card-body">
+                          <div className="d-flex justify-content-between align-items-start">
+                            <div className="fw-semibold">Pagamento {seq}</div>
+                            <span className="badge bg-secondary">{freqLabel(p.payFrequency)}</span>
+                          </div>
+                          <div className="mt-2 small text-muted">
+                            <span className="me-3">Data: {formatDate(p.rateChangeDate)}</span>
+                            <span className="fw-semibold text-dark">Valor: {formatCurrencyEUR(p.rate)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              <Pagination currentPage={currentPage} totalPages={totalPages} setPage={setCurrentPage} />
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
