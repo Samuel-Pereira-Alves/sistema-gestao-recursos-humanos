@@ -436,4 +436,3 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
     }
 }
-//527

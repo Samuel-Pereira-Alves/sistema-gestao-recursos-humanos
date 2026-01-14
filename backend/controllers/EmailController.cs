@@ -16,45 +16,38 @@ public class EmailController : ControllerBase
 
         try
         {
+            var html = $@"
+                        <div style='max-width:680px;margin:0 auto;padding:0;font-family:Segoe UI,Arial,Helvetica,sans-serif;background:#f4f6f9;color:#333;'>
+                        <div style='margin:20px;background:#fff;border:1px solid #e0e6ed;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.08);overflow:hidden;'>
 
+                            <!-- Cabeçalho -->
+                            <div style='background:#0A6ED1;color:#fff;padding:24px;border-bottom:4px solid #095db7;text-align:center;'>
+                            <h1 style='margin:0;font-size:22px;font-weight:600;'>Sistema de Recursos Humanos</h1>
+                            </div>
 
+                            <!-- Conteúdo -->
+                            <div style='padding:28px;text-align:center;'>
+                            <p style='font-size:16px;line-height:1.6;color:#444;margin-bottom:24px;'>
+                                {req.Text}
+                            </p>
 
-var html = $@"
-<div style='max-width:680px;margin:0 auto;padding:0;font-family:Segoe UI,Arial,Helvetica,sans-serif;background:#f4f6f9;color:#333;'>
-  <div style='margin:20px;background:#fff;border:1px solid #e0e6ed;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.08);overflow:hidden;'>
+                            </div>
 
-    <!-- Cabeçalho -->
-    <div style='background:#0A6ED1;color:#fff;padding:24px;border-bottom:4px solid #095db7;text-align:center;'>
-      <h1 style='margin:0;font-size:22px;font-weight:600;'>Sistema de Recursos Humanos</h1>
-    </div>
+                            <!-- Separador -->
+                            <hr style='border:none;border-top:1px solid #e0e6ed;margin:24px 0;'>
 
-    <!-- Conteúdo -->
-    <div style='padding:28px;text-align:center;'>
-      <p style='font-size:16px;line-height:1.6;color:#444;margin-bottom:24px;'>
-        {req.Text}
-      </p>
+                            <!-- Rodapé -->
+                            <p style='margin:0;font-size:12px;color:#6b7280;text-align:center;padding:12px;'>
+                            Este é um email automático. Por favor, não responda.
+                            </p>
+                        </div>
+                        </div>";
 
-    </div>
-
-    <!-- Separador -->
-    <hr style='border:none;border-top:1px solid #e0e6ed;margin:24px 0;'>
-
-    <!-- Rodapé -->
-    <p style='margin:0;font-size:12px;color:#6b7280;text-align:center;padding:12px;'>
-      Este é um email automático. Por favor, não responda.
-    </p>
-  </div>
-</div>";
-
-
-
-
-            
-var result = await _mailer.SendAsync(
-    to: req.To,
-    subject: req.Subject,
-    textBody: html
-);
+            var result = await _mailer.SendAsync(
+                to: req.To,
+                subject: req.Subject,
+                textBody: html
+            );
 
 
             return Ok(new { ok = true, result });
