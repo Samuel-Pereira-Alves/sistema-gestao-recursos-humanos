@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
-import { formatDate, formatCurrencyEUR, freqLabel } from "../../utils/formatters";
+import { formatDate, formatCurrencyEUR, freqLabel } from "../../utils/Utils";
 import { getEmployee } from "../../Service/employeeService";
 import { mapPayHistories } from "../../utils/Utils";
 import { usePagination } from "../../utils/hooks";

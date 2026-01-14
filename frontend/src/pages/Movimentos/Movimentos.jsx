@@ -3,7 +3,7 @@ import { addNotificationForUser } from "../../utils/notificationBus";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
-import { formatDate,normalize, idToString, dateInputToIsoMidnight } from "../../utils/formatters";
+import { formatDate,normalize, idToString, dateInputToIsoMidnight } from "../../utils/Utils";
 import Navbar from "../../components/Navbar/Navbar";
 
 const getBusinessEntityID = (h) =>

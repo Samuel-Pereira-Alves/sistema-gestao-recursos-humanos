@@ -3,7 +3,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { addNotificationForUser } from "../../utils/notificationBus";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
-import { freqLabel, formatCurrencyEUR, formatDate, normalizarTexto, toIdString, dateInputToIsoMidnight } from "../../utils/formatters";
+import { freqLabel, formatCurrencyEUR, formatDate, normalizarTexto, toIdString, dateInputToIsoMidnight } from "../../utils/Utils";
 import { listPagamentosFlattened, patchPayHistory, deletePayHistory, createPayHistory } from "../../Service/pagamentosService";
 import { filterPagamentos, paginate } from "../../utils/Utils";
 
