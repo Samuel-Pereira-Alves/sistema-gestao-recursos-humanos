@@ -206,7 +206,7 @@ function Form({ onCancel }) {
 
 
       addNotification(
-        `Nova candidatura: ${firstName} ${lastName} – verifica o painel.`,
+        `Nova candidatura: ${firstName} ${lastName} – verifica o painel de candidaturas.`,
         "admin", {type: "CANDIDATE"}
       );
 

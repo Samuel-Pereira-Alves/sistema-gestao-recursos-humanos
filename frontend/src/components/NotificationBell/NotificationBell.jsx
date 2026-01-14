@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -6,9 +5,9 @@ import {
   getNotifications,
   clearNotifications,
   syncNotificationsFromServer,
-  deleteNotification
+  deleteNotification,
 } from "../../utils/notificationBus";
-import './NotificationBell.css';
+import "./NotificationBell.css";
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -96,12 +95,21 @@ export default function NotificationBell() {
         id="notifications-menu"
         ref={dropdownRef}
         className={`dropdown-menu shadow ${open ? "show" : ""}`}
-        style={{ minWidth: 300, maxWidth: 380, maxHeight: 400, overflowY: "auto", marginRight: -29 }}
+        style={{
+          minWidth: 300,
+          maxWidth: 380,
+          maxHeight: 400,
+          overflowY: "auto",
+          marginRight: -29,
+        }}
       >
         <div className="px-3 py-2 d-flex justify-content-between align-items-center">
           <strong>Notificações</strong>
           {allItems.length > 0 && (
-            <button className="btn btn-sm btn-outline-secondary" onClick={clearNotifications}>
+            <button
+              className="btn btn-sm btn-outline-secondary"
+              onClick={clearNotifications}
+            >
               Limpar Tudo
             </button>
           )}
@@ -118,13 +126,10 @@ export default function NotificationBell() {
                 style={{ cursor: "pointer" }}
                 onClick={() => handleItemClick(n)}
               >
-                <div className="text-wrap">
-                  {n.type ? (
-                    <span className="text-primary text-decoration-underline">{n.message}</span>
-                  ) : (
-                    n.message
-                  )}
-                </div>
+                <span className="test-dark">
+                  {n.message}
+                </span>
+
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
