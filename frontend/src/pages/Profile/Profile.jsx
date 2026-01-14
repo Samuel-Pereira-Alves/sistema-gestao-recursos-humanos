@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
-import {
-  addNotification,
-  addNotificationForUser,
-} from "../../utils/notificationBus";
+import { addNotification,addNotificationForUser,} from "../../utils/notificationBus";
 import BackButton from "../../components/Button/BackButton";
 import Avatar from "../../components/Avatar/Avatar";
 import Loading from "../../components/Loading/Loading";
@@ -119,11 +116,11 @@ export default function Profile() {
 
       const token = localStorage.getItem("authToken");
       await updateEmployee(idToUpdate, payload, token);
-
+      
       addNotification(
         `O perfil do funcionário ${employee.person?.firstName} ${employee.person?.lastName} foi atualizado.`,
         "admin",
-        { type: "PROFILE" }
+        { type: "PROFILE_ADMIN" }
       );
       addNotificationForUser(
         `O seu perfil foi atualizado pelo RH.`,
