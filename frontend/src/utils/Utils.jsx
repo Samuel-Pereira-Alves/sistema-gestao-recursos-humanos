@@ -25,19 +25,19 @@ export function filterPagamentos(pagamentos, term) {
   if (!raw) return pagamentos;
 
   const isNumeric = /^\d+$/.test(raw);
-  const termo = normalizarTexto(term);
+  const termo = normalize(term);
 
   return pagamentos.filter((p) => {
     if (isNumeric) {
-      return toIdString(p.employee?.businessEntityID) === raw;
+      return idToString(p.employee?.businessEntityID) === raw;
     }
-    const first = normalizarTexto(p.employee?.person?.firstName);
-    const last  = normalizarTexto(p.employee?.person?.lastName);
+    const first = normalize(p.employee?.person?.firstName);
+    const last  = normalize(p.employee?.person?.lastName);
     const full  = `${first} ${last}`.trim();
 
-    const freq  = normalizarTexto(freqLabel(p.payFrequency));
-    const valor = normalizarTexto(formatCurrencyEUR(p.rate));
-    const data  = normalizarTexto(formatDate(p.rateChangeDate));
+    const freq  = normalize(freqLabel(p.payFrequency));
+    const valor = normalize(formatCurrencyEUR(p.rate));
+    const data  = normalize(formatDate(p.rateChangeDate));
 
     return (
       (full && full.includes(termo)) ||
@@ -99,15 +99,6 @@ export function freqLabel(code) {
   }
 }
 
-export function normalizarTexto(t) {
-  if (!t) return "";
-  return String(t)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
 export function normalize(t) {
   if (!t) return "";
   return String(t)
@@ -118,11 +109,6 @@ export function normalize(t) {
 }
 
 export function idToString(id) {
-  if (id == null) return "";
-  return String(id).trim();
-}
-
-export function toIdString(id) {
   if (id == null) return "";
   return String(id).trim();
 }
