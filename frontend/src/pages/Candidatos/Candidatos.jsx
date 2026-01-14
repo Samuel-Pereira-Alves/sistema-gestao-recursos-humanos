@@ -144,7 +144,7 @@ export default function Candidatos() {
         fetchCandidatos();
         addNotification(
           `O candidato ${nome} foi aprovado como funcionário.`,
-          "admin", {type: "DEPARTMENT"}
+          "admin", {type: "CANDIDATE"}
         );
       } else {
         throw new Error(`Falha ao aprovar candidato`);
