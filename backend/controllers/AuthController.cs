@@ -34,7 +34,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             _db.Logs.Add(new Log { Message = message, Date = DateTime.UtcNow });
 
         [AllowAnonymous]
-        // POST: api/v1/login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] SystemUsersDTO request, CancellationToken ct)
         {
@@ -42,63 +41,22 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             AddLog("Pedido de login recebido.");
             await _db.SaveChangesAsync(ct);
 
-            if (request is null ||
-                string.IsNullOrWhiteSpace(request.Username) ||
-                string.IsNullOrWhiteSpace(request.Password))
-            {
-                _logger.LogWarning("Pedido de login inválido: body nulo ou campos em branco.");
-                AddLog("Pedido de login inválido: body nulo ou campos em branco.");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(
-                    title: "Pedido inválido",
-                    detail: "Credenciais em falta.",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
+            var validationError = ValidateLoginRequest(request);
+            if (validationError is not null)
+                return validationError;
 
             try
             {
-                // 1) Procurar utilizador (async + cancel)
-                var user = await _db.SystemUsers
-                    .FirstOrDefaultAsync(u => u.Username == request.Username, ct);
+                var user = await GetUserAsync(request.Username, ct);
+                if (!await IsValidUserLoginAsync(user, request.Password, request.Username, ct))
+                    return UnauthorizedProblem();
 
-                // 2) Validar credenciais (mensagem neutra)
-                if (user is null || !VerifyPassword(request.Password, user.PasswordHash))
-                {
-                    _logger.LogWarning("Login falhou para Username={Username}.", request.Username);
-                    AddLog($"Login falhou para Username={request.Username}.");
-                    await _db.SaveChangesAsync(ct);
+                var employee = await GetEmployeeAsync(user!.BusinessEntityID, ct);
+                if (!await IsEmployeeActiveAsync(employee, request.Username, user.BusinessEntityID, ct))
+                    return UnauthorizedProblem();
 
-                    // 401 sem indicar se foi user ou password
-                    return Problem(
-                        title: "Não autorizado",
-                        detail: "Credenciais inválidas.",
-                        statusCode: StatusCodes.Status401Unauthorized);
-                }
-
-                // 3) Verificar funcionário ativo
-                var employee = await _db.Employees
-                    .FirstOrDefaultAsync(e => e.BusinessEntityID == user.BusinessEntityID, ct);
-
-                if (employee is null || !employee.CurrentFlag)
-                {
-                    _logger.LogWarning("Login falhou: funcionário inexistente ou inativo. Username={Username}, BusinessEntityID={BEID}.",
-                        request.Username, user.BusinessEntityID);
-                    AddLog($"Login falhou: funcionário inexistente ou inativo. Username={request.Username}, BusinessEntityID={user.BusinessEntityID}.");
-                    await _db.SaveChangesAsync(ct);
-
-                    return Problem(
-                        title: "Não autorizado",
-                        detail: "Credenciais inválidas.",
-                        statusCode: StatusCodes.Status401Unauthorized);
-                }
-
-                // 4) Gerar JWT (não logar o token)
                 var token = GenerateJwtToken(user);
-                _logger.LogInformation("Login bem-sucedido. Username={Username}, Role={Role}, SystemUserId={SystemUserId}, BusinessEntityID={BEID}",
-                    request.Username, user.Role, user.SystemUserId, user.BusinessEntityID);
-                AddLog($"Login bem-sucedido. Username={request.Username}, Role={user.Role}, SystemUserId={user.SystemUserId}, BusinessEntityID={user.BusinessEntityID}");
-                await _db.SaveChangesAsync(ct);
+                await RegisterSuccessfulLoginAsync(user, request.Username, ct);
 
                 return Ok(new
                 {
@@ -110,15 +68,96 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro inesperado no login. Username={Username}", request?.Username);
-                AddLog($"Erro inesperado no login. Username={request?.Username}");
-                await _db.SaveChangesAsync(ct);
+                return await HandleUnexpectedLoginErrorAsync(ex, request.Username, ct);
+            }
+        }
+
+        private IActionResult? ValidateLoginRequest(SystemUsersDTO request)
+        {
+            if (request is null ||
+                string.IsNullOrWhiteSpace(request.Username) ||
+                string.IsNullOrWhiteSpace(request.Password))
+            {
+                _logger.LogWarning("Pedido de login inválido: body nulo ou campos em branco.");
+                AddLog("Pedido de login inválido: body nulo ou campos em branco.");
 
                 return Problem(
-                    title: "Erro ao processar o login",
-                    detail: "Ocorreu um erro ao processar o login.",
-                    statusCode: StatusCodes.Status500InternalServerError);
+                    title: "Pedido inválido",
+                    detail: "Credenciais em falta.",
+                    statusCode: StatusCodes.Status400BadRequest);
             }
+            return null;
+        }
+
+        private async Task<SystemUser?> GetUserAsync(string username, CancellationToken ct)
+        {
+            return await _db.SystemUsers
+                .FirstOrDefaultAsync(u => u.Username == username, ct);
+        }
+
+        private async Task<bool> IsValidUserLoginAsync(SystemUser? user, string password, string username, CancellationToken ct)
+        {
+            if (user is null || !VerifyPassword(password, user.PasswordHash))
+            {
+                _logger.LogWarning("Login falhou para Username={Username}.", username);
+                AddLog($"Login falhou para Username={username}.");
+                await _db.SaveChangesAsync(ct);
+                return false;
+            }
+            return true;
+        }
+
+        private async Task<Employee?> GetEmployeeAsync(int businessEntityId, CancellationToken ct)
+        {
+            return await _db.Employees
+                .FirstOrDefaultAsync(e => e.BusinessEntityID == businessEntityId, ct);
+        }
+
+        private async Task<bool> IsEmployeeActiveAsync(Employee? employee, string username, int businessEntityId, CancellationToken ct)
+        {
+            if (employee is null || !employee.CurrentFlag)
+            {
+                _logger.LogWarning(
+                    "Login falhou: funcionário inexistente ou inativo. Username={Username}, BusinessEntityID={BEID}.",
+                    username, businessEntityId);
+
+                AddLog(
+                    $"Login falhou: funcionário inexistente ou inativo. Username={username}, BusinessEntityID={businessEntityId}.");
+
+                await _db.SaveChangesAsync(ct);
+                return false;
+            }
+            return true;
+        }
+        private IActionResult UnauthorizedProblem()
+        {
+            return Problem(
+                title: "Não autorizado",
+                detail: "Credenciais inválidas.",
+                statusCode: StatusCodes.Status401Unauthorized);
+        }
+
+        private async Task RegisterSuccessfulLoginAsync(SystemUser user, string username, CancellationToken ct)
+        {
+            _logger.LogInformation(
+                "Login bem-sucedido. Username={Username}, Role={Role}, SystemUserId={SystemUserId}, BusinessEntityID={BEID}",
+                username, user.Role, user.SystemUserId, user.BusinessEntityID);
+
+            AddLog($"Login bem-sucedido. Username={username}, Role={user.Role}, SystemUserId={user.SystemUserId}, BusinessEntityID={user.BusinessEntityID}");
+
+            await _db.SaveChangesAsync(ct);
+        }
+
+        private async Task<IActionResult> HandleUnexpectedLoginErrorAsync(Exception ex, string username, CancellationToken ct)
+        {
+            _logger.LogError(ex, "Erro inesperado no login. Username={Username}", username);
+            AddLog($"Erro inesperado no login. Username={username}");
+            await _db.SaveChangesAsync(ct);
+
+            return Problem(
+                title: "Erro ao processar o login",
+                detail: "Ocorreu um erro ao processar o login.",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
 
         private static bool VerifyPassword(string password, string storedHash)
