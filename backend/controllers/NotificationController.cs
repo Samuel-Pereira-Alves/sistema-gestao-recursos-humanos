@@ -24,422 +24,383 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             _logger = logger;
         }
 
+        private void AddLog(string message) =>
+                    _db.Logs.Add(new Log { Message = message, Date = DateTime.UtcNow });
+
+        private async Task<ActionResult> HandleUnexpectedNotificationErrorAsync(Exception ex, CancellationToken ct)
+        {
+            _logger.LogError(ex, "Erro inesperado em Notification");
+            AddLog("Erro inesperado em Notification");
+            await _db.SaveChangesAsync(ct);
+            return Problem(
+                title: "Erro ao processar Notification",
+                detail: "Ocorreu um erro ao processar a requisição de Notification.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+
+        private async Task<ActionResult> HandleDatabaseWriteErrorAsync(DbUpdateException dbEx, string titulo, string detalhe, CancellationToken ct)
+        {
+            _logger.LogError(dbEx, titulo);
+            AddLog($"{titulo}: {dbEx.Message}");
+            await _db.SaveChangesAsync(ct);
+            return Problem(
+                title: titulo,
+                detail: detalhe,
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+
         // POST: api/v1/notification
-        // Creates a single notification (for a specific BusinessEntityID from the body)
+        // Cria uma notificação (para o BusinessEntityID presente no body)
         [HttpPost]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> Create([FromBody] NotificationDto dto)
+        public async Task<IActionResult> Create([FromBody] NotificationDto dto, CancellationToken ct)
         {
-            string msg1 = "Recebido pedido para criar Notificação.";
-            _logger.LogInformation(msg1);
-            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            _logger.LogInformation("Recebido pedido para criar Notificação.");
+            AddLog("Recebido pedido para criar Notificação.");
+            await _db.SaveChangesAsync(ct);
 
-            if (dto is null)
-            {
-                string msg2 = "Body não enviado no pedido.";
-                _logger.LogWarning(msg2);
-                _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-                return BadRequest("Body is required.");
-            }
-
-            if (string.IsNullOrWhiteSpace(dto.Message))
-            {
-                string msg3 = "Mensagem inválida (vazia ou nula).";
-                _logger.LogWarning(msg3);
-                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-                return BadRequest("Message is required.");
-            }
-
-            if (dto.BusinessEntityID <= 0)
-            {
-                string msg4 = $"BusinessEntityID inválido: {dto.BusinessEntityID}.";
-                _logger.LogWarning(msg4);
-                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-                return BadRequest("BusinessEntityID must be a positive integer.");
-            }
+            var validation = await ValidateCreateDtoAsync(dto, ct);
+            if (validation is IActionResult badReq) return badReq;
 
             try
             {
-                var notification = _mapper.Map<Notification>(dto);
-                notification.CreatedAt = DateTime.UtcNow;
-                _db.Notifications.Add(notification);
-                await _db.SaveChangesAsync();
+                var notification = await CreateAndSaveNotificationAsync(dto, ct);
 
-                string msg5 = $"Notification criada com sucesso. ID={notification.ID}, BusinessEntityID={notification.BusinessEntityID}.";
-                _logger.LogInformation(msg5);
-                _db.Logs.Add(new Log { Message = msg5, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogInformation("Notification criada com sucesso. ID={Id}, BEID={BEID}.",
+                    notification.ID, notification.BusinessEntityID);
+                AddLog($"Notification criada com sucesso. ID={notification.ID}, BEID={notification.BusinessEntityID}.");
+                await _db.SaveChangesAsync(ct);
 
-                return CreatedAtAction(nameof(GetById),
+                return CreatedAtAction(
+                    nameof(GetById),
                     new { id = notification.ID },
                     _mapper.Map<NotificationDto>(notification));
             }
             catch (DbUpdateException dbEx)
             {
-                string msg6 = $"Erro ao gravar Notification para BusinessEntityID={dto.BusinessEntityID}.";
-                _logger.LogError(dbEx, msg6);
-                _db.Logs.Add(new Log { Message = msg6, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao gravar a notificação.");
+                return await HandleDatabaseWriteErrorAsync(
+                    dbEx,
+                    "Erro ao gravar Notification",
+                    "Ocorreu um erro ao persistir a notificação.",
+                    ct);
             }
             catch (Exception ex)
             {
-                string msg7 = $"Erro inesperado ao criar Notification para BusinessEntityID={dto.BusinessEntityID}.";
-                _logger.LogError(ex, msg7);
-                _db.Logs.Add(new Log { Message = msg7, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao criar a notificação.");
+                return await HandleUnexpectedNotificationErrorAsync(ex, ct);
             }
         }
-
-        // POST: api/v1/notification/{role}
-        // // Creates one notification per user that has the given role
-        [HttpPost("{role}")]
-        public async Task<IActionResult> CreateForRole(string role, [FromBody] NotificationDto dto)
+        private async Task<IActionResult?> ValidateCreateDtoAsync(NotificationDto? dto, CancellationToken ct)
         {
-            // 1) Pedido recebido
-            string msg1 = $"Recebida requisição para criar notificações para a role '{role}'.";
-            _logger.LogInformation(msg1);
-            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
-
-            // 2) Validações
-            if (string.IsNullOrWhiteSpace(role))
-            {
-                string msg2 = "Role ausente ou inválida.";
-                _logger.LogWarning(msg2);
-                _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-                return BadRequest("Role is required.");
-            }
-
             if (dto is null)
             {
-                string msg3 = "Body ausente na requisição.";
-                _logger.LogWarning(msg3);
-                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-                return BadRequest("Body is required.");
+                const string msg = "Body não enviado no pedido.";
+                _logger.LogWarning(msg);
+                AddLog(msg);
+                await _db.SaveChangesAsync(ct);
+                return BadRequest(new { message = "Body é obrigatório" });
             }
 
             if (string.IsNullOrWhiteSpace(dto.Message))
             {
-                string msg4 = "Mensagem inválida (vazia ou nula).";
-                _logger.LogWarning(msg4);
-                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-                return BadRequest("Message is required.");
+                const string msg = "Mensagem inválida (vazia ou nula).";
+                _logger.LogWarning(msg);
+                AddLog(msg);
+                await _db.SaveChangesAsync(ct);
+                return BadRequest(new { message = "Message é obrigatório" });
+            }
+
+            if (dto.BusinessEntityID <= 0)
+            {
+                var msg = $"BusinessEntityID inválido: {dto.BusinessEntityID}.";
+                _logger.LogWarning(msg);
+                AddLog(msg);
+                await _db.SaveChangesAsync(ct);
+                return BadRequest(new { message = "BusinessEntityID deve ser um inteiro positivo" });
+            }
+
+            var exists = await _db.Employees.AnyAsync(e => e.BusinessEntityID == dto.BusinessEntityID, ct);
+            if (!exists)
+            {
+                AddLog($"Employee não encontrado. BEID={dto.BusinessEntityID}");
+                await _db.SaveChangesAsync(ct);
+                return NotFound(new { message = "Employee não encontrado", businessEntityId = dto.BusinessEntityID });
+            }
+
+            return null;
+        }
+
+        private async Task<Notification> CreateAndSaveNotificationAsync(NotificationDto dto, CancellationToken ct)
+        {
+            var notification = _mapper.Map<Notification>(dto);
+            notification.CreatedAt = DateTime.UtcNow;
+            _db.Notifications.Add(notification);
+            await _db.SaveChangesAsync(ct);
+            return notification;
+        }
+
+        // POST: api/v1/notification/{role}
+        // Cria 1 notificação por utilizador com a role indicada
+        [HttpPost("{role}")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> CreateForRole(string role, [FromBody] NotificationDto dto, CancellationToken ct)
+        {
+            var msgReq = $"Recebida requisição para criar notificações para a role '{role}'.";
+            _logger.LogInformation(msgReq);
+            AddLog(msgReq);
+            await _db.SaveChangesAsync(ct);
+
+            if (string.IsNullOrWhiteSpace(role))
+            {
+                const string msg = "Role ausente ou inválida.";
+                _logger.LogWarning(msg);
+                AddLog(msg);
+                await _db.SaveChangesAsync(ct);
+                return BadRequest(new { message = "Role é obrigatória" });
+            }
+
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Message))
+            {
+                const string msg = "Body/Mensagem inválidos.";
+                _logger.LogWarning(msg);
+                AddLog(msg);
+                await _db.SaveChangesAsync(ct);
+                return BadRequest(new { message = "Body e Message são obrigatórios" });
             }
 
             try
             {
-                // 3) Obter utilizadores pela role (case-insensitive)
-                var roleLower = role.ToLower();
+                var roleLower = role.ToLowerInvariant();
+
                 var users = await _db.SystemUsers
                     .Where(u => u.Role.ToLower() == roleLower)
-                    .ToListAsync();
+                    .AsNoTracking()
+                    .ToListAsync(ct);
 
                 if (users.Count == 0)
                 {
-                    string msg5 = $"Nenhum utilizador encontrado para a role '{role}'.";
-                    _logger.LogWarning(msg5);
-                    _db.Logs.Add(new Log { Message = msg5, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-                    return NotFound($"No users found for role '{role}'.");
+                    var msg = $"Nenhum utilizador encontrado para a role '{role}'.";
+                    _logger.LogWarning(msg);
+                    AddLog(msg);
+                    await _db.SaveChangesAsync(ct);
+                    return NotFound(new { message = $"No users found for role '{role}'" });
                 }
 
-                string msg6 = $"Encontrados {users.Count} utilizadores para a role '{role}'.";
-                _logger.LogInformation(msg6);
-                _db.Logs.Add(new Log { Message = msg6, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogInformation("Encontrados {Count} utilizadores para a role '{Role}'.", users.Count, role);
+                AddLog($"Encontrados {users.Count} utilizadores para a role '{role}'");
+                await _db.SaveChangesAsync(ct);
 
-                // 4) Criar notificações para cada utilizador
-                var created = new List<Notification>();
-                foreach (var user in users)
+                var now = DateTime.UtcNow;
+                var notifs = users.Select(u => new Notification
                 {
-                    var notif = new Notification
-                    {
-                        Message = dto.Message,
-                        BusinessEntityID = user.BusinessEntityID,
-                        CreatedAt = DateTime.UtcNow,
-                        Type = dto.Type
-                    };
-                    created.Add(notif);
-                    _db.Notifications.Add(notif);
-                }
+                    Message = dto.Message,
+                    BusinessEntityID = u.BusinessEntityID,
+                    CreatedAt = now,
+                    Type = dto.Type
+                }).ToList();
 
-                await _db.SaveChangesAsync();
+                _db.Notifications.AddRange(notifs);
+                await _db.SaveChangesAsync(ct);
 
-                string msg7 = $"Criadas {created.Count} notificações para a role '{role}'.";
-                _logger.LogInformation(msg7);
-                _db.Logs.Add(new Log { Message = msg7, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                _logger.LogInformation("Criadas {Count} notificações para a role '{Role}'.", notifs.Count, role);
+                AddLog($"Criadas {notifs.Count} notificações para a role '{role}'");
+                await _db.SaveChangesAsync(ct);
 
-                // 5) Retorno
-                var createdDtos = _mapper.Map<List<NotificationDto>>(created);
-                return Created("", createdDtos);
+                var createdDtos = _mapper.Map<List<NotificationDto>>(notifs);
+                return Created(string.Empty, createdDtos);
             }
             catch (DbUpdateException dbEx)
             {
-                string msg8 = $"Erro ao gravar notificações para a role '{role}'.";
-                _logger.LogError(dbEx, msg8);
-                _db.Logs.Add(new Log { Message = msg8, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao gravar as notificações.");
+                return await HandleDatabaseWriteErrorAsync(
+                    dbEx,
+                    $"Erro ao gravar notificações para a role '{role}'",
+                    "Erro ao gravar as notificações.",
+                    ct);
             }
             catch (Exception ex)
             {
-                string msg9 = $"Erro inesperado ao criar notificações para a role '{role}'.";
-                _logger.LogError(ex, msg9);
-                _db.Logs.Add(new Log { Message = msg9, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao criar as notificações.");
+                return await HandleUnexpectedNotificationErrorAsync(ex, ct);
             }
         }
 
+        // === Get by BusinessEntity ===
         // GET: api/v1/notification/by-entity/{businessEntityId}
-        [HttpGet("by-entity/{businessEntityId}")]
+        [HttpGet("by-entity/{businessEntityId:int}")]
         [Authorize(Roles = "admin, employee")]
-        public async Task<IActionResult> GetByBusinessEntityID(int businessEntityId)
+        public async Task<ActionResult<List<NotificationDto>>> GetByBusinessEntityID(int businessEntityId, CancellationToken ct)
         {
-            // 1) Pedido recebido
-            string msg1 = $"Recebida requisição para obter notificações para BusinessEntityID={businessEntityId}.";
-            _logger.LogInformation(msg1);
-            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            var msgReq = $"Recebida requisição para obter notificações para BusinessEntityID={businessEntityId}.";
+            _logger.LogInformation(msgReq);
+            AddLog(msgReq);
+            await _db.SaveChangesAsync(ct);
 
-            // 2) Validação
             if (businessEntityId <= 0)
             {
-                string msg2 = $"BusinessEntityID inválido: {businessEntityId}.";
-                _logger.LogWarning(msg2);
-                _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return BadRequest("BusinessEntityID must be a positive integer.");
+                var msg = $"BusinessEntityID inválido: {businessEntityId}.";
+                _logger.LogWarning(msg);
+                AddLog(msg);
+                await _db.SaveChangesAsync(ct);
+                return BadRequest(new { message = "BusinessEntityID deve ser inteiro positivo" });
             }
 
             try
             {
-                // 3) Consulta
                 var notifications = await _db.Notifications
-                    .Where(notif => notif.BusinessEntityID == businessEntityId)
-                    .OrderByDescending(notif => notif.CreatedAt)
-                    .ToListAsync();
+                    .Where(n => n.BusinessEntityID == businessEntityId)
+                    .OrderByDescending(n => n.CreatedAt)
+                    .AsNoTracking()
+                    .ToListAsync(ct);
 
-                string msg3 = $"Encontradas {notifications.Count} notificações para BusinessEntityID={businessEntityId}.";
-                _logger.LogInformation(msg3);
-                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                var info = $"Encontradas {notifications.Count} notificações para BEID={businessEntityId}.";
+                _logger.LogInformation(info);
+                AddLog(info);
+                await _db.SaveChangesAsync(ct);
 
-                // 4) Mapeamento e retorno
                 var dto = _mapper.Map<List<NotificationDto>>(notifications);
                 return Ok(dto);
             }
             catch (Exception ex)
             {
-                string msg4 = $"Erro ao obter notificações para BusinessEntityID={businessEntityId}.";
-                _logger.LogError(ex, msg4);
-                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao obter as notificações.");
+                return await HandleUnexpectedNotificationErrorAsync(ex, ct);
             }
         }
 
+        // === Get by Id ===
         // GET: api/v1/notification/{id}
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         [Authorize(Roles = "admin, employee")]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<ActionResult<NotificationDto>> GetById(int id, CancellationToken ct)
         {
-            // 1) Pedido recebido
-            string msg1 = $"Recebida requisição para obter Notification com ID={id}.";
-            _logger.LogInformation(msg1);
-            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            var msgReq = $"Recebida requisição para obter Notification com ID={id}.";
+            _logger.LogInformation(msgReq);
+            AddLog(msgReq);
+            await _db.SaveChangesAsync(ct);
 
             try
             {
-                // 2) Consulta
                 var notification = await _db.Notifications
-                    .FirstOrDefaultAsync(notif => notif.ID == id);
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(n => n.ID == id, ct);
 
-                // 3) Not found
-                if (notification == null)
+                if (notification is null)
                 {
-                    string msg2 = $"Notification não encontrada para ID={id}.";
-                    _logger.LogWarning(msg2);
-                    _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-
+                    var msg = $"Notification não encontrada para ID={id}.";
+                    _logger.LogWarning(msg);
+                    AddLog(msg);
+                    await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
-                // 4) Encontrada
-                string msg3 = $"Notification encontrada para ID={id}.";
-                _logger.LogInformation(msg3);
-                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                AddLog($"Notification encontrada para ID={id}.");
+                await _db.SaveChangesAsync(ct);
 
-                // 5) Mapeamento e retorno
-                var dto = _mapper.Map<NotificationDto>(notification);
-                return Ok(dto);
+                return Ok(_mapper.Map<NotificationDto>(notification));
             }
             catch (Exception ex)
             {
-                string msg4 = $"Erro ao obter Notification com ID={id}.";
-                _logger.LogError(ex, msg4);
-                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao obter a notificação.");
+                return await HandleUnexpectedNotificationErrorAsync(ex, ct);
             }
         }
-        // DELETE: api/v1/notification/by-entity/{businessEntityId}
-        [HttpDelete("by-entity/{businessEntityId}")]
-        [Authorize(Roles = "admin, employee")]
-        public async Task<IActionResult> DeleteByBusinessEntityID(int businessEntityId)
-        {
-            // 1) Pedido recebido
-            string msg1 = $"Recebida requisição para eliminar notificações para BusinessEntityID={businessEntityId}.";
-            _logger.LogInformation(msg1);
-            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
 
-            // 2) Validação
+        // === Delete by BusinessEntity ===
+        // DELETE: api/v1/notification/by-entity/{businessEntityId}
+        [HttpDelete("by-entity/{businessEntityId:int}")]
+        [Authorize(Roles = "admin, employee")]
+        public async Task<IActionResult> DeleteByBusinessEntityID(int businessEntityId, CancellationToken ct)
+        {
+            var msgReq = $"Recebida requisição para eliminar notificações para BusinessEntityID={businessEntityId}.";
+            _logger.LogInformation(msgReq);
+            AddLog(msgReq);
+            await _db.SaveChangesAsync(ct);
+
             if (businessEntityId <= 0)
             {
-                string msg2 = $"BusinessEntityID inválido: {businessEntityId}.";
-                _logger.LogWarning(msg2);
-                _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return BadRequest("BusinessEntityID must be a positive integer.");
+                var msg = $"BusinessEntityID inválido: {businessEntityId}.";
+                _logger.LogWarning(msg);
+                AddLog(msg);
+                await _db.SaveChangesAsync(ct);
+                return BadRequest(new { message = "BusinessEntityID deve ser inteiro positivo" });
             }
 
             try
             {
-                // 3) Obter notificações
                 var notifications = await _db.Notifications
-                    .Where(notif => notif.BusinessEntityID == businessEntityId)
-                    .ToListAsync();
+                    .Where(n => n.BusinessEntityID == businessEntityId)
+                    .ToListAsync(ct);
 
                 if (notifications.Count == 0)
                 {
-                    string msg3 = $"Nenhuma notificação encontrada para BusinessEntityID={businessEntityId}.";
-                    _logger.LogWarning(msg3);
-                    _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-
+                    var msg = $"Nenhuma Notification encontrada para BEID={businessEntityId}.";
+                    _logger.LogWarning(msg);
+                    AddLog(msg);
+                    await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
-                string msg4 = $"Encontradas {notifications.Count} notificações para BusinessEntityID={businessEntityId}. A eliminar…";
-                _logger.LogInformation(msg4);
-                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                // 4) Eliminar e persistir
                 _db.Notifications.RemoveRange(notifications);
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(ct);
 
-                string msg5 = $"Notificações eliminadas com sucesso para BusinessEntityID={businessEntityId}.";
-                _logger.LogInformation(msg5);
-                _db.Logs.Add(new Log { Message = msg5, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                AddLog($"Notificações eliminadas com sucesso para BEID={businessEntityId}.");
+                await _db.SaveChangesAsync(ct);
 
                 return NoContent();
             }
             catch (DbUpdateException dbEx)
             {
-                string msg6 = $"Erro ao eliminar notificações para BusinessEntityID={businessEntityId}.";
-                _logger.LogError(dbEx, msg6);
-                _db.Logs.Add(new Log { Message = msg6, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao eliminar as notificações.");
+                return await HandleDatabaseWriteErrorAsync(
+                    dbEx,
+                    "Erro ao eliminar Notifications",
+                    "Erro ao eliminar as notificações.",
+                    ct);
             }
             catch (Exception ex)
             {
-                string msg7 = $"Erro inesperado ao eliminar notificações para BusinessEntityID={businessEntityId}.";
-                _logger.LogError(ex, msg7);
-                _db.Logs.Add(new Log { Message = msg7, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao eliminar as notificações.");
+                return await HandleUnexpectedNotificationErrorAsync(ex, ct);
             }
         }
+
+        // === Delete by Id ===
         // DELETE: api/v1/notification/{id}
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:int}")]
         [Authorize(Roles = "admin, employee")]
-        public async Task<IActionResult> DeleteById(int id)
+        public async Task<IActionResult> DeleteById(int id, CancellationToken ct)
         {
-            // 1) Pedido recebido
-            string msg1 = $"Recebida requisição para eliminar Notification com ID={id}.";
-            _logger.LogInformation(msg1);
-            _db.Logs.Add(new Log { Message = msg1, Date = DateTime.Now });
-            await _db.SaveChangesAsync();
+            var msgReq = $"Recebida requisição para eliminar Notification com ID={id}.";
+            _logger.LogInformation(msgReq);
+            AddLog(msgReq);
+            await _db.SaveChangesAsync(ct);
 
             try
             {
-                // 2) Procurar a notificação
-                var notification = await _db.Notifications.FindAsync(id);
-
-                // 3) Não encontrada
-                if (notification == null)
+                var notification = await _db.Notifications.FindAsync([id], ct);
+                if (notification is null)
                 {
-                    string msg2 = $"Notification não encontrada para ID={id}.";
-                    _logger.LogWarning(msg2);
-                    _db.Logs.Add(new Log { Message = msg2, Date = DateTime.Now });
-                    await _db.SaveChangesAsync();
-
+                    var msg = $"Notification não encontrada para ID={id}.";
+                    _logger.LogWarning(msg);
+                    AddLog(msg);
+                    await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
-                // 4) Encontrada — a eliminar
-                string msg3 = $"Notification encontrada para ID={id}. A eliminar...";
-                _logger.LogInformation(msg3);
-                _db.Logs.Add(new Log { Message = msg3, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                // 5) Remover e persistir
                 _db.Notifications.Remove(notification);
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(ct);
 
-                string msg4 = $"Notification eliminada com sucesso para ID={id}.";
-                _logger.LogInformation(msg4);
-                _db.Logs.Add(new Log { Message = msg4, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
+                AddLog($"Notification eliminada com sucesso para ID={id}.");
+                await _db.SaveChangesAsync(ct);
 
                 return NoContent();
             }
             catch (DbUpdateException dbEx)
             {
-                string msg5 = $"Erro ao eliminar Notification com ID={id}.";
-                _logger.LogError(dbEx, msg5);
-                _db.Logs.Add(new Log { Message = msg5, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao eliminar a notificação.");
+                return await HandleDatabaseWriteErrorAsync(
+                    dbEx,
+                    "Erro ao eliminar Notification",
+                    "Erro ao eliminar a notificação.",
+                    ct);
             }
             catch (Exception ex)
             {
-                string msg6 = $"Erro inesperado ao eliminar Notification com ID={id}.";
-                _logger.LogError(ex, msg6);
-                _db.Logs.Add(new Log { Message = msg6, Date = DateTime.Now });
-                await _db.SaveChangesAsync();
-
-                return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao eliminar a notificação.");
+                return await HandleUnexpectedNotificationErrorAsync(ex, ct);
             }
         }
-
     }
 }
