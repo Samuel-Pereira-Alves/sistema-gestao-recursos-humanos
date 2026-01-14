@@ -3,8 +3,9 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { addNotificationForUser } from "../../utils/notificationBus";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
-
-import {freqLabel,formatCurrencyEUR,formatDate, normalizarTexto, toIdString, dateInputToIsoMidnight} from "../../utils/formatters"
+import { freqLabel, formatCurrencyEUR, formatDate, normalizarTexto, toIdString, dateInputToIsoMidnight } from "../../utils/formatters";
+import { listPagamentosFlattened, patchPayHistory, deletePayHistory, createPayHistory } from "../../Service/pagamentosService";
+import { filterPagamentos, paginate } from "../../utils/Utils";
 
 export default function Pagamentos() {
   const [loading, setLoading] = useState(true);
@@ -13,117 +14,49 @@ export default function Pagamentos() {
   const [currentPage, setCurrentPage] = useState(1);
   const [employees, setEmployees] = useState([]);
   const [pagamentos, setPagamentos] = useState([]);
-  
+
   const itemsPerPage = 5;
 
-  const fetchEmployees = async () => {
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
     try {
-      const token = localStorage.getItem("authToken")
-      const response = await fetch("http://localhost:5136/api/v1/employee", {
-        headers: {
-          Accept: "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-      })
+      const { employees: emps, pagamentos: pays } = await listPagamentosFlattened();
+
       const idStr = localStorage.getItem("businessEntityId");
-      const id = Number(idStr)
-      const data = await response.json()
+      const myId = Number(idStr);
+      const employeesExceptActual = (emps ?? []).filter((e) => e.businessEntityID !== myId)
+        .sort((a, b) => (a.person?.firstName || "").toLowerCase()
+          .localeCompare((b.person?.firstName || "").toLowerCase()));
 
-      const employeesExceptActual = data
-        .filter(e => e.businessEntityID !== id)
-        .sort((a, b) => {
-          const nameA = (a.person?.firstName || "").toLowerCase();
-          const nameB = (b.person?.firstName || "").toLowerCase();
-          return nameA.localeCompare(nameB);
-        });
-
-      setEmployees(employeesExceptActual)
+      setEmployees(employeesExceptActual);
+      setPagamentos(pays ?? []);
     } catch (error) {
-
-    }
-  }
-
-  const fetchPagamentos = useCallback(async () => {
-    try {
-      setLoading(true);
-      setFetchError(null);
-
-      const token = localStorage.getItem("authToken")
-
-      const response = await fetch("http://localhost:5136/api/v1/employee", {
-        headers: {
-          Accept: "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) throw new Error("Erro ao carregar movimentações");
-
-      const data = await response.json();
-      const employees = Array.isArray(data) ? data : data?.items ?? [];
-
-      const flattened = employees.flatMap((emp) =>
-        (emp.payHistories ?? []).map((ph) => ({
-          ...ph,
-          employee: emp,
-        }))
-      );
-
-      flattened.sort(
-        (a, b) => new Date(b.rateChangeDate) - new Date(a.rateChangeDate)
-      );
-      setPagamentos(flattened);
-    } catch (error) {
-      setFetchError(
-        error.message || "Erro desconhecido ao obter movimentações."
-      );
+      console.error(error);
+      setFetchError(error.message || "Erro a carregar dados.");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchEmployees();
-    fetchPagamentos();
-  }, [fetchPagamentos]);
+    reload();
+  }, [reload]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const rawSearch = searchTerm.trim();
-  const isNumericSearch = /^\d+$/.test(rawSearch);
-  const termo = normalizarTexto(searchTerm);
+  const pagamentosFiltrados = useMemo(
+    () => filterPagamentos(pagamentos, searchTerm),
+    [pagamentos, searchTerm]
+  );
 
-  const pagamentosFiltrados = useMemo(() => {
-    if (!rawSearch) return pagamentos;
+  const { slice: currentPagamentos, totalPages } = useMemo(
+    () => paginate(pagamentosFiltrados, currentPage, itemsPerPage),
+    [pagamentosFiltrados, currentPage, itemsPerPage]
+  );
 
-    return pagamentos.filter((p) => {
-      if (isNumericSearch) {
-        const businessEntityIdStr = toIdString(p.employee?.businessEntityID);
-        return businessEntityIdStr === rawSearch;
-      }
-
-      const firstName = normalizarTexto(p.employee?.person?.firstName);
-      const lastName = normalizarTexto(p.employee?.person?.lastName);
-      const fullName = `${firstName} ${lastName}`.trim();
-
-      const freq = normalizarTexto(freqLabel(p.payFrequency));
-      const valor = normalizarTexto(formatCurrencyEUR(p.rate));
-      const data = normalizarTexto(formatDate(p.rateChangeDate));
-
-      return (
-        (fullName && fullName.includes(termo)) ||
-        (freq && freq.includes(termo)) ||
-        (valor && valor.includes(termo)) ||
-        (data && data.includes(termo))
-      );
-    });
-  }, [pagamentos, rawSearch, termo, isNumericSearch]);
-
-  const indexOfLast = currentPage * itemsPerPage;
-  const indexOfFirst = indexOfLast - itemsPerPage;
-  const currentPagamentos = pagamentosFiltrados.slice(indexOfFirst, indexOfLast);
-  const totalPages = Math.max(1, Math.ceil(pagamentosFiltrados.length / itemsPerPage));
 
   const [editOpen, setEditOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
@@ -135,8 +68,7 @@ export default function Pagamentos() {
   const [editForm, setEditForm] = useState({ rate: "", payFrequency: "1" });
 
   const openEdit = (p) => {
-    const businessEntityID =
-      p.businessEntityID ?? p.employee?.businessEntityID ?? "";
+    const businessEntityID = p.businessEntityID ?? p.employee?.businessEntityID ?? "";
     const rateChangeDate = p.rateChangeDate ?? "";
 
     setEditKeys({ businessEntityID: String(businessEntityID), rateChangeDate });
@@ -154,33 +86,22 @@ export default function Pagamentos() {
       setEditError(null);
 
       const { businessEntityID, rateChangeDate } = editKeys;
-      const url = `http://localhost:5136/api/v1/payhistory/${businessEntityID}/${rateChangeDate}`;
-
       const body = {
         rate: Number(editForm.rate),
         payFrequency: Number(editForm.payFrequency),
       };
 
-      const token = localStorage.getItem("authToken");
+      await patchPayHistory(businessEntityID, rateChangeDate, body);
+      await reload();
 
-      const resp = await fetch(url, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(text || "Falha ao editar registo.");
-      }
-      await fetchPagamentos();
-      addNotificationForUser("O seu registo de Pagamento foi atualizado.", editKeys.businessEntityID, {type: "PAYMENT"});
+      addNotificationForUser(
+        "O seu registo de Pagamento foi atualizado.",
+        editKeys.businessEntityID,
+        { type: "PAYMENT" }
+      );
       setEditOpen(false);
     } catch (e) {
+      console.error(e);
       setEditError(e.message || "Erro ao editar registo.");
     } finally {
       setEditLoading(false);
@@ -190,8 +111,7 @@ export default function Pagamentos() {
   const [deleteLoadingId, setDeleteLoadingId] = useState(null);
 
   const handleDelete = async (p) => {
-    const businessEntityID =
-      p.businessEntityID ?? p.employee?.businessEntityID ?? "";
+    const businessEntityID = p.businessEntityID ?? p.employee?.businessEntityID ?? "";
     const rateChangeDate = p.rateChangeDate ?? "";
 
     if (!businessEntityID || !rateChangeDate) {
@@ -199,32 +119,24 @@ export default function Pagamentos() {
       return;
     }
 
-    const confirm = window.confirm(
-      `Eliminar registo de pay history do colaborador ${p.employee?.person?.firstName
+    const confirm = window.confirm(`Eliminar registo de pay history do colaborador ${p.employee?.person?.firstName
       } ${p.employee?.person?.lastName} com data ${formatDate(rateChangeDate)}?`
     );
+
     if (!confirm) return;
 
-    const url = `http://localhost:5136/api/v1/payhistory/${businessEntityID}/${rateChangeDate}`;
-
     try {
-      const token = localStorage.getItem("authToken");
       setDeleteLoadingId(`${businessEntityID}|${rateChangeDate}`);
-      const resp = await fetch(url, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(text || "Falha ao eliminar registo.");
-      }
-      await fetchPagamentos();
-      addNotificationForUser("O seu registo de Pagamento foi eliminado.", editKeys.businessEntityID, {type: "PAYMENT"});
+      await deletePayHistory(businessEntityID, rateChangeDate);
+      await reload();
+
+      addNotificationForUser(
+        "O seu registo de Pagamento foi eliminado.",
+        businessEntityID,
+        { type: "PAYMENT" }
+      );
     } catch (e) {
+      console.error(e);
       alert(e.message || "Erro ao eliminar registo.");
     } finally {
       setDeleteLoadingId(null);
@@ -254,11 +166,7 @@ export default function Pagamentos() {
       setCreateLoading(true);
       setCreateError(null);
 
-      if (
-        !createForm.businessEntityID ||
-        !createForm.rateChangeDate ||
-        !createForm.rate
-      ) {
+      if (!createForm.businessEntityID || !createForm.rateChangeDate || !createForm.rate) {
         throw new Error("Preenche BusinessEntityID, Data e Valor.");
       }
 
@@ -269,27 +177,19 @@ export default function Pagamentos() {
         payFrequency: Number(createForm.payFrequency),
       };
 
-      const token = localStorage.getItem("authToken");
+      await createPayHistory(body);
+      await reload();
 
-      const resp = await fetch("http://localhost:5136/api/v1/payhistory", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
+      addNotificationForUser(
+        "Foi criado um novo registo de Pagamento associado ao seu perfil.",
+        body.businessEntityID,
+        { type: "PAYMENT" }
+      );
 
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(text || "Falha ao criar registo.");
-      }
-      await fetchPagamentos();
-      addNotificationForUser("Foi criado um novo registo de Pagamento associado ao seu perfil.", body.businessEntityID, {type: "PAYMENT"});
       setCreateOpen(false);
       resetCreateForm();
     } catch (e) {
+      console.error(e);
       setCreateError(e.message || "Erro ao criar registo.");
     } finally {
       setCreateLoading(false);
@@ -471,12 +371,12 @@ export default function Pagamentos() {
               )}
 
               {/* Pagination */}
-               <Pagination
-                                currentPage={currentPage}
-                                totalPages={totalPages}
-                                setPage={setCurrentPage}
-                              />
-              
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                setPage={setCurrentPage}
+              />
+
             </>
           )}
         </div>

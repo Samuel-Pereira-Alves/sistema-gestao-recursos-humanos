@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
 import { addNotification } from "../../utils/notificationBus";
+import {getNomeCompleto,getDepartamentoAtualNome,isCurrent,} from "../../utils/Utils";
+import { deleteEmployee, getEmployees } from "../../Service/employeeService";
 
 function Funcionarios() {
   const navigate = useNavigate();
@@ -24,17 +26,7 @@ function Funcionarios() {
     try {
       const token = localStorage.getItem("authToken");
       setLoading(true);
-
-      const response = await fetch("http://localhost:5136/api/v1/employee/", {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) throw new Error("Erro ao carregar funcionários");
-      const data = await response.json();
+      const data = await getEmployees(token)
       setFuncionarios(data);
     } catch (error) {
       console.error(error);
@@ -50,31 +42,22 @@ function Funcionarios() {
   const [deleteLoadingId, setDeleteLoadingId] = useState(null);
 
   const handleDelete = async (p) => {
-    const businessEntityID =
-      p.businessEntityID ?? p.employee?.businessEntityID ?? "";
+    const businessEntityID = p.businessEntityID ?? p.employee?.businessEntityID ?? "";
 
     const confirm = window.confirm("Deseja mesmo eliminar este Funcionário?");
     if (!confirm) return;
-
-    const url = `http://localhost:5136/api/v1/employee/${businessEntityID}`;
+    const token = localStorage.getItem("authToken");
 
     try {
       setDeleteLoadingId(String(businessEntityID));
-
-      const token = localStorage.getItem("authToken");
-      const resp = await fetch(url, {
-        method: "DELETE",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      await deleteEmployee(token, businessEntityID)
 
       await fetchFuncionarios();
-      
+
       addNotification(
         `O funcionário ${getNomeCompleto(p)} saiu dos quadros das empresa.`,
-        "admin", {type: "EMPLOYEES"}
+        "admin",
+        { type: "EMPLOYEES" }
       );
     } catch (e) {
       console.error(e);
@@ -98,10 +81,8 @@ function Funcionarios() {
 
   const handleSave = async () => {
     try {
-      setFuncionarios(
-        funcionarios.map((f) =>
-          f.id === selectedFuncionario.id ? selectedFuncionario : f
-        )
+      setFuncionarios((prev) =>
+        prev.map((f) => (f.id === selectedFuncionario.id ? selectedFuncionario : f))
       );
       closeModal();
     } catch (error) {
@@ -110,46 +91,17 @@ function Funcionarios() {
     }
   };
 
-  const isCurrent = (f) => {
-    return f?.currentFlag === true;
-  };
-
   const filteredFuncionarios = funcionarios
     .filter(isCurrent)
     .filter(
       (f) =>
         getNomeCompleto(f).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        f.jobTitle.toLowerCase().includes(searchTerm.toLowerCase())
+        f.jobTitle?.toLowerCase().includes(searchTerm.toLowerCase())
     );
-
-  function getNomeCompleto(f) {
-    if (f?.nome) return f.nome;
-    const p = f?.person ?? {};
-    const partes = [p.firstName, p.middleName, p.lastName].filter(Boolean);
-    return partes.join(" ") || "Sem nome";
-  }
-
-  function getDepartamentoAtualNome(funcionario) {
-    const historicos = funcionario?.departmentHistories ?? [];
-    if (historicos.length === 0) return "Sem departamento";
-
-    const atual = historicos.find((h) => h.endDate == null);
-
-    const escolhido =
-      atual ??
-      historicos
-        .slice()
-        .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
-
-    return escolhido?.department?.name ?? "Departamento desconhecido";
-  }
 
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
-  const currentFuncionarios = filteredFuncionarios.slice(
-    indexOfFirst,
-    indexOfLast
-  );
+  const currentFuncionarios = filteredFuncionarios.slice(indexOfFirst, indexOfLast);
   const totalPages = Math.ceil(filteredFuncionarios.length / itemsPerPage);
 
   return (
