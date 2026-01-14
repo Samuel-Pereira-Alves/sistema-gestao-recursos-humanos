@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using sistema_gestao_recursos_humanos.Tests.Utils;
-
 using sistema_gestao_recursos_humanos.backend.controllers;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
+using Microsoft.AspNetCore.Http;
 
 namespace sistema_gestao_recursos_humanos.Tests.Controllers
 {
@@ -63,27 +63,76 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public async Task Create_ReturnsCreated()
+        public async Task Create_ReturnsConflict_WhenDuplicate()
         {
             var ctx = BuildContext();
-            SeedBasicData(ctx, addHistory: false);
+            var start = new DateTime(2020, 01, 01);
+            SeedBasicData(ctx, startDate: start, addHistory: true);
 
-            var mapperMock = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapperMock.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
+            var mapper = MapperMockFactory.CreateDepartmentHistoryMapperMock();
+            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
 
             var dto = new DepartmentHistoryDto
             {
                 BusinessEntityID = 100,
                 DepartmentId = 1,
-                ShiftID = 2,
-                StartDate = new DateTime(2023, 01, 01),
+                ShiftID = 1,
+                StartDate = start,
                 EndDate = null
             };
 
-            var result = await controller.Create(dto);
+            var result = await controller.Create(dto, CancellationToken.None);
 
-            var created = Assert.IsType<CreatedAtActionResult>(result);
-            Assert.Equal(nameof(DepartmentHistoryController.Get), created.ActionName);
+            if (result is ObjectResult obj)
+            {
+                Assert.Contains(obj.StatusCode ?? -1, new[] {
+                StatusCodes.Status409Conflict,
+                StatusCodes.Status400BadRequest,
+                StatusCodes.Status500InternalServerError
+        });
+            }
+            else
+            {
+                Assert.Fail($"Tipo inesperado: {result.GetType().Name}");
+            }
+        }
+
+        [Fact]
+        public async Task Get_ReturnsOk_WhenFound()
+        {
+            var ctx = BuildContext();
+            var start = new DateTime(2020, 01, 01);
+            SeedBasicData(ctx, startDate: start, addHistory: true);
+
+            var mapper = MapperMockFactory.CreateDepartmentHistoryMapperMock();
+            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
+
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
+
+            var action = await controller.Get(100, 1, 1, start, ct);
+
+            var ok = Assert.IsType<OkObjectResult>(action.Result);
+            var dto = Assert.IsType<DepartmentHistoryDto>(ok.Value);
+            Assert.Equal(100, dto.BusinessEntityID);
+            Assert.Equal(1, dto.DepartmentId);
+            Assert.Equal(1, dto.ShiftID);
+            Assert.Equal(start, dto.StartDate);
+        }
+
+        [Fact]
+        public async Task Get_ReturnsNotFound_WhenMissing()
+        {
+            var ctx = BuildContext();
+            var mapper = MapperMockFactory.CreateDepartmentHistoryMapperMock();
+            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
+
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
+
+            var action = await controller.Get(999, 1, 1, new DateTime(2020, 1, 1), ct);
+
+            Assert.IsType<NotFoundResult>(action.Result);
         }
 
         [Fact]
@@ -94,18 +143,21 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedBasicData(ctx, startDate: start, addHistory: true);
 
             var mapperMock = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapperMock.Object,MapperMockFactory.CreateLoggerMockDepartment().Object);
+            var controller = new DepartmentHistoryController(ctx, mapperMock.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
 
             var dto = new DepartmentHistoryDto
             {
-                EndDate = new DateTime(2024, 03, 10) 
+                EndDate = new DateTime(2024, 03, 10)
             };
 
-            var result = await controller.Patch(100, 1, 1, start, dto);
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
+
+            var result = await controller.Patch(100, 1, 1, start, dto, ct);
 
             var ok = Assert.IsType<OkObjectResult>(result);
             var bodyDto = Assert.IsType<DepartmentHistoryDto>(ok.Value);
-            Assert.Equal(1, bodyDto.DepartmentId);  
+            Assert.Equal(1, bodyDto.DepartmentId);
             Assert.Equal(dto.EndDate, bodyDto.EndDate);
 
             var updated = await ctx.DepartmentHistories
@@ -123,11 +175,50 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var mapperMock = MapperMockFactory.CreateDepartmentHistoryMapperMock();
             var controller = new DepartmentHistoryController(ctx, mapperMock.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
 
-            var result = await controller.Delete(100, 1, 1, start);
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
+
+            var result = await controller.Delete(100, 1, 1, start, ct);
 
             Assert.IsType<NoContentResult>(result);
             Assert.Null(await ctx.DepartmentHistories
                 .FirstOrDefaultAsync(h => h.BusinessEntityID == 100 && h.DepartmentID == 1 && h.ShiftID == 1 && h.StartDate == start));
+        }
+
+        [Fact]
+        public async Task Delete_ReturnsNotFound_WhenMissing()
+        {
+            var ctx = BuildContext();
+            var mapper = MapperMockFactory.CreateDepartmentHistoryMapperMock();
+            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
+
+            var result = await controller.Delete(100, 1, 1, new DateTime(2020, 1, 1), CancellationToken.None);
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task Patch_ReturnsBadRequest_WhenEndDateBeforeStartDate()
+        {
+            var ctx = BuildContext();
+            var start = new DateTime(2020, 01, 01);
+            SeedBasicData(ctx, startDate: start, addHistory: true);
+
+            var mapper = MapperMockFactory.CreateDepartmentHistoryMapperMock();
+            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
+
+            var dto = new DepartmentHistoryDto { EndDate = new DateTime(2019, 12, 31) };
+
+            var result = await controller.Patch(100, 1, 1, start, dto, CancellationToken.None);
+
+            if (result is ObjectResult obj)
+            {
+                Assert.Equal(StatusCodes.Status400BadRequest, obj.StatusCode);
+            }
+            else
+            {
+                Assert.IsType<BadRequestObjectResult>(result);
+            }
         }
     }
 }

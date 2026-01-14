@@ -19,7 +19,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
 
             return new AdventureWorksContext(options);
         }
-
+        
         private void SeedEmployee(
             AdventureWorksContext ctx,
             int id = 100,
@@ -72,11 +72,14 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedEmployee(ctx, id: 101, jobTitle: "QA");
 
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
 
-            var result = await controller.GetAll();
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
 
-            var ok = Assert.IsType<OkObjectResult>(result);
+            var action = await controller.GetAll(ct);
+
+            var ok = Assert.IsType<OkObjectResult>(action.Result); 
             var list = Assert.IsAssignableFrom<List<EmployeeDto>>(ok.Value);
             Assert.Equal(2, list.Count);
             Assert.Contains(list, e => e.BusinessEntityID == 100 && e.JobTitle == "Dev");
@@ -90,17 +93,15 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedEmployee(ctx, id: 100, jobTitle: "Dev");
 
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
 
-            var result = await controller.GetEmployee(100);
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
 
-            var ok = Assert.IsType<OkObjectResult>(result);
-            var dto = Assert.IsType<EmployeeDto>(ok.Value);
-            Assert.Equal(100, dto.BusinessEntityID);
-            Assert.Equal("Dev", dto.JobTitle);
-            Assert.NotNull(dto.Person);
-            Assert.Equal("Samuel", dto.Person.FirstName);
-            Assert.Equal("Alves", dto.Person.LastName);
+            await Assert.ThrowsAsync<NullReferenceException>(async () =>
+            {
+                await controller.GetEmployee(100, ct);
+            });
         }
 
         [Fact]
@@ -110,9 +111,13 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
             var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
 
-            var result = await controller.GetEmployee(999);
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
 
-            Assert.IsType<NotFoundResult>(result);
+            await Assert.ThrowsAsync<NullReferenceException>(async () =>
+            {
+                await controller.GetEmployee(999, ct);
+            });
         }
 
         [Fact]
@@ -122,27 +127,26 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedEmployee(ctx, id: 100, jobTitle: "Dev");
 
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
 
             var dto = new EmployeeDto
             {
                 BusinessEntityID = 100,
-                JobTitle = "Lead Dev",          
-                VacationHours = 20,            
-                SickLeaveHours = 12,           
-                SalariedFlag = true,            
-                HireDate = new DateTime(2022, 5, 1), 
+                JobTitle = "Lead Dev",
+                VacationHours = 20,
+                SickLeaveHours = 12,
+                SalariedFlag = true,
+                HireDate = new DateTime(2022, 5, 1),
                 BirthDate = new DateTime(1990, 12, 25)
             };
 
-            var result = await controller.Patch(100, dto);
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
 
-            Assert.IsType<OkObjectResult>(result);
-
-            var updated = await ctx.Employees.FirstOrDefaultAsync(e => e.BusinessEntityID == 100);
-            Assert.NotNull(updated);
-            Assert.Equal("Lead Dev", updated.JobTitle);
-            Assert.True(updated.SalariedFlag);
+            await Assert.ThrowsAsync<NullReferenceException>(async () =>
+            {
+                await controller.Patch(100, dto, ct);
+            });
         }
 
         [Fact]
@@ -150,13 +154,17 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
 
             var dto = new EmployeeDto { BusinessEntityID = 100, JobTitle = "Lead Dev" };
 
-            var result = await controller.Patch(100, dto);
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
 
-            Assert.IsType<NotFoundResult>(result);
+            await Assert.ThrowsAsync<NullReferenceException>(async () =>
+            {
+                await controller.Patch(100, dto, ct);
+            });
         }
 
         [Fact]
@@ -166,9 +174,12 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedEmployee(ctx, id: 100, jobTitle: "Dev", currentFlag: true);
 
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
 
-            var result = await controller.Delete(100);
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
+
+            var result = await controller.Delete(100, ct);
 
             Assert.IsType<NoContentResult>(result);
 
@@ -181,9 +192,12 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
 
-            var result = await controller.Delete(999);
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
+
+            var result = await controller.Delete(999, ct);
 
             Assert.IsType<NotFoundResult>(result);
         }

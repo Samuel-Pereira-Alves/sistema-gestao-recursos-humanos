@@ -1,4 +1,3 @@
-
 using AutoMapper;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
@@ -294,7 +293,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Utils
                  {
                      JobCandidateId = c.JobCandidateId,
                      Resume = c.Resume!,
-                     CvFileUrl = c.CvFileUrl!,
                      ModifiedDate = c.ModifiedDate,
                      FirstName = c.FirstName,
                      LastName = c.LastName,
@@ -310,7 +308,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Utils
              {
                  JobCandidateId = c.JobCandidateId,
                  Resume = c.Resume!,
-                 CvFileUrl = c.CvFileUrl!,
+                 CvFileUrl = null!,
                  ModifiedDate = c.ModifiedDate,
                  FirstName = c.FirstName,
                  LastName = c.LastName,
@@ -326,7 +324,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Utils
              {
                  JobCandidateId = d.JobCandidateId,
                  Resume = d.Resume,
-                 CvFileUrl = d.CvFileUrl,
+                 CvFileBytes = null,
                  ModifiedDate = d.ModifiedDate,
                  FirstName = d.FirstName,
                  LastName = d.LastName,
@@ -376,6 +374,5 @@ namespace sistema_gestao_recursos_humanos.Tests.Utils
         {
             return new Mock<ILogger<PayHistoryController>>(MockBehavior.Loose);
         }
-
     }
 }

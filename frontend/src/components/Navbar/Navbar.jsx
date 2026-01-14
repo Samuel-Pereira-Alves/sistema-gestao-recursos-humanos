@@ -58,7 +58,7 @@ function Navbar() {
     return () => { cancelled = true; };
   }, [isLoggedIn, businessEntityId]);
 
-  const profileUrl = "/profile";
+  const profileUrl = `/profile/${localStorage.getItem("businessEntityId")}`;
   const logout = () => {
     localStorage.clear();
     window.location.href = "/";

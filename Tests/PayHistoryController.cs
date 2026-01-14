@@ -1,3 +1,4 @@
+
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
 using sistema_gestao_recursos_humanos.Tests.Utils;
+using Microsoft.AspNetCore.Http;
 
 namespace sistema_gestao_recursos_humanos.Tests.Controllers
 {
@@ -41,16 +43,38 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
+        public async Task Get_ReturnsOk_WhenFound()
+        {
+            var ctx = BuildContext();
+            var changeDate = new DateTime(2024, 06, 01);
+            SeedPayHistory(ctx, 300, changeDate, 40m, 1);
+
+            var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
+            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
+
+            var action = await controller.Get(300, changeDate, CancellationToken.None);
+
+            var ok = Assert.IsType<OkObjectResult>(action.Result);
+            var dto = Assert.IsType<PayHistoryDto>(ok.Value);
+            Assert.Equal(300, dto.BusinessEntityID);
+            Assert.Equal(changeDate, dto.RateChangeDate);
+            Assert.Equal(40m, dto.Rate);
+            Assert.Equal(1, dto.PayFrequency);
+        }
+
+        [Fact]
         public async Task Get_ReturnsNotFound_WhenMissing()
         {
             var ctx = BuildContext();
 
             var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
             var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
 
-            var result = await controller.Get(999, new DateTime(2020, 01, 01));
+            var action = await controller.Get(999, new DateTime(2020, 01, 01), ct);
 
-            Assert.IsType<NotFoundResult>(result);
+            Assert.IsType<NotFoundResult>(action.Result);
         }
 
         [Fact]
@@ -59,7 +83,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var ctx = BuildContext();
 
             var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object,MapperMockFactory.CreateLoggerMockPayHistory().Object);
+            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
 
             var dto = new PayHistoryDto
             {
@@ -70,7 +94,9 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             };
 
             var before = DateTime.Now;
-            var result = await controller.Create(dto);
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
+            var result = await controller.Create(dto, ct);
             var after = DateTime.Now;
 
             var created = Assert.IsType<CreatedAtActionResult>(result);
@@ -79,6 +105,22 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var saved = await ctx.PayHistories.FirstOrDefaultAsync(ph =>
                 ph.BusinessEntityID == 300 && ph.RateChangeDate == dto.RateChangeDate);
             Assert.NotNull(saved);
+        }
+
+        [Fact]
+        public async Task Patch_AllowsNoOpOrReturnsBadRequest_WhenNoChanges()
+        {
+            var ctx = BuildContext();
+            var changeDate = new DateTime(2024, 09, 15);
+            SeedPayHistory(ctx, 500, changeDate, 60m, 1);
+
+            var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
+            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
+
+            var dto = new PayHistoryDto();
+            var result = await controller.Patch(500, changeDate, dto, CancellationToken.None);
+            
+            Assert.IsType<OkObjectResult>(result);
         }
 
         [Fact]
@@ -97,7 +139,9 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
                 PayFrequency = 2
             };
 
-            var result = await controller.Patch(500, changeDate, dto);
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
+            var result = await controller.Patch(500, changeDate, dto, ct);
 
             Assert.IsType<OkObjectResult>(result);
 
@@ -117,7 +161,9 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
 
             var dto = new PayHistoryDto { Rate = 99m };
 
-            var result = await controller.Patch(999, new DateTime(2000, 01, 01), dto);
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
+            var result = await controller.Patch(999, new DateTime(2000, 01, 01), dto, ct);
 
             Assert.IsType<NotFoundResult>(result);
         }

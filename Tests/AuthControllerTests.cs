@@ -1,6 +1,4 @@
-﻿
-using System.IdentityModel.Tokens.Jwt;
-using System.Threading.Tasks;
+﻿using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -9,6 +7,7 @@ using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
 using sistema_gestao_recursos_humanos.Tests.Utils;
+using Microsoft.AspNetCore.Http;
 
 namespace sistema_gestao_recursos_humanos.Tests.Controllers
 {
@@ -74,7 +73,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
                 SalariedFlag = true,
                 VacationHours = 10,
                 SickLeaveHours = 0,
-                CurrentFlag = true,              
+                CurrentFlag = true,
                 ModifiedDate = DateTime.UtcNow
             };
 
@@ -89,14 +88,17 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             // Arrange
             var ctx = BuildContext();
             var user = SeedUser(ctx);
-            SeedEmployee(ctx, user.BusinessEntityID); 
+            SeedEmployee(ctx, user.BusinessEntityID);
             var config = BuildConfig();
             var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object);
 
             var request = new SystemUsersDTO { Username = user.Username, Password = "P@ssw0rd" };
 
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
+
             // Act
-            var result = await controller.Login(request);
+            var result = await controller.Login(request, ct);
 
             // Assert
             var ok = Assert.IsType<OkObjectResult>(result);
@@ -121,25 +123,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public async Task Login_WithInvalidUsername_ReturnsUnauthorized()
-        {
-            // Arrange
-            var ctx = BuildContext();
-            SeedUser(ctx);
-            var config = BuildConfig();
-            var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object);
-
-            var request = new SystemUsersDTO { Username = "user-inexistente", Password = "P@ssw0rd" };
-
-            // Act
-            var result = await controller.Login(request);
-
-            // Assert
-            var unauthorized = Assert.IsType<UnauthorizedObjectResult>(result);
-            Assert.Equal("Credenciais inválidas", unauthorized.Value);
-        }
-
-        [Fact]
         public async Task Login_WithInvalidPassword_ReturnsUnauthorized()
         {
             // Arrange
@@ -150,12 +133,15 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
 
             var request = new SystemUsersDTO { Username = "samuel", Password = "password-errada" };
 
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var ct = cts.Token;
+
             // Act
-            var result = await controller.Login(request);
+            var result = await controller.Login(request, ct);
 
             // Assert
-            var unauthorized = Assert.IsType<UnauthorizedObjectResult>(result);
-            Assert.Equal("Credenciais inválidas", unauthorized.Value);
+            var unauthorized = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status401Unauthorized, unauthorized.StatusCode); // 401
         }
 
         [Fact]
@@ -164,17 +150,34 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             // Arrange
             var ctx = BuildContext();
             var user = SeedUser(ctx, role: string.Empty);
-            SeedEmployee(ctx, user.BusinessEntityID); 
+            SeedEmployee(ctx, user.BusinessEntityID);
             var config = BuildConfig();
             var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object);
 
             var request = new SystemUsersDTO { Username = user.Username, Password = "P@ssw0rd" };
 
+            using var cts = new CancellationTokenSource();
+            var ct = cts.Token;
+
             // Act
-            var result = await controller.Login(request);
+            var result = await controller.Login(request, ct);
 
             // Assert
             Assert.IsType<OkObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task Login_WithInvalidUsername_ReturnsUnauthorized()
+        {
+            var ctx = BuildContext();
+            var config = BuildConfig();
+            var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object);
+
+            var dto = new SystemUsersDTO { Username = "naoexiste", Password = "qualquer" };
+            var result = await controller.Login(dto, CancellationToken.None);
+
+            var unauthorized = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status401Unauthorized, unauthorized.StatusCode);
         }
     }
 }
