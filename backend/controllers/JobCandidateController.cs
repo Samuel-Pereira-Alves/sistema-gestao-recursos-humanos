@@ -43,11 +43,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private static bool IsPdf(byte[] bytes)
         {
             // Assinatura "%PDF"
-            return bytes.Length > 4 &&
-                   bytes[0] == 0x25 &&
-                   bytes[1] == 0x50 &&
-                   bytes[2] == 0x44 &&
-                   bytes[3] == 0x46;
+            return bytes.Length > 4 && bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46;
         }
 
         // -----------------------
@@ -62,10 +58,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             try
             {
-                var candidates = await _db.JobCandidates
-                    .AsNoTracking()
-                    .OrderByDescending(c => c.ModifiedDate)
-                    .ToListAsync(ct);
+                var candidates = await GetAllJobCandidatesAsync(ct);
 
                 _logger.LogInformation("Encontrados {Count} JobCandidates.", candidates.Count);
                 AddLog($"Encontrados {candidates.Count} JobCandidates.");
@@ -76,15 +69,26 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter lista de JobCandidates.");
-                AddLog("Erro ao obter lista de JobCandidates.");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(
-                    title: "Erro ao obter candidatos",
-                    detail: "Ocorreu um erro ao obter os candidatos.",
-                    statusCode: StatusCodes.Status500InternalServerError);
+                return await HandleUnexpectedJobCandidateErrorAsync(ex, ct);
             }
+        }
+        private async Task<List<JobCandidate>> GetAllJobCandidatesAsync(CancellationToken ct)
+        {
+            return await _db.JobCandidates
+                .AsNoTracking()
+                .OrderByDescending(c => c.ModifiedDate)
+                .ToListAsync(ct);
+        }
+        private async Task<ActionResult> HandleUnexpectedJobCandidateErrorAsync(Exception ex, CancellationToken ct)
+        {
+            _logger.LogError(ex, "Erro ao processar JobCandidates.");
+            AddLog("Erro ao processar JobCandidates.");
+            await _db.SaveChangesAsync(ct);
+
+            return Problem(
+                title: "Erro ao processar candidatos",
+                detail: "Ocorreu um erro ao processar candidatos.",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
 
         // -----------------------
@@ -100,16 +104,9 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             try
             {
-                var candidate = await _db.JobCandidates
-                    .FirstOrDefaultAsync(jc => jc.JobCandidateId == id, ct);
-
+                var candidate = await GetJobCandidateByIdAsync(id, ct);
                 if (candidate is null)
-                {
-                    _logger.LogWarning("JobCandidate não encontrado para ID={Id}.", id);
-                    AddLog($"JobCandidate não encontrado para ID={id}.");
-                    await _db.SaveChangesAsync(ct);
-                    return NotFound();
-                }
+                    return await HandleJobCandidateNotFoundAsync(id, ct);
 
                 _logger.LogInformation("JobCandidate encontrado para ID={Id}.", id);
                 AddLog($"JobCandidate encontrado para ID={id}.");
@@ -119,15 +116,20 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter JobCandidate com ID={Id}.", id);
-                AddLog($"Erro ao obter JobCandidate com ID={id}.");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(
-                    title: "Erro ao obter candidato",
-                    detail: "Ocorreu um erro ao obter o candidato.",
-                    statusCode: StatusCodes.Status500InternalServerError);
+                return await HandleUnexpectedJobCandidateErrorAsync(ex, ct);
             }
+        }
+        private async Task<JobCandidate?> GetJobCandidateByIdAsync(int id, CancellationToken ct)
+        {
+            return await _db.JobCandidates
+                .FirstOrDefaultAsync(jc => jc.JobCandidateId == id, ct);
+        }
+        private async Task<ActionResult> HandleJobCandidateNotFoundAsync(int id, CancellationToken ct)
+        {
+            _logger.LogWarning("JobCandidate não encontrado para ID={Id}.", id);
+            AddLog($"JobCandidate não encontrado para ID={id}.");
+            await _db.SaveChangesAsync(ct);
+            return NotFound();
         }
 
         // -----------------------
@@ -141,12 +143,49 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [AllowAnonymous]
         public async Task<IActionResult> UploadAndCreate([FromForm] JobCandidateCreateForm form, CancellationToken ct)
         {
+            // 0) Logging inicial
             _logger.LogInformation("Recebida requisição para upload de CV e criação de JobCandidate.");
             AddLog("Recebida requisição para upload de CV e criação de JobCandidate.");
             await _db.SaveChangesAsync(ct);
 
-            // 1) Validação do ficheiro
-            var cv = form.Cv;
+            // 1) Validação do ficheiro (null/empty + extensão .pdf)
+            var fileValidationError = await ValidateCvFileAsync(form.Cv, ct);
+            if (fileValidationError is IActionResult badFile) return badFile;
+
+            // 2) Ler bytes do PDF
+            var pdfBytes = await ReadPdfBytesAsync(form.Cv!, ct);
+
+            // 2.1) Validar conteúdo (assinatura PDF)
+            var contentValidationError = await ValidatePdfContentAsync(pdfBytes, ct);
+            if (contentValidationError is IActionResult badContent) return badContent;
+
+            // 3) Extração de texto + XML (best-effort, com logs internos)
+            var resumeXml = await ExtractResumeXmlBestEffortAsync(pdfBytes, ct);
+
+            // 4) Guardar ficheiro em disco
+            var (safeFileName, fullPath, saveFileError) = await TrySaveCvToDiskAsync(pdfBytes, ct);
+            if (saveFileError is IActionResult saveErr) return saveErr;
+
+            // 5) Construir entidade e persistir
+            var now = DateTime.UtcNow;
+            var candidate = BuildJobCandidateFromForm(form, resumeXml, pdfBytes, now);
+            _db.JobCandidates.Add(candidate);
+
+            var persistError = await TryPersistJobCandidateAsync(candidate, safeFileName!, fullPath!, ct);
+            if (persistError is IActionResult persistErr) return persistErr;
+
+            // 6) Resposta
+            var result = new { jobCandidateId = candidate.JobCandidateId };
+
+            _logger.LogInformation("Upload e criação concluídos. ID={ID}.", candidate.JobCandidateId);
+            AddLog($"Upload e criação concluídos. ID={candidate.JobCandidateId}.");
+            await _db.SaveChangesAsync(ct);
+
+            return CreatedAtAction(nameof(Get), new { id = candidate.JobCandidateId }, result);
+        }
+
+        private async Task<IActionResult?> ValidateCvFileAsync(IFormFile? cv, CancellationToken ct)
+        {
             if (cv is null || cv.Length == 0)
             {
                 _logger.LogWarning("Nenhum ficheiro enviado.");
@@ -164,14 +203,16 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 return BadRequest(new { message = "O ficheiro deve ser um PDF (.pdf)." });
             }
 
-            // 2) Ler bytes do PDF (com cancelamento)
-            byte[] pdfBytes;
-            await using (var ms = new MemoryStream())
-            {
-                await cv.CopyToAsync(ms, ct);
-                pdfBytes = ms.ToArray();
-            }
-
+            return null;
+        }
+        private static async Task<byte[]> ReadPdfBytesAsync(IFormFile cv, CancellationToken ct)
+        {
+            await using var ms = new MemoryStream();
+            await cv.CopyToAsync(ms, ct);
+            return ms.ToArray();
+        }
+        private async Task<IActionResult?> ValidatePdfContentAsync(byte[] pdfBytes, CancellationToken ct)
+        {
             if (!IsPdf(pdfBytes))
             {
                 _logger.LogWarning("Conteúdo inválido: ficheiro não é um PDF válido.");
@@ -179,8 +220,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Conteúdo inválido: o ficheiro não é um PDF válido." });
             }
-
-            // 3) Extrair texto + construir XML (best-effort)
+            return null;
+        }
+        private async Task<string> ExtractResumeXmlBestEffortAsync(byte[] pdfBytes, CancellationToken ct)
+        {
             string resumeXml = string.Empty;
             try
             {
@@ -189,8 +232,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 await _db.SaveChangesAsync(ct);
 
                 using var parseStream = new MemoryStream(pdfBytes, writable: false);
-                var text = PdfTextExtractor.ExtractAllText(parseStream);          // mantém comportamento atual
-                var resumeData = ResumeParser.ParseFromText(text);                // idem
+                var text = PdfTextExtractor.ExtractAllText(parseStream);
+                var resumeData = ResumeParser.ParseFromText(text);
                 if (resumeData != null)
                     resumeXml = AdventureWorksResumeXmlBuilder.Build(resumeData);
 
@@ -206,7 +249,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 await _db.SaveChangesAsync(ct);
             }
 
-            // 4) Guardar ficheiro em disco
+            return resumeXml;
+        }
+        private async Task<(string? safeFileName, string? fullPath, IActionResult? error)> TrySaveCvToDiskAsync(byte[] pdfBytes, CancellationToken ct)
+        {
             var baseRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
             var uploadsRoot = Path.Combine(baseRoot, "uploads", "cv");
             Directory.CreateDirectory(uploadsRoot);
@@ -220,6 +266,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 _logger.LogInformation("Ficheiro guardado com sucesso: {File}.", safeFileName);
                 AddLog($"Ficheiro guardado com sucesso: {safeFileName}.");
                 await _db.SaveChangesAsync(ct);
+                return (safeFileName, fullPath, null);
             }
             catch (Exception ex)
             {
@@ -227,15 +274,21 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 AddLog($"Erro ao guardar ficheiro {safeFileName}.");
                 await _db.SaveChangesAsync(ct);
 
-                return Problem(
+                var problem = Problem(
                     title: "Erro ao guardar o ficheiro",
                     detail: ex.Message,
                     statusCode: StatusCodes.Status500InternalServerError);
-            }
 
-            // 5) Construir entidade e persistir
-            var now = DateTime.UtcNow;
-            var candidate = new JobCandidate
+                return (null, null, problem);
+            }
+        }
+        private static JobCandidate BuildJobCandidateFromForm(
+            JobCandidateCreateForm form,
+            string resumeXml,
+            byte[] pdfBytes,
+            DateTime now)
+        {
+            return new JobCandidate
             {
                 BusinessEntityId = null,
                 Resume = resumeXml,
@@ -250,15 +303,22 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 PasswordHash = "DevOnly!234",  // TODO: Em produção, gerar uma password temporária segura
                 Role = "employee"
             };
-
-            _db.JobCandidates.Add(candidate);
-
+        }
+        private async Task<IActionResult?> TryPersistJobCandidateAsync(
+            JobCandidate candidate,
+            string safeFileName,
+            string fullPath,
+            CancellationToken ct)
+        {
             try
             {
                 await _db.SaveChangesAsync(ct);
+
                 _logger.LogInformation("JobCandidate criado com sucesso. ID={ID}, ficheiro={File}.", candidate.JobCandidateId, safeFileName);
                 AddLog($"JobCandidate criado com sucesso. ID={candidate.JobCandidateId}, ficheiro={safeFileName}.");
                 await _db.SaveChangesAsync(ct);
+
+                return null;
             }
             catch (Exception ex)
             {
@@ -272,15 +332,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     detail: ex.Message,
                     statusCode: StatusCodes.Status500InternalServerError);
             }
-
-            // 6) Resposta
-            var result = new { jobCandidateId = candidate.JobCandidateId };
-
-            _logger.LogInformation("Upload e criação concluídos. ID={ID}.", candidate.JobCandidateId);
-            AddLog($"Upload e criação concluídos. ID={candidate.JobCandidateId}.");
-            await _db.SaveChangesAsync(ct);
-
-            return CreatedAtAction(nameof(Get), new { id = candidate.JobCandidateId }, result);
         }
 
         // -----------------------
@@ -310,22 +361,20 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             try
             {
-                var jobcandidate = await _db.JobCandidates.FirstOrDefaultAsync(c => c.JobCandidateId == id, ct);
+                // 1) Obter candidato via helper
+                var jobCandidate = await GetJobCandidateByIdAsync(id, ct);
+                if (jobCandidate is null)
+                    return await HandleJobCandidateNotFoundAsync(id, ct);
 
-                if (jobcandidate is null)
-                {
-                    _logger.LogWarning("JobCandidate não encontrado para ID={Id}.", id);
-                    AddLog($"JobCandidate não encontrado para ID={id}.");
-                    await _db.SaveChangesAsync(ct);
-                    return NotFound();
-                }
-
+                // 2) Log de encontrado
                 _logger.LogInformation("JobCandidate encontrado para ID={Id}. A eliminar…", id);
                 AddLog($"JobCandidate encontrado para ID={id}. A eliminar…");
 
-                _db.JobCandidates.Remove(jobcandidate);
+                // 3) Remover e gravar
+                _db.JobCandidates.Remove(jobCandidate);
                 await _db.SaveChangesAsync(ct);
 
+                // 4) Log de sucesso
                 _logger.LogInformation("JobCandidate eliminado com sucesso. ID={Id}.", id);
                 AddLog($"JobCandidate eliminado com sucesso. ID={id}.");
                 await _db.SaveChangesAsync(ct);
@@ -334,26 +383,26 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (DbUpdateException dbEx)
             {
-                _logger.LogError(dbEx, "Erro ao eliminar JobCandidate com ID={Id}.", id);
-                AddLog($"Erro ao eliminar JobCandidate com ID={id}.");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(
-                    title: "Erro ao eliminar",
-                    detail: "Erro ao eliminar o candidato.",
-                    statusCode: StatusCodes.Status500InternalServerError);
+                return await HandleJobCandidateDeleteDbErrorAsync(dbEx, id, ct);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro inesperado ao eliminar JobCandidate com ID={Id}.", id);
-                AddLog($"Erro inesperado ao eliminar JobCandidate com ID={id}.");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(
-                    title: "Erro ao eliminar",
-                    detail: "Ocorreu um erro ao eliminar o candidato.",
-                    statusCode: StatusCodes.Status500InternalServerError);
+                return await HandleUnexpectedJobCandidateErrorAsync(ex, ct);
             }
+        }
+        private async Task<IActionResult> HandleJobCandidateDeleteDbErrorAsync(
+            DbUpdateException dbEx,
+            int id,
+            CancellationToken ct)
+        {
+            _logger.LogError(dbEx, "Erro ao eliminar JobCandidate com ID={Id}.", id);
+            AddLog($"Erro ao eliminar JobCandidate com ID={id}.");
+            await _db.SaveChangesAsync(ct);
+
+            return Problem(
+                title: "Erro ao eliminar",
+                detail: "Erro ao eliminar o candidato.",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 }

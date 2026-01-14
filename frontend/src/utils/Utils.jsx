@@ -66,3 +66,18 @@ export function getNomeCompleto(f) {
 export function isCurrent(f) {
   return f?.currentFlag === true;
 }
+
+export function mapPayHistories(payHistories) {
+  return (payHistories ?? [])
+    .slice()
+    .sort((a, b) => new Date(b.rateChangeDate) - new Date(a.rateChangeDate))
+    .map((p, idx) => ({
+      key: `${p.payHistoryId ?? idx}-${p.employeeId}-${p.rateChangeDate ?? idx}`,
+      payHistoryId: p.payHistoryId ?? null,
+      employeeId: p.employeeId ?? null,
+      rateChangeDate: p.rateChangeDate ?? null,
+      rate: p.rate ?? null,
+      payFrequency: p.payFrequency ?? null,
+    }));
+}
+

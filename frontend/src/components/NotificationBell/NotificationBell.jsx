@@ -45,6 +45,9 @@ export default function NotificationBell() {
         case "PROFILE":
           navigate(`/profile/${n.businessEntityID}`);
           break;
+        case "PROFILE_ADMIN":
+          navigate(`/funcionarios`);
+          break;
         case "PAYMENT":
           navigate(`/payhistory`);
           break;
