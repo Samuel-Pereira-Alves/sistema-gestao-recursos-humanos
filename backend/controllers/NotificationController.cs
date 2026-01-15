@@ -141,7 +141,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // POST: api/v1/notification/{role}
         // Cria 1 notificação por utilizador com a role indicada
         [HttpPost("{role}")]
-        [Authorize(Roles = "admin")]
         public async Task<IActionResult> CreateForRole(string role, [FromBody] NotificationDto dto, CancellationToken ct)
         {
             var msgReq = $"Recebida requisição para criar notificações para a role '{role}'.";
