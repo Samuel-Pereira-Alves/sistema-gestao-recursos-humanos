@@ -10,7 +10,7 @@ function formatDate(dateStr) {
   return d.toLocaleDateString("pt-PT");
 }
 
-function normalizarTexto(str) {
+function normalize(str) {
   return (str || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -82,11 +82,11 @@ export default function DepartmentHistoryList() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const termo = normalizarTexto(searchTerm);
+  const termo = normalize(searchTerm);
   const filteredDepartamentos = useMemo(() => {
     return departamentos.filter((d) => {
-      const nome = normalizarTexto(d.name);
-      const grupo = normalizarTexto(d.groupName);
+      const nome = normalize(d.name);
+      const grupo = normalize(d.groupName);
       return nome.includes(termo) || grupo.includes(termo);
     });
   }, [departamentos, termo]);
