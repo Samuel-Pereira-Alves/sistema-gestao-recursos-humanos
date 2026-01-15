@@ -63,8 +63,8 @@ export default function Candidatos() {
   // Abrir PDF numa nova aba
   const downloadCvPdf = (id) => {
     openPdf(id);
-  };  
-  
+  };
+    
   const aprovarCandidato = async (id, nome) => {
     try {
       setIsLoading(true);
@@ -75,7 +75,7 @@ export default function Candidatos() {
       addNotification(
         `O candidato ${nome} foi aprovado como funcionário.`,
         "admin",
-        { type: "EMPLOYEES" }
+        { type: "CANDIDATE" }
       );
     } catch (err) {
       console.error(err);
@@ -112,6 +112,7 @@ export default function Candidatos() {
   
   //enviar email
   async function sendEmail(email, condition) {
+
     var frase = condition === false
       ? "Infelizmente, a sua candidatura não foi aprovada nesta fase do processo. Agradecemos o seu interesse e o tempo dedicado à candidatura. Continuaremos a considerar o seu perfil para futuras oportunidades compatíveis."
       : "Parabéns! A sua candidatura foi aprovada nesta fase do processo. Em breve entraremos em contacto para lhe fornecer mais detalhes sobre os próximos passos. Obrigado pelo seu interesse e confiança.";
@@ -135,7 +136,6 @@ export default function Candidatos() {
       }
     }
   }
-  
   return (
     <div className="container mt-4">
       <BackButton />

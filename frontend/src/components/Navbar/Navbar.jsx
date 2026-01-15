@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import NotificationBell from "../NotificationBell/NotificationBell";
 import axios from 'axios';
+import { getEmployee } from "../../Service/employeeService";
 
 function Navbar() {
   const [open, setOpen] = useState(false);
@@ -11,15 +12,6 @@ function Navbar() {
   const businessEntityId = localStorage.getItem("businessEntityId");
   const isLoggedIn = Boolean(businessEntityId);
 
-  const [userName, setUserName] = useState(() => {
-    const stored =
-      localStorage.getItem("userName") ||
-      [localStorage.getItem("firstName"), localStorage.getItem("lastName")]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
-    return stored || "Utilizador";
-  });
   const [loadingName, setLoadingName] = useState(false);
 
   useEffect(() => {
@@ -29,21 +21,12 @@ function Navbar() {
       try {
         const token = localStorage.getItem("authToken");
         setLoadingName(true);
-        const res = await fetch(`http://localhost:5136/api/v1/employee/${businessEntityId}`, {
-          method: "GET", 
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (!res.ok) throw new Error(`Falha ao obter utilizador (HTTP ${res.status})`);
-        const data = await res.json();
+        const data = await getEmployee(businessEntityId, token);
         const first = data?.person?.firstName || "";
         const middle = data?.person?.middleName || "";
         const last = data?.person?.lastName || "";
         const full = [first, middle, last].filter(Boolean).join(" ").trim() || "Utilizador";
         if (!cancelled) {
-          setUserName(full);
           localStorage.setItem("userName", full);
           if (first) localStorage.setItem("firstName", first);
           if (last) localStorage.setItem("lastName", last);
@@ -64,12 +47,10 @@ function Navbar() {
     window.location.href = "/";
   };
 
-
   const first = localStorage.getItem("firstName") || "";
   const last = localStorage.getItem("lastName") || "";
 
   const initials = `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || "U";
-
 
   useEffect(() => {
     function handleClickOutside(e) {

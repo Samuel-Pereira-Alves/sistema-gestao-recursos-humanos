@@ -3,39 +3,10 @@ import { addNotificationForUser } from "../../utils/notificationBus";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
-import { formatDate,normalize, idToString, dateInputToIsoMidnight } from "../../utils/Utils";
-import Navbar from "../../components/Navbar/Navbar";
-
-const getBusinessEntityID = (h) =>
-  h?.businessEntityID ??
-  h?.BusinessEntityID ??
-  h?.employee?.businessEntityID ??
-  "";
-
-const getDepartmentID = (h) =>
-  h?.departmentID ??
-  h?.DepartmentID ??
-  h?.department?.departmentID ??
-  h?.department?.DepartmentID ??
-  "";
-
-const getShiftID = (h) =>
-  h?.shiftID ?? h?.ShiftID ?? h?.shift?.shiftID ?? h?.shift?.ShiftID ?? "";
-const getStartDate = (h) => h?.startDate ?? h?.StartDate ?? "";
-const getEndDate = (h) => h?.endDate ?? h?.EndDate ?? "";
-const getDepartmentName = (h) =>
-  h?.department?.name ??
-  h?.department?.Name ??
-  h?.departmentName ??
-  h?.DepartmentName ??
-  "—";
-
-const getGroupName = (h) =>
-  h?.department?.groupName ??
-  h?.department?.GroupName ??
-  h?.groupName ??
-  h?.GroupName ??
-  "—";
+import {buildDerivedDepartments, formatDate, normalize, idToString, dateInputToIsoMidnight, getBusinessEntityID, getDepartmentID, getShiftID, getStartDate, getEndDate, getDepartmentName, getGroupName, formatDateForRoute } from "../../utils/Utils";
+import { getEmployees } from "../../Service/employeeService";
+import AssignmentModal from "../../components/AssignmentForm/AssignmentModal";
+import { createDepartmentHistory, deleteDepHistory, patchDepartmentHistory } from "../../Service/departmentHistoryService";
 
 const SHIFT_LABELS = { 1: "Manhã", 2: "Tarde", 3: "Noite" };
 const resolveShiftLabel = (id) => SHIFT_LABELS[Number(id)] ?? "—";
@@ -48,21 +19,15 @@ export default function Movimentos() {
   const [departments, setDepartments] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  
+
   const itemsPerPage = 5;
 
   const fetchEmployees = async () => {
     try {
       const token = localStorage.getItem("authToken")
-      const response = await fetch("http://localhost:5136/api/v1/employee", {
-        headers: {
-          Accept: "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-      })
+      const data = await getEmployees(token);
       const idStr = localStorage.getItem("businessEntityId");
       const id = Number(idStr)
-      const data = await response.json()
 
       const employeesExceptActual = data
         .filter(e => e.businessEntityID !== id)
@@ -84,17 +49,8 @@ export default function Movimentos() {
       setLoading(true);
       setFetchError(null);
 
-      const response = await fetch("http://localhost:5136/api/v1/employee", {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok)
-        throw new Error("Erro ao carregar colaboradores/departamentos");
+      const data = await getEmployees(token)
 
-      const data = await response.json();
       const employees = Array.isArray(data) ? data : data?.items ?? [];
 
       const flattened = employees.flatMap((emp) =>
@@ -210,58 +166,32 @@ export default function Movimentos() {
     });
   };
 
-  function formatDateForRoute(input) {
-    const d = (input instanceof Date) ? input : new Date(input);
+const openDelete = async (h) => {
+  try {
+    const ok = window.confirm("Tem a certeza que deseja apagar este registo?");
+    if (!ok) return;
 
-    if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
-      throw new Error("StartDate inválida. Use uma data existente (ex.: 2020-02-29).");
-    }
+    const beid = getBusinessEntityID(h);
+    const depId = getDepartmentID(h);
+    const shId  = getShiftID(h);
+    const start = getStartDate(h);              
+    const formattedDate = formatDateForRoute(start);
 
-    const pad = (n) => String(n).padStart(2, "0");
+    const token = localStorage.getItem("authToken");
+    await deleteDepHistory(token, beid, depId, shId, formattedDate);
 
-    const year = d.getFullYear();
-    const month = pad(d.getMonth() + 1);
-    const day = pad(d.getDate());
-    const hours = pad(d.getHours());
-    const minutes = pad(d.getMinutes());
-    const seconds = pad(d.getSeconds());
+    await fetchData();
 
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+    addNotificationForUser(
+      "Foi eliminado um movimento de departamentos no seu perfil.",
+      beid,
+      { type: "DEPARTMENT" }
+    );
+  } catch (e) {
+    console.error("[openDelete] error:", e);
+    alert(e.message || "Erro ao apagar registo.");
   }
-
-  const openDelete = async (h) => {
-    try {
-      const ok = window.confirm('Tem a certeza que deseja apagar este registo?');
-      if (!ok) return;
-
-      const beid = getBusinessEntityID(h);
-      const depId = getDepartmentID(h);
-      const shId = getShiftID(h);
-      const date = getStartDate(h);
-      const formatDate = formatDateForRoute(date);
-
-      const token = localStorage.getItem("authToken");
-      const url =
-        `http://localhost:5136/api/v1/departmenthistory/${beid}/${depId}/${shId}/${formatDate}`;
-
-      const resp = await fetch(url, {
-        method: "DELETE",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        throw new Error(text || `Falha ao apagar registo (HTTP ${resp.status}).`);
-      }
-      await fetchData();
-      addNotificationForUser("Foi eliminado um movimento de departamentos no seu perfil.", beid, {type: "DEPARTMENT"});
-    } catch (e) {
-      window.alert("Erro", e.message || "Erro ao apagar registo.", "error");
-    }
-  };
+};
 
   const openEdit = (h) => {
     const beid = getBusinessEntityID(h);
@@ -317,20 +247,8 @@ export default function Movimentos() {
           endDate: form.endDate ? dateInputToIsoMidnight(form.endDate) : null,
         };
 
-        const token = localStorage.getItem("authToken");
-
-        const resp = await fetch(`http://localhost:5136/api/v1/departmenthistory`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(body),
-        });
-        if (!resp.ok)
-          throw new Error((await resp.text()) || "Falha ao criar registo.");
-         addNotificationForUser("Foi criado um registo de movimentos para o seu perfil.", businessEntityID, {type: "DEPARTMENT"} );
+        await createDepartmentHistory(body);
+        addNotificationForUser("Foi criado um registo de movimentos para o seu perfil.", businessEntityID, { type: "DEPARTMENT" });
       } else {
         const { businessEntityID, departmentID, shiftID, startDate } = keys;
         if (!businessEntityID || !departmentID || !shiftID || !startDate)
@@ -340,25 +258,9 @@ export default function Movimentos() {
           endDate: form.endDate ? form.endDate : null,
         };
 
-        const token = localStorage.getItem("authToken");
-        const resp = await fetch(`http://localhost:5136/api/v1/departmenthistory/${businessEntityID}/${departmentID}/${shiftID}/${startDate}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(patchBody),
-          }
-        );
-        if (!resp.ok)
-          throw new Error((await resp.text()) || "Falha ao editar registo.");
-
-         addNotificationForUser("O seu registo de Movimentos de Departamentos foi atualizado pelo RH.", keys.businessEntityID, {type: "DEPARTMENT"} );
+        await patchDepartmentHistory(businessEntityID, departmentID, shiftID, startDate, patchBody)
+        addNotificationForUser("O seu registo de Movimentos de Departamentos foi atualizado pelo RH.", keys.businessEntityID, { type: "DEPARTMENT" });
       }
-
-     
 
       await fetchData();
       closeAction();
@@ -368,36 +270,6 @@ export default function Movimentos() {
       setAction((s) => ({ ...s, loading: false }));
     }
   };
-
-  function buildDerivedDepartments(list) {
-    const map = new Map();
-    list.forEach((h) => {
-      const id = getDepartmentID(h);
-      const name = getDepartmentName(h);
-      if (id) {
-        const key = String(id);
-        if (!map.has(key)) {
-          map.set(key, { departmentID: key, name });
-        } else {
-          const existing = map.get(key);
-          if (
-            (!existing.name || existing.name === "—") &&
-            name &&
-            name !== "—"
-          ) {
-            map.set(key, { departmentID: key, name });
-          }
-        }
-      }
-    });
-    const derived = Array.from(map.values());
-    derived.sort((a, b) =>
-      String(a.name).localeCompare(String(b.name), "pt-PT", {
-        sensitivity: "base",
-      })
-    );
-    return derived;
-  }
 
   const resolveDepartmentName = (id) => {
     const dep = departments.find((d) => String(d.departmentID) === String(id));
@@ -427,12 +299,12 @@ export default function Movimentos() {
             </div>
           ) : (
             <input
-            type="text"
-            className="form-control"
-            placeholder="Procurar por ID, colaborador, departamento, grupo ou data..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            aria-label="Pesquisar histórico de departamentos"
+              type="text"
+              className="form-control"
+              placeholder="Procurar por ID, colaborador, departamento, grupo ou data..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Pesquisar histórico de departamentos"
             />
           )}
         </div>
@@ -469,11 +341,11 @@ export default function Movimentos() {
                       const groupName = getGroupName(h);
                       const start = getStartDate(h);
                       const end = getEndDate(h);
-                      
+
                       const key = `${getBusinessEntityID(h)}|${getDepartmentID(
                         h
                       )}|${getShiftID(h)}|${start}`;
-                      
+
                       return (
                         <tr key={key}>
                           <td className="px-4 py-3">
@@ -496,14 +368,14 @@ export default function Movimentos() {
                                 className="btn btn-outline-primary"
                                 onClick={() => openEdit(h)}
                                 disabled={localStorage.getItem("businessEntityId") == employee.businessEntityID}
-                                >
+                              >
                                 Editar
                               </button>
                               <button
                                 disabled={localStorage.getItem("businessEntityId") == employee.businessEntityID}
                                 className="btn btn-outline-danger"
                                 onClick={() => openDelete(h)}
-                                >
+                              >
                                 Eliminar
                               </button>
                             </div>
@@ -525,7 +397,7 @@ export default function Movimentos() {
                   const key = `${getBusinessEntityID(h)}|${getDepartmentID(
                     h
                   )}|${getShiftID(h)}|${start}`;
-                  
+
                   return (
                     <div key={key} className="border-bottom p-3">
                       <h6 className="mb-1">
@@ -578,12 +450,12 @@ export default function Movimentos() {
               )}
 
               {/* Pagination */}
-               <Pagination
-                                currentPage={currentPage}
-                                totalPages={totalPages}
-                                setPage={setCurrentPage}
-                                />
-              
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                setPage={setCurrentPage}
+              />
+
             </>
           )}
         </div>
@@ -593,244 +465,18 @@ export default function Movimentos() {
         <div className="alert alert-danger mt-3">{fetchError}</div>
       )}
 
-      {/* Modal Create/Edit */}
-      {action.open && (
-        <div
-        className="modal fade show d-block"
-        tabIndex="-1"
-        role="dialog"
-        style={{ background: "rgba(0,0,0,0.5)" }}
-          aria-modal="true"
-        >
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  {action.mode === "create"
-                    ? "Criar novo registo"
-                    : "Editar registo"}
-                </h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={closeAction}
-                  aria-label="Fechar"
-                />
-              </div>
-              <div className="modal-body">
-                {action.error && (
-                  <div className="alert alert-danger">{action.error}</div>
-                )}
-
-                <div className="row g-3">
-                  {action.mode === "create" ? (
-                    <>
-                      <div className="col-6">
-                        <label className="form-label">Funcionário</label>
-
-                        <select
-                          className="form-select"
-                          value={action.form.businessEntityID ?? ""} 
-                          onChange={(e) =>
-                            setAction((s) => ({
-                              ...s,
-                              form: { ...s.form, businessEntityID: e.target.value },
-                            }))
-                          }
-                          >
-
-
-                          {employees.map((emp) => {
-                            const id = emp.businessEntityID ?? emp.id; 
-                            const first = emp.person?.firstName ?? "";
-                            const middle = emp.person?.middleName ?? "";
-                            const last = emp.person?.lastName ?? "";
-                            const fullName = [first, middle, last].filter(Boolean).join(" ") || "Sem nome";
-
-                            return (
-                              <option key={id} value={id}>
-                                {fullName} {emp.jobTitle ? `— ${emp.jobTitle}` : ""}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-
-                      <div className="col-6">
-                        <label className="form-label">Departamento</label>
-                        <select
-                          className="form-select"
-                          value={action.form.departmentID}
-                          onChange={(e) =>
-                            setAction((s) => ({
-                              ...s,
-                              form: { ...s.form, departmentID: e.target.value },
-                            }))
-                          }
-                        >
-                          <option value="">— Seleciona departamento —</option>
-                          {departments.map((d) => (
-                            <option
-                            key={String(d.departmentID)}
-                            value={String(d.departmentID)}
-                            >
-                              {d.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="col-6">
-                        <label className="form-label">Turno</label>
-                        <select
-                          className="form-select"
-                          value={action.form.shiftID}
-                          onChange={(e) =>
-                            setAction((s) => ({
-                              ...s,
-                              form: { ...s.form, shiftID: e.target.value },
-                            }))
-                          }
-                        >
-                          <option value="">— Seleciona turno —</option>
-                          <option value="1">Manhã</option>
-                          <option value="2">Tarde</option>
-                          <option value="3">Noite</option>
-                        </select>
-                      </div>
-
-                      <div className="col-6">
-                        <label className="form-label">Data Início</label>
-                        <input
-                          type="date"
-                          className="form-control"
-                          value={action.form.startDate}
-                          onChange={(e) =>
-                            setAction((s) => ({
-                              ...s,
-                              form: { ...s.form, startDate: e.target.value },
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div className="col-6">
-                        <label className="form-label">
-                          Data Fim (opcional)
-                        </label>
-                        <input
-                          type="date"
-                          className="form-control"
-                          value={action.form.endDate}
-                          onChange={(e) =>
-                            setAction((s) => ({
-                              ...s,
-                              form: { ...s.form, endDate: e.target.value },
-                            }))
-                          }
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="col-6">
-                        <label className="form-label">BusinessEntityID</label>
-                        <input
-                          className="form-control"
-                          value={action.keys.businessEntityID}
-                          disabled
-                          readOnly
-                          />
-                      </div>
-
-                      <div className="col-6">
-                        <label className="form-label">Departamento</label>
-                        <input
-                          className="form-control"
-                          value={resolveDepartmentName(
-                            action.keys.departmentID
-                          )}
-                          disabled
-                          readOnly
-                          />
-                      </div>
-
-                      <div className="col-6">
-                        <label className="form-label">Turno</label>
-                        <input
-                          className="form-control"
-                          value={resolveShiftLabel(action.keys.shiftID)}
-                          disabled
-                          readOnly
-                          />
-                      </div>
-
-                      <div className="col-6">
-                        <label className="form-label">
-                          Data Início
-                        </label>
-                        <input
-                          className="form-control"
-                          value={formatDate(action.keys.startDate)}
-                          disabled
-                          readOnly
-                        />
-                      </div>
-
-                      <div className="col-6">
-                        <label className="form-label">Data Fim</label>
-                        <input
-                          type="date"
-                          className="form-control"
-                          value={
-                            action.form.endDate
-                            ? action.form.endDate.substring(0, 10)
-                            : ""
-                          }
-                          onChange={(e) =>
-                            setAction((s) => ({
-                              ...s,
-                              form: {
-                                ...s.form,
-                                endDate: dateInputToIsoMidnight(e.target.value),
-                              },
-                            }))
-                          }
-                          />
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button
-                  className="btn btn-outline-secondary"
-                  onClick={closeAction}
-                  >
-                  Cancelar
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={submitAction}
-                  disabled={
-                    action.loading ||
-                    (action.mode === "create" &&
-                      (!action.form.departmentID || !action.form.shiftID))
-                    }
-                >
-                  {action.loading
-                    ? action.mode === "create"
-                      ? "A criar..."
-                      : "A guardar..."
-                    : action.mode === "create"
-                      ? "Criar registo"
-                      : "Guardar alterações"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <AssignmentModal
+        action={action}
+        setAction={setAction}
+        closeAction={closeAction}
+        submitAction={submitAction}
+        employees={employees}
+        departments={departments}
+        resolveDepartmentName={resolveDepartmentName}
+        resolveShiftLabel={resolveShiftLabel}
+        formatDate={formatDate}
+        dateInputToIsoMidnight={dateInputToIsoMidnight}
+      />
     </div>
   );
 }

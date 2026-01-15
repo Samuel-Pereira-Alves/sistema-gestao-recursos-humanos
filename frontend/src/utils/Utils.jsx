@@ -132,3 +132,84 @@ export function dateInputToIsoMidnight(dateStr) {
   if (!dateStr) return "";
   return `${dateStr}T00:00:00`;
 }
+
+export const getBusinessEntityID = (h) =>
+  h?.businessEntityID ??
+  h?.BusinessEntityID ??
+  h?.employee?.businessEntityID ??
+  "";
+
+export const getDepartmentID = (h) =>
+  h?.departmentID ??
+  h?.DepartmentID ??
+  h?.department?.departmentID ??
+  h?.department?.DepartmentID ??
+  "";
+
+export const getShiftID = (h) =>
+  h?.shiftID ?? h?.ShiftID ?? h?.shift?.shiftID ?? h?.shift?.ShiftID ?? "";
+export const getStartDate = (h) => h?.startDate ?? h?.StartDate ?? "";
+export const getEndDate = (h) => h?.endDate ?? h?.EndDate ?? "";
+export const getDepartmentName = (h) =>
+  h?.department?.name ??
+  h?.department?.Name ??
+  h?.departmentName ??
+  h?.DepartmentName ??
+  "—";
+
+export const getGroupName = (h) =>
+  h?.department?.groupName ??
+  h?.department?.GroupName ??
+  h?.groupName ??
+  h?.GroupName ??
+  "—";
+
+
+  export function formatDateForRoute(input) {
+    const d = (input instanceof Date) ? input : new Date(input);
+
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
+      throw new Error("StartDate inválida. Use uma data existente (ex.: 2020-02-29).");
+    }
+
+    const pad = (n) => String(n).padStart(2, "0");
+
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    const seconds = pad(d.getSeconds());
+
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  }
+
+  export function buildDerivedDepartments(list) {
+      const map = new Map();
+      list.forEach((h) => {
+        const id = getDepartmentID(h);
+        const name = getDepartmentName(h);
+        if (id) {
+          const key = String(id);
+          if (!map.has(key)) {
+            map.set(key, { departmentID: key, name });
+          } else {
+            const existing = map.get(key);
+            if (
+              (!existing.name || existing.name === "—") &&
+              name &&
+              name !== "—"
+            ) {
+              map.set(key, { departmentID: key, name });
+            }
+          }
+        }
+      });
+      const derived = Array.from(map.values());
+      derived.sort((a, b) =>
+        String(a.name).localeCompare(String(b.name), "pt-PT", {
+          sensitivity: "base",
+        })
+      );
+      return derived;
+    }

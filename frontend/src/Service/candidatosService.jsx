@@ -130,3 +130,29 @@ export async function deleteCandidate(id) {
     throw new Error(`Falha ao eliminar (HTTP ${res.status}).${details}`);
   }
 }
+
+export async function sendEmailFeedback(condition, email){
+
+    var frase = condition === false
+    ? "Infelizmente, a sua candidatura não foi aprovada nesta fase do processo. Agradecemos o seu interesse e o tempo dedicado à candidatura. Continuaremos a considerar o seu perfil para futuras oportunidades compatíveis."
+    : "Parabéns! A sua candidatura foi aprovada nesta fase do processo. Em breve entraremos em contacto para lhe fornecer mais detalhes sobre os próximos passos. Obrigado pelo seu interesse e confiança.";
+    
+    console.log(email)
+    try {
+        
+        await axios.post(`${API_BASE}/email/send`, {
+            to: email,
+            subject: 'Feedback Candidatura',
+            text: frase
+        }, {
+            headers: { "Content-Type": "application/json" }
+        }
+    );
+} catch (e) {
+    if (e.response) {
+        console.error('Erro API:', e.response.data);
+    } else {
+        console.error('Erro rede/CORS:', e.message);
+    }
+}
+}
