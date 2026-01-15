@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
+using sistema_gestao_recursos_humanos.backend.services;
 
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
@@ -15,22 +16,20 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private readonly AdventureWorksContext _db;
         private readonly IMapper _mapper;
         private readonly ILogger<NotificationController> _logger;
+        private readonly IAppLogService _appLog;
 
-
-        public NotificationController(AdventureWorksContext db, IMapper mapper, ILogger<NotificationController> logger)
+        public NotificationController(AdventureWorksContext db, IMapper mapper, ILogger<NotificationController> logger, IAppLogService appLog)
         {
             _db = db;
             _mapper = mapper;
             _logger = logger;
+            _appLog = appLog;
         }
-
-        private void AddLog(string message) =>
-                    _db.Logs.Add(new Log { Message = message, Date = DateTime.UtcNow });
 
         private async Task<ActionResult> HandleUnexpectedNotificationErrorAsync(Exception ex, CancellationToken ct)
         {
             _logger.LogError(ex, "Erro inesperado em Notification");
-            AddLog("Erro inesperado em Notification");
+            await _appLog.ErrorAsync("Erro inesperado em Notification", ex);
             await _db.SaveChangesAsync(ct);
             return Problem(
                 title: "Erro ao processar Notification",
@@ -41,7 +40,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<ActionResult> HandleDatabaseWriteErrorAsync(DbUpdateException dbEx, string titulo, string detalhe, CancellationToken ct)
         {
             _logger.LogError(dbEx, titulo);
-            AddLog($"{titulo}: {dbEx.Message}");
+            await _appLog.ErrorAsync($"{titulo}: {dbEx.Message}", dbEx);
             await _db.SaveChangesAsync(ct);
             return Problem(
                 title: titulo,
@@ -56,7 +55,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<IActionResult> Create([FromBody] NotificationDto dto, CancellationToken ct)
         {
             _logger.LogInformation("Recebido pedido para criar Notificação.");
-            AddLog("Recebido pedido para criar Notificação.");
+            await _appLog.InfoAsync("Recebido pedido para criar Notificação.");
             await _db.SaveChangesAsync(ct);
 
             var validation = await ValidateCreateDtoAsync(dto, ct);
@@ -68,7 +67,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 _logger.LogInformation("Notification criada com sucesso. ID={Id}, BEID={BEID}.",
                     notification.ID, notification.BusinessEntityID);
-                AddLog($"Notification criada com sucesso. ID={notification.ID}, BEID={notification.BusinessEntityID}.");
+                await _appLog.InfoAsync($"Notification criada com sucesso. ID={notification.ID}, BEID={notification.BusinessEntityID}.");
                 await _db.SaveChangesAsync(ct);
 
                 return CreatedAtAction(
@@ -95,7 +94,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 const string msg = "Body não enviado no pedido.";
                 _logger.LogWarning(msg);
-                AddLog(msg);
+                await _appLog.WarnAsync(msg);
                 await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Body é obrigatório" });
             }
@@ -104,7 +103,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 const string msg = "Mensagem inválida (vazia ou nula).";
                 _logger.LogWarning(msg);
-                AddLog(msg);
+                await _appLog.WarnAsync(msg);
                 await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Message é obrigatório" });
             }
@@ -113,7 +112,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 var msg = $"BusinessEntityID inválido: {dto.BusinessEntityID}.";
                 _logger.LogWarning(msg);
-                AddLog(msg);
+                await _appLog.WarnAsync(msg);
                 await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "BusinessEntityID deve ser um inteiro positivo" });
             }
@@ -121,11 +120,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var exists = await _db.Employees.AnyAsync(e => e.BusinessEntityID == dto.BusinessEntityID, ct);
             if (!exists)
             {
-                AddLog($"Employee não encontrado. BEID={dto.BusinessEntityID}");
+                await _appLog.ErrorAsync($"Employee não encontrado. BEID={dto.BusinessEntityID}");
                 await _db.SaveChangesAsync(ct);
                 return NotFound(new { message = "Employee não encontrado", businessEntityId = dto.BusinessEntityID });
             }
-
             return null;
         }
 
@@ -145,14 +143,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             var msgReq = $"Recebida requisição para criar notificações para a role '{role}'.";
             _logger.LogInformation(msgReq);
-            AddLog(msgReq);
+            await _appLog.InfoAsync(msgReq);
             await _db.SaveChangesAsync(ct);
 
             if (string.IsNullOrWhiteSpace(role))
             {
                 const string msg = "Role ausente ou inválida.";
                 _logger.LogWarning(msg);
-                AddLog(msg);
+                await _appLog.WarnAsync(msg);
                 await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Role é obrigatória" });
             }
@@ -161,7 +159,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 const string msg = "Body/Mensagem inválidos.";
                 _logger.LogWarning(msg);
-                AddLog(msg);
+                await _appLog.WarnAsync(msg);
                 await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Body e Message são obrigatórios" });
             }
@@ -179,13 +177,13 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 {
                     var msg = $"Nenhum utilizador encontrado para a role '{role}'.";
                     _logger.LogWarning(msg);
-                    AddLog(msg);
+                    await _appLog.WarnAsync(msg);
                     await _db.SaveChangesAsync(ct);
                     return NotFound(new { message = $"No users found for role '{role}'" });
                 }
 
                 _logger.LogInformation("Encontrados {Count} utilizadores para a role '{Role}'.", users.Count, role);
-                AddLog($"Encontrados {users.Count} utilizadores para a role '{role}'");
+                await _appLog.InfoAsync($"Encontrados {users.Count} utilizadores para a role '{role}'");
                 await _db.SaveChangesAsync(ct);
 
                 var now = DateTime.UtcNow;
@@ -201,7 +199,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 await _db.SaveChangesAsync(ct);
 
                 _logger.LogInformation("Criadas {Count} notificações para a role '{Role}'.", notifs.Count, role);
-                AddLog($"Criadas {notifs.Count} notificações para a role '{role}'");
+                await _appLog.InfoAsync($"Criadas {notifs.Count} notificações para a role '{role}'");
                 await _db.SaveChangesAsync(ct);
 
                 var createdDtos = _mapper.Map<List<NotificationDto>>(notifs);
@@ -229,14 +227,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             var msgReq = $"Recebida requisição para obter notificações para BusinessEntityID={businessEntityId}.";
             _logger.LogInformation(msgReq);
-            AddLog(msgReq);
+            await _appLog.InfoAsync(msgReq);
             await _db.SaveChangesAsync(ct);
 
             if (businessEntityId <= 0)
             {
                 var msg = $"BusinessEntityID inválido: {businessEntityId}.";
                 _logger.LogWarning(msg);
-                AddLog(msg);
+                await _appLog.InfoAsync(msg);
                 await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "BusinessEntityID deve ser inteiro positivo" });
             }
@@ -251,7 +249,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 var info = $"Encontradas {notifications.Count} notificações para BEID={businessEntityId}.";
                 _logger.LogInformation(info);
-                AddLog(info);
+                await _appLog.InfoAsync(info);
                 await _db.SaveChangesAsync(ct);
 
                 var dto = _mapper.Map<List<NotificationDto>>(notifications);
@@ -271,7 +269,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             var msgReq = $"Recebida requisição para obter Notification com ID={id}.";
             _logger.LogInformation(msgReq);
-            AddLog(msgReq);
+            await _appLog.InfoAsync(msgReq);
             await _db.SaveChangesAsync(ct);
 
             try
@@ -284,12 +282,12 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 {
                     var msg = $"Notification não encontrada para ID={id}.";
                     _logger.LogWarning(msg);
-                    AddLog(msg);
+                    await _appLog.WarnAsync(msg);
                     await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
-                AddLog($"Notification encontrada para ID={id}.");
+                await _appLog.InfoAsync($"Notification encontrada para ID={id}.");
                 await _db.SaveChangesAsync(ct);
 
                 return Ok(_mapper.Map<NotificationDto>(notification));
@@ -308,14 +306,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             var msgReq = $"Recebida requisição para eliminar notificações para BusinessEntityID={businessEntityId}.";
             _logger.LogInformation(msgReq);
-            AddLog(msgReq);
+            await _appLog.InfoAsync(msgReq);
             await _db.SaveChangesAsync(ct);
 
             if (businessEntityId <= 0)
             {
                 var msg = $"BusinessEntityID inválido: {businessEntityId}.";
                 _logger.LogWarning(msg);
-                AddLog(msg);
+                await _appLog.WarnAsync(msg);
                 await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "BusinessEntityID deve ser inteiro positivo" });
             }
@@ -330,7 +328,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 {
                     var msg = $"Nenhuma Notification encontrada para BEID={businessEntityId}.";
                     _logger.LogWarning(msg);
-                    AddLog(msg);
+                    await _appLog.WarnAsync(msg);
                     await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
@@ -338,7 +336,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 _db.Notifications.RemoveRange(notifications);
                 await _db.SaveChangesAsync(ct);
 
-                AddLog($"Notificações eliminadas com sucesso para BEID={businessEntityId}.");
+                await _appLog.InfoAsync($"Notificações eliminadas com sucesso para BEID={businessEntityId}.");
                 await _db.SaveChangesAsync(ct);
 
                 return NoContent();
@@ -365,7 +363,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             var msgReq = $"Recebida requisição para eliminar Notification com ID={id}.";
             _logger.LogInformation(msgReq);
-            AddLog(msgReq);
+            await _appLog.InfoAsync(msgReq);
             await _db.SaveChangesAsync(ct);
 
             try
@@ -375,7 +373,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 {
                     var msg = $"Notification não encontrada para ID={id}.";
                     _logger.LogWarning(msg);
-                    AddLog(msg);
+                    await _appLog.WarnAsync(msg);
                     await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
@@ -383,7 +381,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 _db.Notifications.Remove(notification);
                 await _db.SaveChangesAsync(ct);
 
-                AddLog($"Notification eliminada com sucesso para ID={id}.");
+                await _appLog.InfoAsync($"Notification eliminada com sucesso para ID={id}.");
                 await _db.SaveChangesAsync(ct);
 
                 return NoContent();
