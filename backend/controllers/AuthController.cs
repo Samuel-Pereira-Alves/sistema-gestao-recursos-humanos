@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
+using sistema_gestao_recursos_humanos.backend.services;
 
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
@@ -18,30 +20,29 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private readonly AdventureWorksContext _db;
         private readonly IConfiguration _config;
         private readonly ILogger<AuthController> _logger;
+        private readonly IAppLogService _appLog;
 
         public AuthController(
             AdventureWorksContext db,
             IConfiguration config,
-            ILogger<AuthController> logger)
+            ILogger<AuthController> logger,
+            IAppLogService appLog)
         {
             _db = db;
             _config = config;
             _logger = logger;
+            _appLog = appLog;
         }
-
-        // Small helper to register a message into DB logs (callers decide when to save)
-        private void AddLog(string message) =>
-            _db.Logs.Add(new Log { Message = message, Date = DateTime.UtcNow });
 
         [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] SystemUsersDTO request, CancellationToken ct)
         {
             _logger.LogInformation("Pedido de login recebido.");
-            AddLog("Pedido de login recebido.");
+            await _appLog.InfoAsync("Pedido de login recebido.");
             await _db.SaveChangesAsync(ct);
 
-            var validationError = ValidateLoginRequest(request);
+            var validationError = await ValidateLoginRequest(request);
             if (validationError is not null)
                 return validationError;
 
@@ -72,14 +73,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
         }
 
-        private IActionResult? ValidateLoginRequest(SystemUsersDTO request)
+        private async Task<IActionResult?> ValidateLoginRequest(SystemUsersDTO request)
         {
             if (request is null ||
                 string.IsNullOrWhiteSpace(request.Username) ||
                 string.IsNullOrWhiteSpace(request.Password))
             {
                 _logger.LogWarning("Pedido de login inválido: body nulo ou campos em branco.");
-                AddLog("Pedido de login inválido: body nulo ou campos em branco.");
+                await _appLog.WarnAsync("Pedido de login inválido: body nulo ou campos em branco.");
 
                 return Problem(
                     title: "Pedido inválido",
@@ -100,7 +101,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (user is null || !VerifyPassword(password, user.PasswordHash))
             {
                 _logger.LogWarning("Login falhou para Username={Username}.", username);
-                AddLog($"Login falhou para Username={username}.");
+                await _appLog.WarnAsync($"Login falhou para Username={username}.");
                 await _db.SaveChangesAsync(ct);
                 return false;
             }
@@ -117,13 +118,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             if (employee is null || !employee.CurrentFlag)
             {
-                _logger.LogWarning(
-                    "Login falhou: funcionário inexistente ou inativo. Username={Username}, BusinessEntityID={BEID}.",
+                _logger.LogWarning("Login falhou: funcionário inexistente ou inativo. Username={Username}, BusinessEntityID={BEID}.",
                     username, businessEntityId);
 
-                AddLog(
-                    $"Login falhou: funcionário inexistente ou inativo. Username={username}, BusinessEntityID={businessEntityId}.");
-
+                await _appLog.WarnAsync($"Login falhou: funcionário inexistente ou inativo. Username={username}, BusinessEntityID={businessEntityId}.");
                 await _db.SaveChangesAsync(ct);
                 return false;
             }
@@ -143,7 +141,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 "Login bem-sucedido. Username={Username}, Role={Role}, SystemUserId={SystemUserId}, BusinessEntityID={BEID}",
                 username, user.Role, user.SystemUserId, user.BusinessEntityID);
 
-            AddLog($"Login bem-sucedido. Username={username}, Role={user.Role}, SystemUserId={user.SystemUserId}, BusinessEntityID={user.BusinessEntityID}");
+            await _appLog.InfoAsync($"Login bem-sucedido. Username={username}, Role={user.Role}, SystemUserId={user.SystemUserId}, BusinessEntityID={user.BusinessEntityID}");
 
             await _db.SaveChangesAsync(ct);
         }
@@ -151,7 +149,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<IActionResult> HandleUnexpectedLoginErrorAsync(Exception ex, string username, CancellationToken ct)
         {
             _logger.LogError(ex, "Erro inesperado no login. Username={Username}", username);
-            AddLog($"Erro inesperado no login. Username={username}");
+            await _appLog.ErrorAsync($"Erro inesperado no login. Username={username}", ex);
             await _db.SaveChangesAsync(ct);
 
             return Problem(
