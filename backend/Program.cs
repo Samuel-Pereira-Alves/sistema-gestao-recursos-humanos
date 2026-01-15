@@ -43,6 +43,10 @@ builder.Services
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<sistema_gestao_recursos_humanos.backend.services.IAppLogService,
+                          sistema_gestao_recursos_humanos.backend.services.AppLogService>();
+
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
