@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { useNavigate } from "react-router-dom";
+import { login } from "../../Service/loginService";
 
 function Login() {
   const [username, setUsername] = useState("");
@@ -17,11 +18,7 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5136/api/v1/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+      const response = await login(username, password)
 
       if (!response.ok) {
         setErrorMsg("Credenciais inválidas. Tente novamente.");
