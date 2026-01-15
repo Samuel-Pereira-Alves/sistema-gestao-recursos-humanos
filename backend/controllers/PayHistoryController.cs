@@ -37,9 +37,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             try
             {
-                var history = await _db.PayHistories
-                    .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId && ph.RateChangeDate == rateChangeDate, ct);
-
+                var history = await GetPayHistoryAsync(businessEntityId, rateChangeDate, ct);
                 if (history is null)
                 {
                     _logger.LogWarning("Nenhum registo encontrado para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
@@ -52,12 +50,53 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter PayHistory.");
-                AddLog($"Erro ao obter PayHistory: {ex.Message}");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(title: "Erro ao consultar", detail: "Ocorreu um erro ao obter PayHistory.", statusCode: 500);
+                return await HandleUnexpectedPayHistoryErrorAsync(ex, ct);
             }
+        }
+        private async Task<PayHistory?> GetPayHistoryAsync(
+            int businessEntityId,
+            DateTime rateChangeDate,
+            CancellationToken ct)
+        {
+            return await _db.PayHistories
+                    .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId && 
+                    ph.RateChangeDate == rateChangeDate, ct);
+
+        }
+        private async Task<ActionResult> HandleUnexpectedPayHistoryErrorAsync(Exception ex, CancellationToken ct)
+        {
+            _logger.LogError(ex, "Erro inesperado no PayHistory");
+            AddLog($"Erro inesperado no PayHistory");
+            await _db.SaveChangesAsync(ct);
+
+            return Problem(
+                title: "Erro ao processar o PayHistory",
+                detail: "Ocorreu um erro ao processar o PayHistory.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+
+        private async Task<ActionResult> HandleDatabasePayHistoryErrorAsync(Exception ex, CancellationToken ct)
+        {
+            _logger.LogError(ex, "Erro inesperado a base de dados ao processar PayHistory");
+            AddLog("Erro inesperado a base de dados ao processar PayHistory");
+            await _db.SaveChangesAsync(ct);
+
+            return Problem(
+                title: "Erro inesperado a base de dados ao processar PayHistory",
+                detail: "Erro inesperado a base de dados ao processar PayHistory",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+
+        private async Task<ActionResult> HandleConcurrencyPayHistoryErrorAsync(Exception ex, CancellationToken ct)
+        {
+            _logger.LogError(ex, "Erro de concorrência ao processar PayHistory");
+            AddLog("Erro de concorrência ao processar PayHistory");
+            await _db.SaveChangesAsync(ct);
+
+            return Problem(
+                title: "Erro de concorrência ao processar PayHistory",
+                detail: "Erro de concorrência ao processar PayHistory",
+                statusCode: StatusCodes.Status409Conflict);
         }
 
         // POST: api/v1/payhistory
@@ -90,19 +129,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (DbUpdateException dbEx)
             {
-                _logger.LogError(dbEx, "Erro ao criar PayHistory.");
-                AddLog($"Erro ao criar PayHistory: {dbEx.Message}");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(title: "Erro ao criar", detail: "Erro ao persistir PayHistory.", statusCode: 500);
+                return await HandleDatabasePayHistoryErrorAsync(dbEx, ct);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro inesperado ao criar PayHistory.");
-                AddLog($"Erro inesperado ao criar PayHistory: {ex.Message}");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(title: "Erro inesperado", detail: "Ocorreu um erro ao criar PayHistory.", statusCode: 500);
+                return await HandleUnexpectedPayHistoryErrorAsync(ex, ct);
             }
         }
 
@@ -140,27 +171,15 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (DbUpdateConcurrencyException dbEx)
             {
-                _logger.LogError(dbEx, "Conflito de concorrência ao atualizar PayHistory.");
-                AddLog($"Conflito de concorrência: {dbEx.Message}");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(title: "Conflito de concorrência", detail: "Erro ao atualizar PayHistory.", statusCode: 409);
+                return await HandleConcurrencyPayHistoryErrorAsync(dbEx, ct);
             }
             catch (DbUpdateException dbEx)
             {
-                _logger.LogError(dbEx, "Erro ao atualizar PayHistory.");
-                AddLog($"Erro ao atualizar PayHistory: {dbEx.Message}");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(title: "Erro ao atualizar", detail: "Erro ao persistir alterações.", statusCode: 500);
+                return await HandleDatabasePayHistoryErrorAsync(dbEx, ct);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro inesperado no PATCH de PayHistory.");
-                AddLog($"Erro inesperado no PATCH: {ex.Message}");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(title: "Erro inesperado", detail: "Ocorreu um erro ao atualizar PayHistory.", statusCode: 500);
+                return await HandleUnexpectedPayHistoryErrorAsync(ex, ct);
             }
         }
 
@@ -173,8 +192,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             AddLog("DELETE PayHistory iniciado.");
             await _db.SaveChangesAsync(ct);
 
-            var payhistory = await _db.PayHistories
-                .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId && ph.RateChangeDate == rateChangeDate, ct);
+            var payhistory = await GetPayHistoryAsync(businessEntityId, rateChangeDate, ct);
 
             if (payhistory is null)
                 return NotFound();
@@ -192,27 +210,15 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (DbUpdateConcurrencyException dbEx)
             {
-                _logger.LogError(dbEx, "Conflito de concorrência ao apagar PayHistory.");
-                AddLog($"Conflito ao apagar PayHistory: {dbEx.Message}");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(title: "Conflito de concorrência", detail: "Erro ao apagar PayHistory.", statusCode: 409);
+                return await HandleConcurrencyPayHistoryErrorAsync(dbEx, ct);
             }
             catch (DbUpdateException dbEx)
             {
-                _logger.LogError(dbEx, "Erro ao apagar PayHistory.");
-                AddLog($"Erro ao apagar PayHistory: {dbEx.Message}");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(title: "Erro ao apagar", detail: "Erro ao eliminar PayHistory.", statusCode: 500);
+                return await HandleDatabasePayHistoryErrorAsync(dbEx, ct);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro inesperado no DELETE de PayHistory.");
-                AddLog($"Erro inesperado no DELETE: {ex.Message}");
-                await _db.SaveChangesAsync(ct);
-
-                return Problem(title: "Erro inesperado", detail: "Ocorreu um erro ao eliminar PayHistory.", statusCode: 500);
+                return await HandleUnexpectedPayHistoryErrorAsync(ex, ct);
             }
         }
     }
