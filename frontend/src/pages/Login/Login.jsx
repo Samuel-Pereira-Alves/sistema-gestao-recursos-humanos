@@ -12,37 +12,31 @@ function Login() {
 
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErrorMsg("");
-    setLoading(true);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setErrorMsg("");
+  setLoading(true);
 
-    try {
-      const response = await login(username, password)
+  try {
+    const data = await login(username, password); 
 
-      if (!response.ok) {
-        setErrorMsg("Credenciais inválidas. Tente novamente.");
-        setLoading(false);
-        return;
-      }
+    localStorage.setItem("authToken", data.token);
+    localStorage.setItem("role", data.role);
+    localStorage.setItem("employeeId", data.employeeId);
+    localStorage.setItem("systemUserId", data.systemUserId);
+    localStorage.setItem("businessEntityId", data.businessEntityId);
+    localStorage.setItem("username", username);
 
-      const data = await response.json();
+    navigate("/");
+  } catch (error) {
+    console.error("Erro no login:", error);
+    // Mostra mensagem amigável; podes usar error.message se preferires a do backend
+    setErrorMsg("Credenciais inválidas. Tente novamente.");
+  } finally {
+    setLoading(false);
+  }
+};
 
-      localStorage.setItem("authToken", data.token);
-      localStorage.setItem("role", data.role);
-      localStorage.setItem("employeeId", data.employeeId);
-      localStorage.setItem("systemUserId", data.systemUserId);
-      localStorage.setItem("businessEntityId", data.businessEntityId);
-      localStorage.setItem("username", username);
-
-      navigate("/");
-    } catch (error) {
-      console.error("Erro no login:", error);
-      setErrorMsg("Ocorreu um erro ao conectar ao servidor.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="login-bg d-flex align-items-center justify-content-center min-vh-100">
