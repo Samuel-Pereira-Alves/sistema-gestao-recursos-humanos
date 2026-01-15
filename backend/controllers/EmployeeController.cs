@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
+using sistema_gestao_recursos_humanos.backend.services;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -18,12 +19,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private readonly AdventureWorksContext _db;
         private readonly IMapper _mapper;
         private readonly ILogger<EmployeeController> _logger;
+        private readonly IAppLogService _appLog;
 
-        public EmployeeController(AdventureWorksContext db, IMapper mapper, ILogger<EmployeeController> logger)
+        public EmployeeController(AdventureWorksContext db, IMapper mapper, ILogger<EmployeeController> logger, IAppLogService appLog)
         {
             _db = db;
             _mapper = mapper;
             _logger = logger;
+            _appLog = appLog;
         }
 
         // -----------------------
@@ -39,11 +42,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             return !string.IsNullOrEmpty(tokenBusinessEntityId)
                 && tokenBusinessEntityId == requestedId.ToString();
-        }
-
-        private void AddLog(string message)
-        {
-            _db.Logs.Add(new Log { Message = message, Date = DateTime.UtcNow });
         }
 
         private static string GenerateUsername(Person person)
@@ -93,7 +91,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<ActionResult<List<EmployeeDto>>> GetAll(CancellationToken ct)
         {
             _logger.LogInformation("Recebida requisição para obter todos os Employees (Role=admin).");
-            AddLog("Recebida requisição para obter todos os Employees (Role=admin).");
+            await _appLog.InfoAsync("Recebida requisição para obter todos os Employees (Role=admin).");
 
             try
             {
@@ -102,7 +100,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 // 2) Logs e persistência de log (conforme original)
                 _logger.LogInformation("Encontrados {Count} Employees.", employees.Count);
-                AddLog($"Encontrados {employees.Count} Employees.");
+                await _appLog.InfoAsync($"Encontrados {employees.Count} Employees.");
                 await _db.SaveChangesAsync(ct);
 
                 // 3) Mapear para DTOs e devolver
@@ -140,7 +138,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             // 1) Logging de entrada (mantendo padrão e SaveChanges inicial)
             _logger.LogInformation("Recebida requisição para obter Employee com ID={Id}.", id);
-            AddLog($"Recebida requisição para obter Employee com ID={id}.");
+            await _appLog.InfoAsync($"Recebida requisição para obter Employee com ID={id}.");
             await _db.SaveChangesAsync(ct);
 
             try
@@ -150,14 +148,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 if (employee is null)
                 {
                     _logger.LogWarning("Employee não encontrado para ID={Id}.", id);
-                    AddLog($"Employee não encontrado para ID={id}.");
+                    await _appLog.WarnAsync($"Employee não encontrado para ID={id}.");
                     await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
                 // 3) Log de sucesso (mantendo SaveChanges como no original)
                 _logger.LogInformation("Employee encontrado para ID={Id}.", id);
-                AddLog($"Employee encontrado para ID={id}.");
+                await _appLog.InfoAsync($"Employee encontrado para ID={id}.");
                 await _db.SaveChangesAsync(ct);
 
                 // 4) Mapear e devolver
@@ -187,7 +185,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             // 1) Logging inicial + persistência de log (como no original)
             _logger.LogInformation("Recebida requisição para eliminar (soft delete) Employee com ID={Id}.", id);
-            AddLog($"Recebida requisição para eliminar (soft delete) Employee com ID={id}.");
+            await _appLog.InfoAsync($"Recebida requisição para eliminar (soft delete) Employee com ID={id}.");
             await _db.SaveChangesAsync(ct);
 
             try
@@ -197,14 +195,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 if (employee is null)
                 {
                     _logger.LogWarning("Employee não encontrado para ID={Id}.", id);
-                    AddLog($"Employee não encontrado para ID={id}.");
+                    await _appLog.WarnAsync($"Employee não encontrado para ID={id}.");
                     await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
                 // 3) Log de encontrado (mantendo mensagem original) 
                 _logger.LogInformation("Employee encontrado para ID={Id}. A marcar como inativo…", id);
-                AddLog($"Employee encontrado para ID={id}. A marcar como inativo…");
+                await _appLog.InfoAsync($"Employee encontrado para ID={id}. A marcar como inativo…");
 
                 // 4) Marcar como inativo (soft delete) e gravar
                 ApplyEmployeeSoftDelete(employee);
@@ -212,7 +210,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 // 5) Log de sucesso + persistência (como no original)
                 _logger.LogInformation("Employee marcado como inativo com sucesso. ID={Id}.", id);
-                AddLog($"Employee marcado como inativo com sucesso. ID={id}.");
+                await _appLog.InfoAsync($"Employee marcado como inativo com sucesso. ID={id}.");
                 await _db.SaveChangesAsync(ct);
 
                 return NoContent();
@@ -241,7 +239,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<IActionResult> HandleEmployeeSoftDeleteDbErrorAsync(DbUpdateException dbEx, int id, CancellationToken ct)
         {
             _logger.LogError(dbEx, "Erro ao atualizar Employee (soft delete) para ID={Id}.", id);
-            AddLog($"Erro ao atualizar Employee (soft delete) para ID={id}.");
+            await _appLog.ErrorAsync($"Erro ao atualizar Employee (soft delete) para ID={id}.",dbEx);
             await _db.SaveChangesAsync(ct);
 
             return Problem(
@@ -253,7 +251,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<ActionResult> HandleUnexpectedEmployeeErrorAsync(Exception ex, CancellationToken ct)
         {
             _logger.LogError(ex, "Erro inesperado ao processar Employee.");
-            AddLog($"Erro inesperado ao processar Employee.");
+            await _appLog.ErrorAsync($"Erro inesperado ao processar Employee.", ex);
             await _db.SaveChangesAsync(ct);
 
             return Problem(
@@ -271,14 +269,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             // Logging inicial e persistência (como no original)    
             _logger.LogInformation("Recebida requisição para atualizar parcialmente Employee com ID={Id}.", id);
-            AddLog($"Recebida requisição para atualizar parcialmente Employee com ID={id}.");
+            await _appLog.InfoAsync($"Recebida requisição para atualizar parcialmente Employee com ID={id}.");
             await _db.SaveChangesAsync(ct);
 
             // Validação de body
             if (employeeDto is null)
             {
                 _logger.LogWarning("DTO ausente no corpo da requisição para Patch de Employee ID={Id}.", id);
-                AddLog($"DTO ausente no corpo da requisição para Patch de Employee ID={id}.");
+                await _appLog.WarnAsync($"DTO ausente no corpo da requisição para Patch de Employee ID={id}.");
                 await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Body is required." });
             }
@@ -287,7 +285,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (id != employeeDto.BusinessEntityID)
             {
                 _logger.LogWarning("ID no path ({PathId}) difere do ID no corpo ({BodyId}).", id, employeeDto.BusinessEntityID);
-                AddLog($"ID no path ({id}) difere do ID no corpo ({employeeDto.BusinessEntityID}).");
+                await _appLog.WarnAsync($"ID no path ({id}) difere do ID no corpo ({employeeDto.BusinessEntityID}).");
                 await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Path ID must match body BusinessEntityID." });
             }
@@ -303,14 +301,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 if (employee is null)
                 {
                     _logger.LogWarning("Employee não encontrado para ID={Id}.", id);
-                    AddLog($"Employee não encontrado para ID={id}.");
+                    await _appLog.WarnAsync($"Employee não encontrado para ID={id}.");
                     await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
                 // 2) Log de encontrado (mantendo mensagem original)        
                 _logger.LogInformation("Employee encontrado para ID={Id}. A aplicar alterações parciais…", id);
-                AddLog($"Employee encontrado para ID={id}. A aplicar alterações parciais…");
+                await _appLog.InfoAsync($"Employee encontrado para ID={id}. A aplicar alterações parciais…");
 
                 // 3) Aplicar alterações parciais (isolado em helper)
                 ApplyEmployeePartialUpdate(employeeDto, employee);
@@ -320,7 +318,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 // 5) Log de sucesso + persistência (mantido)
                 _logger.LogInformation("Patch aplicado com sucesso para Employee ID={Id}.", id);
-                AddLog($"Patch aplicado com sucesso para Employee ID={id}.");
+                await _appLog.InfoAsync($"Patch aplicado com sucesso para Employee ID={id}.");
                 await _db.SaveChangesAsync(ct);
 
                 // 6) Resposta
@@ -373,7 +371,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<IActionResult> HandleEmployeePatchDbErrorAsync(DbUpdateException dbEx, int id, CancellationToken ct)
         {
             _logger.LogError(dbEx, "Erro ao persistir alterações do Patch para Employee ID={Id}.", id);
-            AddLog($"Erro ao persistir alterações do Patch para Employee ID={id}.");
+            await _appLog.ErrorAsync($"Erro ao persistir alterações do Patch para Employee ID={id}.",dbEx);
             await _db.SaveChangesAsync(ct);
 
             return Problem(
@@ -390,7 +388,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<IActionResult> ApproveCandidate(int jobCandidateId, CancellationToken ct)
         {
             _logger.LogInformation("Iniciando aprovação do candidato. JobCandidateId={JobCandidateId}", jobCandidateId);
-            AddLog($"Iniciando aprovação do candidato. JobCandidateId={jobCandidateId}");
+            await _appLog.InfoAsync($"Iniciando aprovação do candidato. JobCandidateId={jobCandidateId}");
             await _db.SaveChangesAsync(ct);
 
             // 0) Obter candidato
@@ -398,13 +396,13 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (candidate is null)
             {
                 _logger.LogWarning("Candidato não encontrado. JobCandidateId={JobCandidateId}", jobCandidateId);
-                AddLog($"Candidato não encontrado. JobCandidateId={jobCandidateId}");
+                await _appLog.WarnAsync($"Candidato não encontrado. JobCandidateId={jobCandidateId}");
                 await _db.SaveChangesAsync(ct);
                 return NotFound(new { message = "Candidato não encontrado", jobCandidateId });
             }
 
             await using var transaction = await _db.Database.BeginTransactionAsync(ct);
-            AddLog($"Transação iniciada para aprovação. JobCandidateId={jobCandidateId}");
+            await _appLog.InfoAsync($"Transação iniciada para aprovação. JobCandidateId={jobCandidateId}");
             await _db.SaveChangesAsync(ct);
 
             try
@@ -419,14 +417,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 var beId = await CreateBusinessEntityAsync(now, ct);
 
                 _logger.LogInformation("BusinessEntity criado. BusinessEntityID={BusinessEntityID}", beId);
-                AddLog($"BusinessEntity criado. BusinessEntityID={beId}");
+                await _appLog.InfoAsync($"BusinessEntity criado. BusinessEntityID={beId}");
                 await _db.SaveChangesAsync(ct);
 
                 // 3) Criar Person
                 var person = await CreatePersonForEmployeeAsync(beId, candidate, now, ct);
 
                 _logger.LogInformation("Person criado. BusinessEntityID={BusinessEntityID}", beId);
-                AddLog($"Person criado. BusinessEntityID={beId}");
+                await _appLog.InfoAsync($"Person criado. BusinessEntityID={beId}");
                 await _db.SaveChangesAsync(ct);
 
                 // 4) Gerar username e validar unicidade
@@ -434,18 +432,18 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 if (await UsernameExistsAsync(username, ct))
                 {
                     _logger.LogWarning("Conflito de username. Username={Username}", username);
-                    AddLog($"Conflito de username. Username={username}");
+                    await _appLog.WarnAsync($"Conflito de username. Username={username}");
                     await _db.SaveChangesAsync(ct);
 
                     await transaction.RollbackAsync(ct);
-                    AddLog($"Transação revertida por conflito de username. JobCandidateId={jobCandidateId}");
+                    await _appLog.InfoAsync($"Transação revertida por conflito de username. JobCandidateId={jobCandidateId}");
                     await _db.SaveChangesAsync(ct);
 
                     return Conflict(new { message = "Username já existe", username });
                 }
 
                 _logger.LogInformation("Username gerado e validado. Username={Username}", username);
-                AddLog($"Username gerado e validado. Username={username}");
+                await _appLog.InfoAsync($"Username gerado e validado. Username={username}");
                 await _db.SaveChangesAsync(ct);
 
                 // 5) Criar Employee
@@ -454,7 +452,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 await _db.SaveChangesAsync(ct);
 
                 _logger.LogInformation("Employee criado. BusinessEntityID={BusinessEntityID}, LoginID={LoginID}", beId, employee.LoginID);
-                AddLog($"Employee criado. BusinessEntityID={beId}, LoginID={employee.LoginID}");
+                await _appLog.InfoAsync($"Employee criado. BusinessEntityID={beId}, LoginID={employee.LoginID}");
                 await _db.SaveChangesAsync(ct);
 
                 // 6) Criar SystemUser e remover candidato
@@ -465,8 +463,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 await transaction.CommitAsync(ct);
                 _logger.LogInformation("SystemUser criado e candidato removido. SystemUserId={SystemUserId}, Username={Username}", sysUser.SystemUserId, sysUser.Username);
-                AddLog($"SystemUser criado e candidato removido. SystemUserId={sysUser.SystemUserId}, Username={sysUser.Username}");
-                AddLog($"Transação concluída com sucesso. BusinessEntityID={beId}");
+                await _appLog.InfoAsync($"SystemUser criado e candidato removido. SystemUserId={sysUser.SystemUserId}, Username={sysUser.Username}");
+                await _appLog.InfoAsync($"Transação concluída com sucesso. BusinessEntityID={beId}");
                 await _db.SaveChangesAsync(ct);
 
                 // DEV-only: expõe tempPassword na resposta (não fazer em produção)
@@ -508,7 +506,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 return null;
 
             _logger.LogInformation("Ativar empregado existente. BusinessEntityID={BusinessEntityID}", previousEmployee.BusinessEntityID);
-            AddLog($"Ativar empregado existente. BusinessEntityID={previousEmployee.BusinessEntityID}");
+            await _appLog.InfoAsync($"Ativar empregado existente. BusinessEntityID={previousEmployee.BusinessEntityID}");
 
             previousEmployee.CurrentFlag = true;
             previousEmployee.ModifiedDate = DateTime.UtcNow;
@@ -520,7 +518,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             await _db.SaveChangesAsync(ct);
 
             _logger.LogInformation("Transação concluída. BusinessEntityID={BusinessEntityID}", previousEmployee.BusinessEntityID);
-            AddLog($"Transação concluída. BusinessEntityID={previousEmployee.BusinessEntityID}");
+            await _appLog.InfoAsync($"Transação concluída. BusinessEntityID={previousEmployee.BusinessEntityID}");
             await _db.SaveChangesAsync(ct);
 
             var dto = _mapper.Map<EmployeeDto>(previousEmployee);
@@ -601,11 +599,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             CancellationToken ct)
         {
             _logger.LogError(ex, "Erro de atualização ao aprovar candidato. JobCandidateId={JobCandidateId}", jobCandidateId);
-            AddLog($"Erro de atualização ao aprovar candidato. JobCandidateId={jobCandidateId}");
+            await _appLog.ErrorAsync($"Erro de atualização ao aprovar candidato. JobCandidateId={jobCandidateId}", ex);
             await _db.SaveChangesAsync(ct);
 
             await transaction.RollbackAsync(ct);
-            AddLog($"Transação revertida devido a DbUpdateException. JobCandidateId={jobCandidateId}");
+            await _appLog.InfoAsync($"Transação revertida devido a DbUpdateException. JobCandidateId={jobCandidateId}");
             await _db.SaveChangesAsync(ct);
 
             return Conflict(new { message = "Erro ao aprovar candidato", detail = ex.Message });
@@ -618,11 +616,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             CancellationToken ct)
         {
             _logger.LogError(ex, "Erro interno ao aprovar candidato. JobCandidateId={JobCandidateId}", jobCandidateId);
-            AddLog($"Erro interno ao aprovar candidato. JobCandidateId={jobCandidateId}");
+            await _appLog.ErrorAsync($"Erro interno ao aprovar candidato. JobCandidateId={jobCandidateId}",ex);
             await _db.SaveChangesAsync(ct);
 
             await transaction.RollbackAsync(ct);
-            AddLog($"Transação revertida devido a erro interno. JobCandidateId={jobCandidateId}");
+            await _appLog.InfoAsync($"Transação revertida devido a erro interno. JobCandidateId={jobCandidateId}");
             await _db.SaveChangesAsync(ct);
 
             return Problem(
