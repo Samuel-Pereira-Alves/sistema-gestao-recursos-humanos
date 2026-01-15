@@ -1,10 +1,10 @@
-
-// src/components/AssignmentForm.jsx
 import React from "react";
+import Select from "react-select";
+import ReadOnlyField from "../ReadOnlyField/ReadOnlyField";
 
 export default function AssignmentForm({
-  mode,                 // "create" | "edit"
-  action,               // objeto com keys, form, error...
+  mode,                 
+  action,               
   setAction,
   employees = [],
   departments = [],
@@ -13,39 +13,49 @@ export default function AssignmentForm({
   formatDate,
   dateInputToIsoMidnight,
 }) {
+  
+  const employeeOptions = employees.map((emp) => {
+    const id = emp.businessEntityID ?? emp.id;
+    const fullName = [
+      emp.person?.firstName,
+      emp.person?.middleName,
+      emp.person?.lastName,
+    ]
+      .filter(Boolean)
+      .join(" ") || "Sem nome";
+
+    return {
+      value: id,
+      label: emp.jobTitle ? `${fullName} — ${emp.jobTitle}` : fullName,
+    };
+  });
+
   return (
     <div className="row g-3">
       {mode === "create" ? (
         <>
+          {/* Funcionário */}
           <div className="col-6">
             <label className="form-label">Funcionário</label>
-            <select
-              className="form-select"
-              value={action.form.businessEntityID ?? ""}
-              onChange={(e) =>
+            <Select
+              options={employeeOptions}
+              value={
+                employeeOptions.find(
+                  (opt) => String(opt.value) === String(action.form.businessEntityID)
+                ) || null
+              }
+              onChange={(selected) =>
                 setAction((s) => ({
                   ...s,
-                  form: { ...s.form, businessEntityID: e.target.value },
+                  form: { ...s.form, businessEntityID: selected?.value || "" },
                 }))
               }
-            >
-              {employees.map((emp) => {
-                const id = emp.businessEntityID ?? emp.id;
-                const first = emp.person?.firstName ?? "";
-                const middle = emp.person?.middleName ?? "";
-                const last = emp.person?.lastName ?? "";
-                const fullName =
-                  [first, middle, last].filter(Boolean).join(" ") || "Sem nome";
-
-                return (
-                  <option key={id} value={id}>
-                    {fullName} {emp.jobTitle ? `— ${emp.jobTitle}` : ""}
-                  </option>
-                );
-              })}
-            </select>
+              placeholder="Selecione um funcionário..."
+              isClearable
+            />
           </div>
 
+          {/* Departamento */}
           <div className="col-6">
             <label className="form-label">Departamento</label>
             <select
@@ -67,6 +77,7 @@ export default function AssignmentForm({
             </select>
           </div>
 
+          {/* Turno */}
           <div className="col-6">
             <label className="form-label">Turno</label>
             <select
@@ -86,6 +97,7 @@ export default function AssignmentForm({
             </select>
           </div>
 
+          {/* Data Início */}
           <div className="col-6">
             <label className="form-label">Data Início</label>
             <input
@@ -101,6 +113,7 @@ export default function AssignmentForm({
             />
           </div>
 
+          {/* Data Fim */}
           <div className="col-6">
             <label className="form-label">Data Fim (opcional)</label>
             <input
@@ -118,43 +131,28 @@ export default function AssignmentForm({
         </>
       ) : (
         <>
-          <div className="col-6">
-            <label className="form-label">BusinessEntityID</label>
-            <input
-              className="form-control"
-              value={action.keys.businessEntityID}
-              disabled
-              readOnly
-            />
+          <div className="col-12">
+            <ReadOnlyField label="ID Funcionário" value={action.keys.businessEntityID} />
           </div>
 
-          <div className="col-6">
-            <label className="form-label">Departamento</label>
-            <input
-              className="form-control"
+          <div className="col-12">
+            <ReadOnlyField
+              label="Departamento"
               value={resolveDepartmentName(action.keys.departmentID)}
-              disabled
-              readOnly
             />
           </div>
 
-          <div className="col-6">
-            <label className="form-label">Turno</label>
-            <input
-              className="form-control"
+          <div className="col-12">
+            <ReadOnlyField
+              label="Turno"
               value={resolveShiftLabel(action.keys.shiftID)}
-              disabled
-              readOnly
             />
           </div>
 
-          <div className="col-6">
-            <label className="form-label">Data Início</label>
-            <input
-              className="form-control"
+          <div className="col-12">
+            <ReadOnlyField
+              label="Data Início"
               value={formatDate(action.keys.startDate)}
-              disabled
-              readOnly
             />
           </div>
 
@@ -163,15 +161,15 @@ export default function AssignmentForm({
             <input
               type="date"
               className="form-control"
-              value={
-                action.form.endDate ? action.form.endDate.substring(0, 10) : ""
-              }
+              value={action.form.endDate ? action.form.endDate.substring(0, 10) : ""}
               onChange={(e) =>
                 setAction((s) => ({
                   ...s,
                   form: {
                     ...s.form,
-                    endDate: dateInputToIsoMidnight(e.target.value),
+                    endDate: e.target.value
+                      ? dateInputToIsoMidnight(e.target.value)
+                      : "",
                   },
                 }))
               }
