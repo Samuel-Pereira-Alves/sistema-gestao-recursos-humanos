@@ -3,6 +3,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
 import { addNotification } from "../../utils/notificationBus";
 import axios from 'axios';
+import { approveCandidate, deleteCandidate, getCandidatos, openPdf, sendFeedbackEmail } from "../../Service/candidatosService";
+import Pagination from "../../components/Pagination/Pagination"
 
 export default function Candidatos() {
   const [isLoading, setIsLoading] = useState(false);
@@ -14,15 +16,7 @@ export default function Candidatos() {
       const token = localStorage.getItem("authToken");
       setIsLoading(true);
       setError("");
-      const res = await fetch("http://localhost:5136/api/v1/jobcandidate", {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!res.ok) throw new Error(`Falha ao obter candidatos (${res.status})`);
-      const data = await res.json();
+      const data = await getCandidatos(token);
 
       const mapped = (data || []).map((d) => ({
         id: d.jobCandidateId,
@@ -67,124 +61,46 @@ export default function Candidatos() {
   }, [searchTerm]);
 
   // Abrir PDF numa nova aba
-
-  const downloadCvPdf = async (id) => {
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await fetch(
-        `http://localhost:5136/api/v1/jobcandidate/${id}/cv`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (!response.ok) throw new Error("Erro ao baixar o arquivo");
-
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = `CV_${id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      console.error(error);
-      alert("Falha ao baixar o CV.");
-    }
-  };
-
-  //enviar email
-  async function sendEmail(email, condition) {
-
-    var frase = condition === false
-      ? "Infelizmente, a sua candidatura não foi aprovada nesta fase do processo. Agradecemos o seu interesse e o tempo dedicado à candidatura. Continuaremos a considerar o seu perfil para futuras oportunidades compatíveis."
-      : "Parabéns! A sua candidatura foi aprovada nesta fase do processo. Em breve entraremos em contacto para lhe fornecer mais detalhes sobre os próximos passos. Obrigado pelo seu interesse e confiança.";
-
-      console.log(email)
-    try {
-
-      await axios.post('http://localhost:5136/api/email/send', {
-        to: email,
-        subject: 'Feedback Candidatura',
-        text: frase
-      },{
-        headers: {"Content-Type": "application/json"}
-      }
-    );
-    } catch (e) {
-      if (e.response) {
-        console.error('Erro API:', e.response.data);
-      } else {
-        console.error('Erro rede/CORS:', e.message);
-      }
-    }
-  }
-
-
+  const downloadCvPdf = (id) => {
+    openPdf(id);
+  };  
+  
   const aprovarCandidato = async (id, nome) => {
     try {
-      const token = localStorage.getItem("authToken");
       setIsLoading(true);
-      const res = await fetch(
-        `http://localhost:5136/api/v1/employee/approve/${id}`,
-        {
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          method: "POST",
-        }
+      await approveCandidate(id);
+      
+      alert("Candidato aprovado com sucesso.");
+      fetchCandidatos();
+      addNotification(
+        `O candidato ${nome} foi aprovado como funcionário.`,
+        "admin",
+        { type: "CANDIDATE" }
       );
-      if (res.ok) {
-        alert("Candidato aprovado com sucesso.");
-        fetchCandidatos();
-        addNotification(
-          `O candidato ${nome} foi aprovado como funcionário.`,
-          "admin", {type: "CANDIDATE"}
-        );
-      } else {
-        throw new Error(`Falha ao aprovar candidato`);
-      }
     } catch (err) {
       console.error(err);
+      alert("Falha ao aprovar candidato.");
     } finally {
       setIsLoading(false);
     }
   };
-
+  
   const eliminarCandidato = async (id, nome) => {
     try {
-      if (!confirm("Tens a certeza que queres eliminar este candidato?"))
-        return;
+      if (!confirm("Tens a certeza que queres eliminar este candidato?")) return;
+      
       setIsLoading(true);
       setError("");
-      const token = localStorage.getItem("authToken");
-      const res = await fetch(
-        `http://localhost:5136/api/v1/jobcandidate/${id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (!res.ok) {
-        let details = "";
-        try {
-          const txt = await res.text();
-          details = txt ? ` Detalhes: ${txt}` : "";
-        } catch {}
-        throw new Error(`Falha ao eliminar (HTTP ${res.status}).${details}`);
-      }
-
+      
+      await deleteCandidate(id);
+      
       setCandidatos((prev) => prev.filter((c) => c.id !== id));
       alert("Candidato eliminado com sucesso.");
-      addNotification(`O candidato ${nome} foi recusado.`, "admin", {type: "CANDIDATE"});
+      addNotification(
+        `O candidato ${nome} foi recusado.`,
+        "admin",
+        { type: "CANDIDATE" }
+      );
     } catch (err) {
       console.error(err);
       setError("Erro ao eliminar candidato. Tenta novamente.");
@@ -193,7 +109,35 @@ export default function Candidatos() {
       setIsLoading(false);
     }
   };
+  
+  //enviar email
+  async function sendEmail(email, condition) {
+    console.log(email)
+    console.log(condition)
 
+    var frase = condition === false
+      ? "Infelizmente, a sua candidatura não foi aprovada nesta fase do processo. Agradecemos o seu interesse e o tempo dedicado à candidatura. Continuaremos a considerar o seu perfil para futuras oportunidades compatíveis."
+      : "Parabéns! A sua candidatura foi aprovada nesta fase do processo. Em breve entraremos em contacto para lhe fornecer mais detalhes sobre os próximos passos. Obrigado pelo seu interesse e confiança.";
+
+    console.log(email)
+    try {
+
+      await axios.post('http://localhost:5136/api/email/send', {
+        to: email,
+        subject: 'Feedback Candidatura',
+        text: frase
+      }, {
+        headers: { "Content-Type": "application/json" }
+      }
+      );
+    } catch (e) {
+      if (e.response) {
+        console.error('Erro API:', e.response.data);
+      } else {
+        console.error('Erro rede/CORS:', e.message);
+      }
+    }
+  }
   return (
     <div className="container mt-4">
       <BackButton />
@@ -349,31 +293,11 @@ export default function Candidatos() {
               </div>
 
               {/* Pagination */}
-              <div className="border-top p-3">
-                <div className="d-flex justify-content-between align-items-center">
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    type="button"
-                  >
-                    ← Anterior
-                  </button>
-                  <span className="text-muted small">
-                    Página {currentPage} de {totalPages}
-                  </span>
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    disabled={currentPage === totalPages}
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    type="button"
-                  >
-                    Próxima →
-                  </button>
-                </div>
-              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                setPage={setCurrentPage}
+              />
             </>
           )}
         </div>

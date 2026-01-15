@@ -195,7 +195,6 @@ function Form({ onCancel }) {
           subject: 'Candidatura',
           text: 'A sua candidatura foi recebida. Iremos analisá-la e responder brevemente!'
         });
-        console.log('OK:', data);
       } catch (e) {
         if (e.response) {
           console.error('Erro API:', e.response.data);

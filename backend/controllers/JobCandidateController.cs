@@ -298,6 +298,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 NationalIDNumber = form.NationalIDNumber,
                 MaritalStatus = form.MaritalStatus,
                 Gender = form.Gender,
+                Email = form.Email,
                 FirstName = form.FirstName,
                 LastName = form.LastName,
                 PasswordHash = "DevOnly!234",  // TODO: Em produção, gerar uma password temporária segura
