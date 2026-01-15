@@ -117,11 +117,6 @@ export default function Profile() {
       const token = localStorage.getItem("authToken");
       await updateEmployee(idToUpdate, payload, token);
       
-      addNotification(
-        `O perfil do funcionário ${employee.person?.firstName} ${employee.person?.lastName} foi atualizado.`,
-        "admin",
-        { type: "PROFILE_ADMIN" }
-      );
       addNotificationForUser(
         `O seu perfil foi atualizado pelo RH.`,
         idToUpdate,
