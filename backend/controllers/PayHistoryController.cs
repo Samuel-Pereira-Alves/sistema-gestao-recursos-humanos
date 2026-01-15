@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
+using sistema_gestao_recursos_humanos.backend.services;
+using System.Runtime.CompilerServices;
+using System.Security.Claims;
 
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
@@ -15,16 +18,19 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private readonly AdventureWorksContext _db;
         private readonly IMapper _mapper;
         private readonly ILogger<PayHistoryController> _logger;
+        private readonly IAppLogService _appLog;
 
-        public PayHistoryController(AdventureWorksContext db, IMapper mapper, ILogger<PayHistoryController> logger)
+        public PayHistoryController(
+            AdventureWorksContext db,
+            IMapper mapper,
+            ILogger<PayHistoryController> logger,
+            IAppLogService appLog)
         {
             _db = db;
             _mapper = mapper;
             _logger = logger;
+            _appLog = appLog;
         }
-
-        private void AddLog(string message) =>
-            _db.Logs.Add(new Log { Message = message, Date = DateTime.UtcNow });
 
         // GET: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
         [HttpGet("{businessEntityId:int}/{rateChangeDate}")]
@@ -32,7 +38,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<ActionResult<PayHistoryDto>> Get(int businessEntityId, DateTime rateChangeDate, CancellationToken ct)
         {
             _logger.LogInformation("Iniciando procura de PayHistory para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
-            AddLog($"Procura PayHistory: BEID={businessEntityId}, RateChangeDate={rateChangeDate:o}");
+            await _appLog.InfoAsync($"Procura PayHistory: BEID={businessEntityId}, RateChangeDate={rateChangeDate:o}");
             await _db.SaveChangesAsync(ct);
 
             try
@@ -41,7 +47,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 if (history is null)
                 {
                     _logger.LogWarning("Nenhum registo encontrado para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
-                    AddLog("Nenhum registo encontrado.");
+                    await _appLog.WarnAsync("Nenhum registo encontrado.");
                     await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
@@ -59,14 +65,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             CancellationToken ct)
         {
             return await _db.PayHistories
-                    .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId && 
+                    .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId &&
                     ph.RateChangeDate == rateChangeDate, ct);
 
         }
         private async Task<ActionResult> HandleUnexpectedPayHistoryErrorAsync(Exception ex, CancellationToken ct)
         {
             _logger.LogError(ex, "Erro inesperado no PayHistory");
-            AddLog($"Erro inesperado no PayHistory");
+            await _appLog.ErrorAsync("Erro inesperado no PayHistory", ex);
             await _db.SaveChangesAsync(ct);
 
             return Problem(
@@ -77,20 +83,20 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
         private async Task<ActionResult> HandleDatabasePayHistoryErrorAsync(Exception ex, CancellationToken ct)
         {
-            _logger.LogError(ex, "Erro inesperado a base de dados ao processar PayHistory");
-            AddLog("Erro inesperado a base de dados ao processar PayHistory");
+            _logger.LogError(ex, "Erro inesperado de base de dados ao processar PayHistory");
+            await _appLog.ErrorAsync("Erro inesperado de base de dados ao processar PayHistory", ex);
             await _db.SaveChangesAsync(ct);
 
             return Problem(
-                title: "Erro inesperado a base de dados ao processar PayHistory",
-                detail: "Erro inesperado a base de dados ao processar PayHistory",
+                title: "Erro inesperado de base de dados ao processar PayHistory",
+                detail: "Erro inesperado de base de dados ao processar PayHistory",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
 
         private async Task<ActionResult> HandleConcurrencyPayHistoryErrorAsync(Exception ex, CancellationToken ct)
         {
             _logger.LogError(ex, "Erro de concorrência ao processar PayHistory");
-            AddLog("Erro de concorrência ao processar PayHistory");
+            await _appLog.ErrorAsync("Erro de concorrência ao processar PayHistory", ex);
             await _db.SaveChangesAsync(ct);
 
             return Problem(
@@ -105,7 +111,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<IActionResult> Create([FromBody] PayHistoryDto dto, CancellationToken ct)
         {
             _logger.LogInformation("A iniciar criação de PayHistory para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", dto.BusinessEntityID, dto.RateChangeDate);
-            AddLog("Criação de PayHistory iniciada.");
+            await _appLog.InfoAsync("Criação de PayHistory iniciada.");
             await _db.SaveChangesAsync(ct);
 
             if (dto is null)
@@ -120,7 +126,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 await _db.SaveChangesAsync(ct);
 
                 _logger.LogInformation("PayHistory criado com sucesso para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", history.BusinessEntityID, history.RateChangeDate);
-                AddLog("PayHistory criado com sucesso.");
+                await _appLog.InfoAsync("PayHistory criado com sucesso.");
                 await _db.SaveChangesAsync(ct);
 
                 return CreatedAtAction(nameof(Get),
@@ -143,7 +149,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<IActionResult> Patch(int businessEntityId, DateTime rateChangeDate, [FromBody] PayHistoryDto dto, CancellationToken ct)
         {
             _logger.LogInformation("A iniciar PATCH para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
-            AddLog("PATCH PayHistory iniciado.");
+            await _appLog.InfoAsync("PATCH PayHistory iniciado.");
             await _db.SaveChangesAsync(ct);
 
             if (dto is null)
@@ -164,7 +170,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 await _db.SaveChangesAsync(ct);
 
                 _logger.LogInformation("PATCH concluído com sucesso para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
-                AddLog("PATCH PayHistory concluído.");
+                await _appLog.InfoAsync("PATCH PayHistory concluído.");
                 await _db.SaveChangesAsync(ct);
 
                 return Ok(_mapper.Map<PayHistoryDto>(history));
@@ -189,7 +195,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<IActionResult> Delete(int businessEntityId, DateTime rateChangeDate, CancellationToken ct)
         {
             _logger.LogInformation("A iniciar DELETE para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
-            AddLog("DELETE PayHistory iniciado.");
+            await _appLog.InfoAsync("DELETE PayHistory iniciado.");
             await _db.SaveChangesAsync(ct);
 
             var payhistory = await GetPayHistoryAsync(businessEntityId, rateChangeDate, ct);
@@ -203,7 +209,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 await _db.SaveChangesAsync(ct);
 
                 _logger.LogInformation("DELETE concluído com sucesso para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
-                AddLog("DELETE PayHistory concluído.");
+                await _appLog.InfoAsync("DELETE PayHistory concluído.");
                 await _db.SaveChangesAsync(ct);
 
                 return NoContent();
