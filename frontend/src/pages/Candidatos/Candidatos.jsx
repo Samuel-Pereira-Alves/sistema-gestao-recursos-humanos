@@ -112,9 +112,6 @@ export default function Candidatos() {
   
   //enviar email
   async function sendEmail(email, condition) {
-    console.log(email)
-    console.log(condition)
-
     var frase = condition === false
       ? "Infelizmente, a sua candidatura não foi aprovada nesta fase do processo. Agradecemos o seu interesse e o tempo dedicado à candidatura. Continuaremos a considerar o seu perfil para futuras oportunidades compatíveis."
       : "Parabéns! A sua candidatura foi aprovada nesta fase do processo. Em breve entraremos em contacto para lhe fornecer mais detalhes sobre os próximos passos. Obrigado pelo seu interesse e confiança.";
@@ -138,6 +135,7 @@ export default function Candidatos() {
       }
     }
   }
+  
   return (
     <div className="container mt-4">
       <BackButton />
