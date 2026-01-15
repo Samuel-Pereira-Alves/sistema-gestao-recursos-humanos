@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
+using sistema_gestao_recursos_humanos.backend.services;
 
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
@@ -15,15 +16,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private readonly AdventureWorksContext _db;
         private readonly IMapper _mapper;
         private readonly ILogger<DepartmentHistoryController> _logger;
-        public DepartmentHistoryController(AdventureWorksContext db, IMapper mapper, ILogger<DepartmentHistoryController> logger)
+        private readonly IAppLogService _appLog;
+        public DepartmentHistoryController(AdventureWorksContext db, IMapper mapper, ILogger<DepartmentHistoryController> logger, IAppLogService appLog)
         {
             _db = db;
             _mapper = mapper;
             _logger = logger;
+            _appLog = appLog;
         }
-
-        private void AddLog(string message) =>
-            _db.Logs.Add(new Log { Message = message, Date = DateTime.UtcNow });
 
         // GET: api/v1/departmenthistory
         [HttpGet]
@@ -31,7 +31,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<ActionResult<List<DepartmentHistoryDto>>> GetAll(CancellationToken ct)
         {
             _logger.LogInformation("Recebido pedido para obter o histórico de Departamentos.");
-            AddLog("Recebido pedido para obter o histórico de Departamentos.");
+            await _appLog.InfoAsync("Recebido pedido para obter o histórico de Departamentos.");
             await _db.SaveChangesAsync(ct);
 
             try
@@ -41,7 +41,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 if (histories.Count == 0)
                 {
                     _logger.LogWarning("Consulta de DepartmentHistories retornou 0 registos.");
-                    AddLog("Consulta de DepartmentHistories retornou 0 registos.");
+                    await _appLog.WarnAsync("Consulta de DepartmentHistories retornou 0 registos.");
                     await _db.SaveChangesAsync(ct);
                 }
 
@@ -57,7 +57,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<ActionResult> HandleUnexpectedDepartmentHistoryErrorAsync(Exception ex, CancellationToken ct)
         {
             _logger.LogError(ex, "Erro inesperado no DepartmentHistory");
-            AddLog($"Erro inesperado no DepartmentHistory");
+            await _appLog.ErrorAsync($"Erro inesperado no DepartmentHistory", ex);
             await _db.SaveChangesAsync(ct);
 
             return Problem(
@@ -74,7 +74,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 .ToListAsync(ct);
         }
 
-
         [HttpGet("{businessEntityId:int}/{departmentId:int}/{shiftId:int}/{startDate}")]
         [Authorize(Roles = "admin")]
         public async Task<ActionResult<DepartmentHistoryDto>> Get(
@@ -84,7 +83,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             DateTime startDate,
             CancellationToken ct)
         {
-            LogDepartmentHistoryGetRequest(businessEntityId, departmentId, shiftId, startDate);
+            _logger.LogInformation("Pedido para obter DepartmentHistory. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}", businessEntityId, departmentId, shiftId, startDate);
+            await _appLog.InfoAsync($"Pedido para obter DepartmentHistory: {businessEntityId}/{departmentId}/{shiftId}/{startDate:o}");
             await _db.SaveChangesAsync(ct);
 
             try
@@ -99,15 +99,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 return await HandleUnexpectedDepartmentHistoryErrorAsync(ex, ct);
             }
-        }
-
-        private void LogDepartmentHistoryGetRequest(int businessEntityId, short departmentId, byte shiftId, DateTime startDate)
-        {
-            _logger.LogInformation(
-                "Pedido para obter DepartmentHistory. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}",
-                businessEntityId, departmentId, shiftId, startDate);
-
-            AddLog($"Pedido para obter DepartmentHistory: {businessEntityId}/{departmentId}/{shiftId}/{startDate:o}");
         }
 
         private async Task<DepartmentHistory?> GetDepartmentHistoryAsync(
@@ -137,7 +128,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 "DepartmentHistory não encontrado. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}",
                 businessEntityId, departmentId, shiftId, startDate);
 
-            AddLog("DepartmentHistory não encontrado.");
+            await _appLog.WarnAsync("DepartmentHistory não encontrado.");
             await _db.SaveChangesAsync(ct);
 
             return NotFound();
@@ -149,7 +140,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<IActionResult> Create([FromBody] DepartmentHistoryDto dto, CancellationToken ct)
         {
             _logger.LogInformation("Recebido pedido para criar DepartmentHistory.");
-            AddLog("Recebido pedido para criar DepartmentHistory.");
+            await _appLog.InfoAsync("Recebido pedido para criar DepartmentHistory.");
             await _db.SaveChangesAsync(ct);
 
             if (dto is null)
@@ -172,7 +163,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 var history = await CreateHistoryTransactionalAsync(dto, deptIdShort, ct);
 
                 // 4) Logging final + retorno
-                LogHistoryCreated(history);
+                _logger.LogInformation("DepartmentHistory criado com sucesso. BEID={BEID}, DeptID={DeptID}, ShiftID={ShiftID}, StartDate={StartDate:o}", history.BusinessEntityID, history.DepartmentID, history.ShiftID, history.StartDate);
+                await _appLog.InfoAsync($"DepartmentHistory criado: {history.BusinessEntityID}/{history.DepartmentID}/{history.ShiftID}/{history.StartDate:o}");
                 await _db.SaveChangesAsync(ct);
 
                 return CreatedAtAction(nameof(Get),
@@ -261,7 +253,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 _logger.LogInformation("Encontrados {Count} movimentos abertos para encerrar. BusinessEntityID={BEID}",
                     openMovements.Count, dto.BusinessEntityID);
-                AddLog($"Encontrados {openMovements.Count} movimentos abertos para encerrar. BEID={dto.BusinessEntityID}");
+                await _appLog.InfoAsync($"Encontrados {openMovements.Count} movimentos abertos para encerrar. BEID={dto.BusinessEntityID}");
 
                 foreach (var movement in openMovements)
                 {
@@ -283,19 +275,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             return history;
         }
 
-        private void LogHistoryCreated(DepartmentHistory history)
-        {
-            _logger.LogInformation(
-                "DepartmentHistory criado com sucesso. BEID={BEID}, DeptID={DeptID}, ShiftID={ShiftID}, StartDate={StartDate:o}",
-                history.BusinessEntityID, history.DepartmentID, history.ShiftID, history.StartDate);
-
-            AddLog($"DepartmentHistory criado: {history.BusinessEntityID}/{history.DepartmentID}/{history.ShiftID}/{history.StartDate:o}");
-        }
-
         private async Task<IActionResult> HandleDatabaseWriteErrorAsync(DbUpdateException dbEx, CancellationToken ct)
         {
             _logger.LogError(dbEx, "Erro ao gravar DepartmentHistory.");
-            AddLog($"Erro ao gravar DepartmentHistory: {dbEx.Message}");
+            await _appLog.ErrorAsync($"Erro ao gravar DepartmentHistory: {dbEx.Message}", dbEx);
             await _db.SaveChangesAsync(ct);
 
             return Problem(
@@ -315,7 +298,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             CancellationToken ct)
         {
             _logger.LogInformation("Recebido PATCH para DepartmentHistory. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}", businessEntityId, departmentId, shiftId, startDate);
-            AddLog($"PATCH DepartmentHistory: {businessEntityId}/{departmentId}/{shiftId}/{startDate:o}");
+            await _appLog.InfoAsync($"PATCH DepartmentHistory: {businessEntityId}/{departmentId}/{shiftId}/{startDate:o}");
             await _db.SaveChangesAsync(ct);
 
             if (dto is null)
@@ -370,7 +353,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<IActionResult> HandlePatchDatabaseErrorAsync(DbUpdateException dbEx, CancellationToken ct)
         {
             _logger.LogError(dbEx, "Erro ao atualizar (PATCH) DepartmentHistory.");
-            AddLog($"Erro ao atualizar (PATCH) DepartmentHistory: {dbEx.Message}");
+            await _appLog.ErrorAsync($"Erro ao atualizar (PATCH) DepartmentHistory: {dbEx.Message}", dbEx);
             await _db.SaveChangesAsync(ct);
 
             return Problem(
@@ -392,7 +375,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     "Received request to delete DepartmentHistory. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}",
                     businessEntityId, departmentId, shiftId, startDate);
 
-            AddLog("Received request to delete DepartmentHistory.");
+            await _appLog.InfoAsync("Received request to delete DepartmentHistory.");
             await _db.SaveChangesAsync(ct);
 
             try
@@ -408,7 +391,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                         "DepartmentHistory deleted successfully. BEID={BEID}, DeptID={DeptID}, ShiftID={ShiftID}, StartDate={StartDate:o}",
                         businessEntityId, departmentId, shiftId, startDate);
 
-                AddLog("DepartmentHistory eliminado com sucesso.");
+                await _appLog.InfoAsync("DepartmentHistory eliminado com sucesso.");
                 await _db.SaveChangesAsync(ct);
 
                 return NoContent();
@@ -426,7 +409,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<IActionResult> HandleDeleteDbErrorAsync(DbUpdateException dbEx, CancellationToken ct)
         {
             _logger.LogError(dbEx, "Database error while deleting DepartmentHistory.");
-            AddLog($"Database error while deleting DepartmentHistory: {dbEx.Message}");
+            await _appLog.ErrorAsync($"Database error while deleting DepartmentHistory: {dbEx.Message}", dbEx);
             await _db.SaveChangesAsync(ct);
 
             return Problem(
