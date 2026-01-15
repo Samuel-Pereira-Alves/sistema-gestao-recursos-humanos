@@ -1,11 +1,11 @@
-
 import React, { useEffect, useState } from "react";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
-import { formatDate, formatCurrencyEUR, freqLabel } from "../../utils/Utils";
+import EmployeeDetails from "../../components/EmployeeDetails/EmployeeDetails";
+import Loading from "../../components/Loading/Loading";
+import {formatDate,formatCurrencyEUR,freqLabel,paginate} from "../../utils/Utils";
 import { getEmployee } from "../../Service/employeeService";
 import { mapPayHistories } from "../../utils/Utils";
-import { usePagination } from "../../utils/hooks";
 
 export default function PayHistoryList() {
   const [loading, setLoading] = useState(false);
@@ -13,7 +13,8 @@ export default function PayHistoryList() {
   const [employee, setEmployee] = useState(null);
   const [payments, setPayments] = useState([]);
 
-  const { currentPage, setCurrentPage, currentItems: currentPayments, totalPages } = usePagination(payments, 5);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     const id = localStorage.getItem("businessEntityId");
@@ -41,6 +42,12 @@ export default function PayHistoryList() {
     load();
   }, []);
 
+  const { slice: currentPayments, totalPages } = paginate(
+    payments,
+    currentPage,
+    itemsPerPage
+  );
+
   return (
     <div className="container mt-4">
       <BackButton />
@@ -48,19 +55,7 @@ export default function PayHistoryList() {
       <div className="mb-4 d-flex justify-content-between align-items-center">
         <h1 className="h3 mb-0">Histórico de Pagamentos</h1>
         <div className="text-muted small">
-          {employee?.person ? (
-            <>
-              Funcionário:{" "}
-              <span>
-                {employee.person.firstName} {employee.person.lastName}
-              </span>
-              {employee.businessEntityID && (
-                <span className="ms-1 text-muted">#{employee.businessEntityID}</span>
-              )}
-            </>
-          ) : (
-            <>Sem ID no localStorage</>
-          )}
+          <EmployeeDetails employee={employee} />
         </div>
       </div>
 
@@ -69,14 +64,12 @@ export default function PayHistoryList() {
         <div className="card-body p-0">
           {fetchError ? (
             <div className="text-center py-5">
-              <div className="alert alert-light border text-muted d-inline-block">{fetchError}</div>
-            </div>
-          ) : loading ? (
-            <div className="text-center py-5" aria-live="polite">
-              <div className="spinner-border text-secondary" role="status">
-                <span className="visually-hidden">Carregando...</span>
+              <div className="alert alert-light border text-muted d-inline-block">
+                {fetchError}
               </div>
             </div>
+          ) : loading ? (
+            <Loading text="Carregando histórico de pagamentos..." />
           ) : (
             <>
               {/* Desktop Table */}
@@ -93,19 +86,28 @@ export default function PayHistoryList() {
                   <tbody>
                     {currentPayments.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-4 py-4 text-center text-muted">
+                        <td
+                          colSpan={4}
+                          className="px-4 py-4 text-center text-muted"
+                        >
                           Sem registos
                         </td>
                       </tr>
                     ) : (
                       currentPayments.map((p, idx) => {
-                        const seq = (currentPage - 1) * 5 + idx + 1;
+                        const seq = (currentPage - 1) * itemsPerPage + idx + 1;
                         return (
                           <tr key={p.key}>
                             <td className="px-4 py-3">{seq}</td>
-                            <td className="px-4 py-3 text-muted">{formatCurrencyEUR(p.rate)}</td>
-                            <td className="px-4 py-3 text-muted">{formatDate(p.rateChangeDate)}</td>
-                            <td className="px-4 py-3 text-muted">{freqLabel(p.payFrequency)}</td>
+                            <td className="px-4 py-3 text-muted">
+                              {formatCurrencyEUR(p.rate)}
+                            </td>
+                            <td className="px-4 py-3 text-muted">
+                              {formatDate(p.rateChangeDate)}
+                            </td>
+                            <td className="px-4 py-3 text-muted">
+                              {freqLabel(p.payFrequency)}
+                            </td>
                           </tr>
                         );
                       })
@@ -120,17 +122,23 @@ export default function PayHistoryList() {
                   <div className="text-center p-3 text-muted">Sem registos</div>
                 ) : (
                   currentPayments.map((p, idx) => {
-                    const seq = (currentPage - 1) * 5 + idx + 1;
+                    const seq = (currentPage - 1) * itemsPerPage + idx + 1;
                     return (
                       <div key={p.key} className="card mb-2 border-0 shadow-sm">
                         <div className="card-body">
                           <div className="d-flex justify-content-between align-items-start">
                             <div className="fw-semibold">Pagamento {seq}</div>
-                            <span className="badge bg-secondary">{freqLabel(p.payFrequency)}</span>
+                            <span className="badge bg-secondary">
+                              {freqLabel(p.payFrequency)}
+                            </span>
                           </div>
                           <div className="mt-2 small text-muted">
-                            <span className="me-3">Data: {formatDate(p.rateChangeDate)}</span>
-                            <span className="fw-semibold text-dark">Valor: {formatCurrencyEUR(p.rate)}</span>
+                            <span className="me-3">
+                              Data: {formatDate(p.rateChangeDate)}
+                            </span>
+                            <span className="fw-semibold text-dark">
+                              Valor: {formatCurrencyEUR(p.rate)}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -138,7 +146,13 @@ export default function PayHistoryList() {
                   })
                 )}
               </div>
-              <Pagination currentPage={currentPage} totalPages={totalPages} setPage={setCurrentPage} />
+
+              {/* Pagination */}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                setPage={setCurrentPage}
+              />
             </>
           )}
         </div>

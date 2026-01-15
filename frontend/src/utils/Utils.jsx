@@ -81,6 +81,21 @@ export function mapPayHistories(payHistories) {
     }));
 }
 
+export function mapDepartmentHistories(list) {
+  return (list ?? [])
+    .slice()
+    .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+    .map((h, idx) => ({
+      key: `${h.departmentId}-${h.startDate}-${idx}`,
+      departmentId: h.departmentId,
+      name: h.department?.name ?? `ID ${h.departmentId}`,
+      groupName: h.department?.groupName ?? "",
+      startDate: h.startDate,
+      endDate: h.endDate,
+    }));
+}
+
+
 export function formatCurrencyEUR(value) {
   if (value == null) return "—";
   const n = Number(value);

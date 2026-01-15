@@ -5,7 +5,7 @@ export function addNotification(message, role, meta = {}) {
   fetch(`http://localhost:5136/api/v1/notification/${role}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message , type: meta.type || null}),
+    body: JSON.stringify({ message, type: meta.type || null}),
   }).catch((err) => {
     console.error('Failed to send notification to server:', err);
   });

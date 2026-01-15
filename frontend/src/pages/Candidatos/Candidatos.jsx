@@ -75,7 +75,7 @@ export default function Candidatos() {
       addNotification(
         `O candidato ${nome} foi aprovado como funcionário.`,
         "admin",
-        { type: "CANDIDATE" }
+        { type: "EMPLOYEES" }
       );
     } catch (err) {
       console.error(err);
