@@ -1,18 +1,39 @@
 using Microsoft.AspNetCore.Mvc;
 using Org.BouncyCastle.Crypto.Engines;
+using sistema_gestao_recursos_humanos.backend.data;
+using sistema_gestao_recursos_humanos.backend.services;
 
 [ApiController]
 [Route("api/[controller]")]
 public class EmailController : ControllerBase
 {
     private readonly IEmailService _mailer;
-    public EmailController(IEmailService mailer) => _mailer = mailer;
+    private readonly IAppLogService _appLog;
+    private readonly AdventureWorksContext _db;
+    private readonly ILogger<EmailController> _logger;
+    public EmailController(IEmailService mailer, IAppLogService appLog, AdventureWorksContext db, ILogger<EmailController> logger)
+    {
+        _mailer = mailer;
+        _appLog = appLog;
+        _db = db;
+        _logger = logger;
+    }
 
     [HttpPost("send")]
-    public async Task<IActionResult> Send([FromBody] EmailRequestDTO req)
+    public async Task<IActionResult> Send([FromBody] EmailRequestDTO req, CancellationToken ct)
     {
+        _logger.LogInformation("Iniciando envio de Email");
+        await _appLog.InfoAsync("Iniciando envio de Email");
+        await _db.SaveChangesAsync(ct);
+
         if (string.IsNullOrWhiteSpace(req.To) || string.IsNullOrWhiteSpace(req.Subject))
+        {
+            _logger.LogWarning("Pedido inválido de envio de email: campos obrigatórios em falta. To='{To}', Subject='{Subject}'",
+                                req?.To, req?.Subject);
+            await _appLog.WarnAsync($"Pedido inválido de envio de email: campos obrigatórios em falta. To='{req?.To}', Subject='{req?.Subject}'");
+
             return BadRequest(new { ok = false, error = "Campos 'to' e 'subject' são obrigatórios." });
+        }
 
         try
         {
@@ -49,13 +70,27 @@ public class EmailController : ControllerBase
                 textBody: html
             );
 
+            _logger.LogInformation("Email enviado com sucesso");
+            await _appLog.InfoAsync("Email enviado com sucesso");
+            await _db.SaveChangesAsync(ct);
 
             return Ok(new { ok = true, result });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { ok = false, error = ex.Message });
+            return await HandleUnexpectedEmailErrorAsync(ex, ct);
         }
     }
 
+
+    private async Task<IActionResult> HandleUnexpectedEmailErrorAsync(Exception ex, CancellationToken ct)
+    {
+        _logger.LogError(ex, "Erro inesperado no Email");
+        await _appLog.ErrorAsync("Erro inesperado no Email", ex, ct: ct);
+
+        return Problem(
+            title: "Erro ao processar o Email",
+            detail: "Ocorreu um erro ao processar o Email.",
+            statusCode: StatusCodes.Status500InternalServerError);
+    }
 }
