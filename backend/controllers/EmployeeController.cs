@@ -96,11 +96,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (string.IsNullOrWhiteSpace(sortBy))
             {
                 return desc
-                    ? query.OrderByDescending(e => e.Person.LastName)
-                           .ThenByDescending(e => e.Person.FirstName)
+                    ? query.OrderByDescending(e => e.Person!.LastName)
+                           .ThenByDescending(e => e.Person!.FirstName)
                            .ThenByDescending(e => e.BusinessEntityID)
-                    : query.OrderBy(e => e.Person.LastName)
-                           .ThenBy(e => e.Person.FirstName)
+                    : query.OrderBy(e => e.Person!.LastName)
+                           .ThenBy(e => e.Person!.FirstName)
                            .ThenBy(e => e.BusinessEntityID);
             }
 
@@ -108,16 +108,16 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 case "lastname":
                 case "surname":
-                    return desc ? query.OrderByDescending(e => e.Person.LastName)
-                                        .ThenByDescending(e => e.Person.FirstName)
-                                : query.OrderBy(e => e.Person.LastName)
-                                       .ThenBy(e => e.Person.FirstName);
+                    return desc ? query.OrderByDescending(e => e.Person!.LastName)
+                                        .ThenByDescending(e => e.Person!.FirstName)
+                                : query.OrderBy(e => e.Person!.LastName)
+                                       .ThenBy(e => e.Person!.FirstName);
 
                 case "firstname":
-                    return desc ? query.OrderByDescending(e => e.Person.FirstName)
-                                        .ThenByDescending(e => e.Person.LastName)
-                                : query.OrderBy(e => e.Person.FirstName)
-                                       .ThenBy(e => e.Person.LastName);
+                    return desc ? query.OrderByDescending(e => e.Person!.FirstName)
+                                        .ThenByDescending(e => e.Person!.LastName)
+                                : query.OrderBy(e => e.Person!.FirstName)
+                                       .ThenBy(e => e.Person!.LastName);
 
                 case "hiredate":
                     return desc ? query.OrderByDescending(e => e.HireDate)
@@ -130,11 +130,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 default:
                     return desc
-                        ? query.OrderByDescending(e => e.Person.LastName)
-                               .ThenByDescending(e => e.Person.FirstName)
+                        ? query.OrderByDescending(e => e.Person!.LastName)
+                               .ThenByDescending(e => e.Person!.FirstName)
                                .ThenByDescending(e => e.BusinessEntityID)
-                        : query.OrderBy(e => e.Person.LastName)
-                               .ThenBy(e => e.Person.FirstName)
+                        : query.OrderBy(e => e.Person!.LastName)
+                               .ThenBy(e => e.Person!.FirstName)
                                .ThenBy(e => e.BusinessEntityID);
             }
         }
@@ -175,12 +175,12 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 {
                     string term = search.Trim().ToLower();
                     query = query.Where(e =>
-                        (e.Person.FirstName != null && e.Person.FirstName.ToLower().Contains(term)) ||
+                        (e.Person!.FirstName != null && e.Person.FirstName.ToLower().Contains(term)) ||
                         (e.Person.LastName != null && e.Person.LastName.ToLower().Contains(term))
                     );
                 }
 
-                query = query.Where(item => item.CurrentFlag).OrderBy(n => n.Person.FirstName);
+                query = query.Where(item => item.CurrentFlag).OrderBy(n => n.Person!.FirstName);
 
                 var totalCount = await query.CountAsync(ct);
 
