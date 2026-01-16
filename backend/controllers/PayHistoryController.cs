@@ -51,6 +51,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
+                _logger.LogInformation("Procura de PayHistory realizada com sucesso");
+                await _appLog.InfoAsync("Procura de PayHistory realizada com sucesso");
 
                 return Ok(_mapper.Map<PayHistoryDto>(history));
             }
@@ -73,7 +75,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(ex, "Erro inesperado no PayHistory");
             await _appLog.ErrorAsync("Erro inesperado no PayHistory", ex);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro ao processar o PayHistory",
@@ -96,7 +97,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(ex, "Erro de concorrência ao processar PayHistory");
             await _appLog.ErrorAsync("Erro de concorrência ao processar PayHistory", ex);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro de concorrência ao processar PayHistory",
@@ -114,7 +114,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             await _db.SaveChangesAsync(ct);
 
             if (dto is null)
+            {
+                _logger.LogWarning("Pedido de create inválido: body nulo ou campos em branco.");
+                await _appLog.WarnAsync("Pedido de create inválido: body nulo ou campos em branco.");
                 return BadRequest(new { message = "Body é obrigatório" });
+            }
 
             try
             {
@@ -152,13 +156,21 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             await _db.SaveChangesAsync(ct);
 
             if (dto is null)
+            {
+                _logger.LogWarning("Pedido de create inválido: body nulo ou campos em branco.");
+                await _appLog.WarnAsync("Pedido de create inválido: body nulo ou campos em branco.");
                 return BadRequest(new { message = "Body é obrigatório" });
+            }
 
             var history = await _db.PayHistories
                 .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId && ph.RateChangeDate == rateChangeDate, ct);
 
             if (history is null)
+            {
+                _logger.LogWarning("PayHistory BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o} não emcontrado", businessEntityId, rateChangeDate);
+                await _appLog.WarnAsync($"PayHistory BEID={businessEntityId}, RateChangeDate={rateChangeDate:o} não emcontrado");
                 return NotFound();
+            }
 
             try
             {
@@ -200,7 +212,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var payhistory = await GetPayHistoryAsync(businessEntityId, rateChangeDate, ct);
 
             if (payhistory is null)
+            {
+                _logger.LogWarning("PayHistory BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o} não emcontrado", businessEntityId, rateChangeDate);
+                await _appLog.WarnAsync($"PayHistory BEID={businessEntityId}, RateChangeDate={rateChangeDate:o} não emcontrado");
                 return NotFound();
+            }
 
             try
             {
