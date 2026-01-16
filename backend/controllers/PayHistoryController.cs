@@ -85,7 +85,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(ex, "Erro inesperado de base de dados ao processar PayHistory");
             await _appLog.ErrorAsync("Erro inesperado de base de dados ao processar PayHistory", ex);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro inesperado de base de dados ao processar PayHistory",
@@ -181,7 +180,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (DbUpdateException dbEx)
             {
-                Console.WriteLine("\n\n\nhabibi\n\n");
                 return await HandleDatabasePayHistoryErrorAsync(dbEx, ct);
             }
             catch (Exception ex)

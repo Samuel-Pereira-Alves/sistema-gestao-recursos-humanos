@@ -67,7 +67,6 @@ namespace sistema_gestao_recursos_humanos.backend.services
             catch (Exception persistEx)
             {
                 // Never break the main flow because logging failed
-                Console.WriteLine("\n\n\nAqui\n\n\n\n");
                 _logger.LogError(persistEx,
                     "Failed to persist application log. Original message: {Message}",
                     message);
