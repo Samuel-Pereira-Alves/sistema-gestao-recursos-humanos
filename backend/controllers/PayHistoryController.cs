@@ -181,6 +181,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (DbUpdateException dbEx)
             {
+                Console.WriteLine("\n\n\nhabibi\n\n");
                 return await HandleDatabasePayHistoryErrorAsync(dbEx, ct);
             }
             catch (Exception ex)

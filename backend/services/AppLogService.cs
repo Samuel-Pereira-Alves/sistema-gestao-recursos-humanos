@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
@@ -13,18 +14,21 @@ namespace sistema_gestao_recursos_humanos.backend.services
     // One simple, scoped service
     public sealed class AppLogService : IAppLogService
     {
-        private readonly AdventureWorksContext _db;
+        //private readonly AdventureWorksContext _db;
         private readonly IHttpContextAccessor _http;
         private readonly ILogger<AppLogService> _logger;
+        private readonly IDbContextFactory<AdventureWorksContext> _factory;
 
         public AppLogService(
-            AdventureWorksContext db,
+            //AdventureWorksContext db,
             IHttpContextAccessor http,
-            ILogger<AppLogService> logger)
+            ILogger<AppLogService> logger,
+            IDbContextFactory<AdventureWorksContext> factory)
         {
-            _db = db;
+            //_db = db;
             _http = http;
             _logger = logger;
+            _factory = factory;
         }
 
         public async Task LogAsync(
@@ -42,6 +46,8 @@ namespace sistema_gestao_recursos_humanos.backend.services
 
             var actionName = string.IsNullOrWhiteSpace(action) ? caller : action;
 
+            var db = _factory.CreateDbContext();
+
             var log = new Log
             {
                 Message = message,
@@ -55,12 +61,13 @@ namespace sistema_gestao_recursos_humanos.backend.services
 
             try
             {
-                _db.Logs.Add(log);
-                await _db.SaveChangesAsync(ct);
+                db.Logs.Add(log);
+                await db.SaveChangesAsync(ct);
             }
             catch (Exception persistEx)
             {
                 // Never break the main flow because logging failed
+                Console.WriteLine("\n\n\nAqui\n\n\n\n");
                 _logger.LogError(persistEx,
                     "Failed to persist application log. Original message: {Message}",
                     message);
