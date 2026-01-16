@@ -49,36 +49,65 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // -----------------------
         // GET: api/v1/jobcandidate
         // -----------------------
-        [HttpGet]
-        [Authorize(Roles = "admin")]
-        public async Task<ActionResult<List<JobCandidateDto>>> GetAll(CancellationToken ct)
+        
+[HttpGet]
+[Authorize(Roles = "admin")]
+public async Task<ActionResult<PagedResult<JobCandidateDto>>> GetAll(
+    [FromQuery] int pageNumber = 1,
+    [FromQuery] int pageSize = 20,
+    CancellationToken ct = default)
+{
+    _logger.LogInformation("Recebida requisição para obter JobCandidates (admin).");
+    AddLog("Recebida requisição para obter JobCandidates (admin).");
+
+    try
+    {
+        const int MaxPageSize = 200;
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > MaxPageSize) pageSize = MaxPageSize;
+
+        IQueryable<JobCandidate> query = _db.JobCandidates.AsNoTracking();
+
+        int totalCount = await query.CountAsync(ct);
+
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        _logger.LogInformation("Encontrados {Count} JobCandidates (antes da paginação).", totalCount);
+        AddLog($"Encontrados {totalCount} JobCandidates (antes da paginação).");
+        await _db.SaveChangesAsync(ct);
+
+        var dtoItems = _mapper.Map<List<JobCandidateDto>>(items);
+        var result = new PagedResult<JobCandidateDto>
         {
-            _logger.LogInformation("Recebida requisição para obter todos os JobCandidates.");
-            AddLog("Recebida requisição para obter todos os JobCandidates.");
+            Items = dtoItems,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
 
-            try
-            {
-                var candidates = await GetAllJobCandidatesAsync(ct);
-
-                _logger.LogInformation("Encontrados {Count} JobCandidates.", candidates.Count);
-                AddLog($"Encontrados {candidates.Count} JobCandidates.");
-                await _db.SaveChangesAsync(ct);
-
-                var dto = _mapper.Map<List<JobCandidateDto>>(candidates);
-                return Ok(dto);
-            }
-            catch (Exception ex)
-            {
-                return await HandleUnexpectedJobCandidateErrorAsync(ex, ct);
-            }
-        }
-        private async Task<List<JobCandidate>> GetAllJobCandidatesAsync(CancellationToken ct)
+        var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
         {
-            return await _db.JobCandidates
-                .AsNoTracking()
-                .OrderByDescending(c => c.ModifiedDate)
-                .ToListAsync(ct);
-        }
+            result.TotalCount,
+            result.PageNumber,
+            result.PageSize,
+            result.TotalPages,
+            result.HasPrevious,
+            result.HasNext
+        });
+        Response.Headers["X-Pagination"] = paginationHeader;
+
+        return Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return await HandleUnexpectedJobCandidateErrorAsync(ex, ct);
+    }
+}
+
         private async Task<ActionResult> HandleUnexpectedJobCandidateErrorAsync(Exception ex, CancellationToken ct)
         {
             _logger.LogError(ex, "Erro ao processar JobCandidates.");

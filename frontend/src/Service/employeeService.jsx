@@ -30,12 +30,80 @@ export async function updateEmployee(id, payload, token) {
   return res.json();
 }
 
-export async function getEmployees(token) {
-  const res = await fetch(`${API_BASE}/employee/`, {
-    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+
+export async function getEmployees(
+  token,
+  {
+    pageNumber = 1,
+    pageSize = 20,
+    sortBy,
+    sortDir = "asc",
+    search,
+  } = {}
+) {
+  const url = new URL(`${API_BASE}/employee`);
+  const params = new URLSearchParams();
+
+  params.set("pageNumber", String(pageNumber));
+  params.set("pageSize", String(pageSize));
+
+  if (sortBy) params.set("sortBy", sortBy);
+  if (sortDir) params.set("sortDir", sortDir);
+
+  if (search && search.trim().length > 0) params.set("search", search.trim());
+
+  url.search = params.toString();
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
   });
-  if (!res.ok) throw new Error(`Erro ao carregar funcionário (HTTP ${res.status})`);
-  return res.json();
+
+  if (!res.ok) {
+    throw new Error(`Erro ao carregar funcionários (HTTP ${res.status})`);
+  }
+
+  let metaFromHeader = null;
+  const paginationHeader = res.headers.get("X-Pagination");
+  if (paginationHeader) {
+    metaFromHeader = JSON.parse(paginationHeader);
+  }
+
+  const body = await res.json();
+  const items = Array.isArray(body?.items) ? body.items : Array.isArray(body) ? body : [];
+  const totalCount = Number.isFinite(body?.totalCount) ? body.totalCount : (metaFromHeader?.TotalCount ?? items.length);
+  const pageNum = Number.isFinite(body?.pageNumber) ? body.pageNumber : (metaFromHeader?.PageNumber ?? pageNumber);
+  const size = Number.isFinite(body?.pageSize) ? body.pageSize : (metaFromHeader?.PageSize ?? pageSize);
+
+  const totalPages =
+    Number.isFinite(body?.totalPages) ? body.totalPages
+      : Number.isFinite(metaFromHeader?.TotalPages) ? metaFromHeader.TotalPages
+        : Math.max(1, Math.ceil((totalCount || 0) / (size || 1)));
+
+  const hasPrevious =
+    typeof body?.hasPrevious === "boolean" ? body.hasPrevious
+      : typeof metaFromHeader?.HasPrevious === "boolean" ? metaFromHeader.HasPrevious
+        : pageNum > 1;
+
+  const hasNext =
+    typeof body?.hasNext === "boolean" ? body.hasNext
+      : typeof metaFromHeader?.HasNext === "boolean" ? metaFromHeader.HasNext
+        : pageNum < totalPages;
+
+  return {
+    items,
+    meta: {
+      totalCount,
+      pageNumber: pageNum,
+      pageSize: size,
+      totalPages,
+      hasPrevious,
+      hasNext,
+    },
+    raw: body,
+  };
 }
 
 export async function deleteEmployee(token, businessEntityID) {
@@ -47,13 +115,15 @@ export async function deleteEmployee(token, businessEntityID) {
     },
   });
 
+  console.log(res)
+
   if (!res.ok) {
     throw new Error(`Erro ao eliminar funcionário (HTTP ${res.status})`);
   }
 
-  if (res.status === 204) return true; 
+  if (res.status === 204) return true;
   try {
-    await res.json(); 
-  } catch {}
+    await res.json();
+  } catch { }
   return true;
 }

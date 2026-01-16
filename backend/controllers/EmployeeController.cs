@@ -85,29 +85,136 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private static string HashWithBcrypt(string plain) =>
             BCrypt.Net.BCrypt.HashPassword(plain, workFactor: 11);
 
+
+
+        private static IQueryable<Employee> ApplySorting(
+            IQueryable<Employee> query, string? sortBy, string? sortDir)
+        {
+            bool desc = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
+
+            // Defaults estáveis
+            if (string.IsNullOrWhiteSpace(sortBy))
+            {
+                return desc
+                    ? query.OrderByDescending(e => e.Person.LastName)
+                           .ThenByDescending(e => e.Person.FirstName)
+                           .ThenByDescending(e => e.BusinessEntityID)
+                    : query.OrderBy(e => e.Person.LastName)
+                           .ThenBy(e => e.Person.FirstName)
+                           .ThenBy(e => e.BusinessEntityID);
+            }
+
+            switch (sortBy.Trim().ToLower())
+            {
+                case "lastname":
+                case "surname":
+                    return desc ? query.OrderByDescending(e => e.Person.LastName)
+                                        .ThenByDescending(e => e.Person.FirstName)
+                                : query.OrderBy(e => e.Person.LastName)
+                                       .ThenBy(e => e.Person.FirstName);
+
+                case "firstname":
+                    return desc ? query.OrderByDescending(e => e.Person.FirstName)
+                                        .ThenByDescending(e => e.Person.LastName)
+                                : query.OrderBy(e => e.Person.FirstName)
+                                       .ThenBy(e => e.Person.LastName);
+
+                case "hiredate":
+                    return desc ? query.OrderByDescending(e => e.HireDate)
+                                : query.OrderBy(e => e.HireDate);
+
+                case "id":
+                case "employeeid":
+                    return desc ? query.OrderByDescending(e => e.BusinessEntityID)
+                                : query.OrderBy(e => e.BusinessEntityID);
+
+                default:
+                    return desc
+                        ? query.OrderByDescending(e => e.Person.LastName)
+                               .ThenByDescending(e => e.Person.FirstName)
+                               .ThenByDescending(e => e.BusinessEntityID)
+                        : query.OrderBy(e => e.Person.LastName)
+                               .ThenBy(e => e.Person.FirstName)
+                               .ThenBy(e => e.BusinessEntityID);
+            }
+        }
+
+
         // -----------------------
         // GET: api/v1/employee
         // -----------------------
         [HttpGet]
         [Authorize(Roles = "admin")]
-        public async Task<ActionResult<List<EmployeeDto>>> GetAll(CancellationToken ct)
+
+        public async Task<ActionResult<PagedResult<EmployeeDto>>> GetAll(
+    [FromQuery] int pageNumber = 1,
+    [FromQuery] int pageSize = 20,
+    [FromQuery] string? sortBy = null,
+    [FromQuery] string? sortDir = "asc",
+    [FromQuery] string? search = null,
+    CancellationToken ct = default)
         {
-            _logger.LogInformation("Recebida requisição para obter todos os Employees (Role=admin).");
-            AddLog("Recebida requisição para obter todos os Employees (Role=admin).");
+            _logger.LogInformation("Recebida requisição para obter Employees (admin).");
+            AddLog("Recebida requisição para obter Employees (admin).");
 
             try
             {
-                // 1) Obter dados via helper dedicado (reutilizável)
-                var employees = await GetAllEmployeesWithIncludesAsync(ct);
+                const int MaxPageSize = 200;
+                if (pageNumber < 1) pageNumber = 1;
+                if (pageSize < 1) pageSize = 20;
+                if (pageSize > MaxPageSize) pageSize = MaxPageSize;
 
-                // 2) Logs e persistência de log (conforme original)
-                _logger.LogInformation("Encontrados {Count} Employees.", employees.Count);
-                AddLog($"Encontrados {employees.Count} Employees.");
+                IQueryable<Employee> query = _db.Employees
+                    .AsNoTracking()
+                    .Include(e => e.PayHistories)
+                    .Include(e => e.DepartmentHistories)
+                        .ThenInclude(dh => dh.Department)
+                    .Include(e => e.Person);
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    string term = search.Trim().ToLower();
+                    query = query.Where(e =>
+                        (e.Person.FirstName != null && e.Person.FirstName.ToLower().Contains(term)) ||
+                        (e.Person.LastName != null && e.Person.LastName.ToLower().Contains(term))
+                    );
+                }
+
+                query = query.Where(item => item.CurrentFlag).OrderBy(n => n.Person.FirstName);
+
+                var totalCount = await query.CountAsync(ct);
+
+                var items = await query
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
+
+                _logger.LogInformation("Encontrados {Count} Employees (antes da paginação).", totalCount);
+                AddLog($"Encontrados {totalCount} Employees (antes da paginação).");
                 await _db.SaveChangesAsync(ct);
 
-                // 3) Mapear para DTOs e devolver
-                var employeesDto = _mapper.Map<List<EmployeeDto>>(employees);
-                return Ok(employeesDto);
+                var itemsDto = _mapper.Map<List<EmployeeDto>>(items);
+
+                var result = new PagedResult<EmployeeDto>
+                {
+                    Items = itemsDto,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+
+                var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    result.TotalCount,
+                    result.PageNumber,
+                    result.PageSize,
+                    result.TotalPages,
+                    result.HasPrevious,
+                    result.HasNext
+                });
+                Response.Headers["X-Pagination"] = paginationHeader;
+
+                return Ok(result);
             }
             catch (Exception ex)
             {
