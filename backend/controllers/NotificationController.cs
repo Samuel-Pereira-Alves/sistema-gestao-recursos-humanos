@@ -30,7 +30,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(ex, "Erro inesperado em Notification");
             await _appLog.ErrorAsync("Erro inesperado em Notification", ex);
-            await _db.SaveChangesAsync(ct);
             return Problem(
                 title: "Erro ao processar Notification",
                 detail: "Ocorreu um erro ao processar a requisição de Notification.",
@@ -41,7 +40,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(dbEx, titulo);
             await _appLog.ErrorAsync($"{titulo}: {dbEx.Message}", dbEx);
-            await _db.SaveChangesAsync(ct);
             return Problem(
                 title: titulo,
                 detail: detalhe,
@@ -121,7 +119,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (!exists)
             {
                 await _appLog.ErrorAsync($"Employee não encontrado. BEID={dto.BusinessEntityID}");
-                await _db.SaveChangesAsync(ct);
                 return NotFound(new { message = "Employee não encontrado", businessEntityId = dto.BusinessEntityID });
             }
             return null;

@@ -105,6 +105,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 // 3) Mapear para DTOs e devolver
                 var employeesDto = _mapper.Map<List<EmployeeDto>>(employees);
+                _logger.LogInformation("Requisição para obter Employees executada com sucesso.");
+                await _appLog.InfoAsync("Requisição para obter Employees executada com sucesso.");
                 return Ok(employeesDto);
             }
             catch (Exception ex)
@@ -133,6 +135,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (!IsSelfAccessAllowed(HttpContext.User, id))
             {
                 _logger.LogWarning("Tentativa de acesso não autorizada. ID solicitado={RequestedId}.", id);
+                await _appLog.WarnAsync($"Tentativa de acesso não autorizada. ID solicitado={id}.");
                 return Forbid();
             }
 
@@ -239,8 +242,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<IActionResult> HandleEmployeeSoftDeleteDbErrorAsync(DbUpdateException dbEx, int id, CancellationToken ct)
         {
             _logger.LogError(dbEx, "Erro ao atualizar Employee (soft delete) para ID={Id}.", id);
-            await _appLog.ErrorAsync($"Erro ao atualizar Employee (soft delete) para ID={id}.",dbEx);
-            await _db.SaveChangesAsync(ct);
+            await _appLog.ErrorAsync($"Erro ao atualizar Employee (soft delete) para ID={id}.", dbEx);
 
             return Problem(
                 title: "Erro ao atualizar",
@@ -252,7 +254,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(ex, "Erro inesperado ao processar Employee.");
             await _appLog.ErrorAsync($"Erro inesperado ao processar Employee.", ex);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro ao processar empregado",
@@ -292,7 +293,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             // Autorização (mantida exatamente como no original)
             if (!IsSelfAccessAllowed(HttpContext.User, id))
+            {
+                _logger.LogWarning("Tentativa de acesso não autorizada. ID solicitado={RequestedId}.", id);
+                await _appLog.WarnAsync($"Tentativa de acesso não autorizada. ID solicitado={id}.");
                 return Forbid();
+            }
 
             try
             {
@@ -371,8 +376,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<IActionResult> HandleEmployeePatchDbErrorAsync(DbUpdateException dbEx, int id, CancellationToken ct)
         {
             _logger.LogError(dbEx, "Erro ao persistir alterações do Patch para Employee ID={Id}.", id);
-            await _appLog.ErrorAsync($"Erro ao persistir alterações do Patch para Employee ID={id}.",dbEx);
-            await _db.SaveChangesAsync(ct);
+            await _appLog.ErrorAsync($"Erro ao persistir alterações do Patch para Employee ID={id}.", dbEx);
 
             return Problem(
                 title: "Erro ao atualizar",
@@ -616,7 +620,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             CancellationToken ct)
         {
             _logger.LogError(ex, "Erro interno ao aprovar candidato. JobCandidateId={JobCandidateId}", jobCandidateId);
-            await _appLog.ErrorAsync($"Erro interno ao aprovar candidato. JobCandidateId={jobCandidateId}",ex);
+            await _appLog.ErrorAsync($"Erro interno ao aprovar candidato. JobCandidateId={jobCandidateId}", ex);
             await _db.SaveChangesAsync(ct);
 
             await transaction.RollbackAsync(ct);
