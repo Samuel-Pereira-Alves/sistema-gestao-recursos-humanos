@@ -14,7 +14,14 @@ var key = builder.Configuration["Jwt:Key"];
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddOpenApi();
-builder.Services.AddDbContext<AdventureWorksContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+//builder.Services.AddDbContext<AdventureWorksContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddDbContextFactory<AdventureWorksContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped(provider =>
+    provider.GetRequiredService<IDbContextFactory<AdventureWorksContext>>()
+            .CreateDbContext());
 
 builder.Services
     .AddAuthentication(options =>

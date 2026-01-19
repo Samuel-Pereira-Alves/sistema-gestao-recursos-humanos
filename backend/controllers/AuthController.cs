@@ -59,6 +59,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 var token = GenerateJwtToken(user);
                 await RegisterSuccessfulLoginAsync(user, request.Username, ct);
 
+                _logger.LogInformation("Login feito com sucesso.");
+                await _appLog.InfoAsync("Login feito com sucesso.");
+                await _db.SaveChangesAsync(ct);
+
                 return Ok(new
                 {
                     token,
