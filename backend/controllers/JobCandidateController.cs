@@ -69,6 +69,10 @@ public async Task<ActionResult<PagedResult<JobCandidateDto>>> GetAll(
 
         IQueryable<JobCandidate> query = _db.JobCandidates.AsNoTracking();
 
+        query = query
+                .OrderByDescending(jc => jc.ModifiedDate)
+                .ThenByDescending(jc => jc.JobCandidateId);
+
         int totalCount = await query.CountAsync(ct);
 
         var items = await query

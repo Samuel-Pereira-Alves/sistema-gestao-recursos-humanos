@@ -21,6 +21,7 @@ import {
   deletePayHistory,
   createPayHistory
 } from "../../Service/pagamentosService";
+import { getAllEmployees } from "../../Service/employeeService";
 import { addNotificationForUser } from "../../utils/notificationBus";
 
 export default function Pagamentos() {
@@ -30,6 +31,7 @@ export default function Pagamentos() {
   const [currentPage, setCurrentPage] = useState(1);
   const [serverTotalPages, setServerTotalPages] = useState(1);
   const [employees, setEmployees] = useState([]);
+  const [employeesDrop, setEmployeesDrop] = useState([]);
   const [pagamentos, setPagamentos] = useState([]);
   const itemsPerPage = 5;
 
@@ -37,6 +39,7 @@ export default function Pagamentos() {
     setLoading(true);
     setFetchError(null);
     try {
+      const token = localStorage.getItem("authToken");
       const { employees: emps, pagamentos: pays, meta } =
         await listPagamentosFlattened(currentPage, itemsPerPage);
 
@@ -46,7 +49,8 @@ export default function Pagamentos() {
         .sort((a, b) =>
           (a.person?.firstName || "").localeCompare(b.person?.firstName || "")
         );
-
+      const employeedrop = await getAllEmployees(token);
+      setEmployeesDrop(employeedrop);
       setEmployees(employeesExceptActual);
       setPagamentos(pays ?? []);
       setServerTotalPages(meta?.totalPages ?? 1);
@@ -388,7 +392,7 @@ export default function Pagamentos() {
         error={createError}
         form={createForm}
         setForm={setCreateForm}
-        employees={employees}
+        employees={employeesDrop}
       />
     </div>
   );
