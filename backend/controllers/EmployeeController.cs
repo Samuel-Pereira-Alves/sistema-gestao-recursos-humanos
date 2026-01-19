@@ -253,6 +253,86 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
  
 
+        [HttpGet("paged")]
+        [Authorize(Roles = "admin")]
+ 
+        public async Task<ActionResult<PagedResult<EmployeeDto>>> GetAllPagination(
+    [FromQuery] int pageNumber = 1,
+    [FromQuery] int pageSize = 20,
+    [FromQuery] string? sortBy = null,
+    [FromQuery] string? sortDir = "asc",
+    [FromQuery] string? search = null,
+    CancellationToken ct = default)
+        {
+            _logger.LogInformation("Recebida requisição para obter Employees (admin).");
+            AddLog("Recebida requisição para obter Employees (admin).");
+ 
+            try
+            {
+                const int MaxPageSize = 200;
+                if (pageNumber < 1) pageNumber = 1;
+                if (pageSize < 1) pageSize = 20;
+                if (pageSize > MaxPageSize) pageSize = MaxPageSize;
+ 
+                IQueryable<Employee> query = _db.Employees
+                    .AsNoTracking()
+                    .Include(e => e.PayHistories)
+                    .Include(e => e.DepartmentHistories)
+                        .ThenInclude(dh => dh.Department)
+                    .Include(e => e.Person);
+ 
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    string term = search.Trim().ToLower();
+                    query = query.Where(e =>
+                        (e.Person!.FirstName != null && e.Person.FirstName.ToLower().Contains(term)) ||
+                        (e.Person.LastName != null && e.Person.LastName.ToLower().Contains(term))
+                    );
+                }
+ 
+                query = query.Where(item => item.CurrentFlag).OrderBy(n => n.Person!.FirstName);
+ 
+                var totalCount = await query.CountAsync(ct);
+ 
+                var items = await query
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
+ 
+                _logger.LogInformation("Encontrados {Count} Employees (antes da paginação).", totalCount);
+                AddLog($"Encontrados {totalCount} Employees (antes da paginação).");
+                await _db.SaveChangesAsync(ct);
+ 
+                var itemsDto = _mapper.Map<List<EmployeeDto>>(items);
+ 
+                var result = new PagedResult<EmployeeDto>
+                {
+                    Items = itemsDto,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+ 
+                var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    result.TotalCount,
+                    result.PageNumber,
+                    result.PageSize,
+                    result.TotalPages,
+                    result.HasPrevious,
+                    result.HasNext
+                });
+                Response.Headers["X-Pagination"] = paginationHeader;
+ 
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return await HandleUnexpectedEmployeeErrorAsync(ex, ct);
+            }
+        }
+ 
+
         private async Task<List<Employee>> GetAllEmployeesWithIncludesAsync(CancellationToken ct)
         {
             return await _db.Employees
