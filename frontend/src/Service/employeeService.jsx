@@ -30,7 +30,6 @@ export async function updateEmployee(id, payload, token) {
   return res.json();
 }
 
-
 export async function getEmployees(
   token,
   {

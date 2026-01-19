@@ -42,12 +42,7 @@ export async function patchDepartmentHistory(businessEntityID, departmentID, shi
       },
       body: JSON.stringify(body),
     });
-
 }
-
-
-
-
 
 export async function getDepHistoriesById(token, id, opts = {}) {
   const pageNumber = Number.isFinite(opts.pageNumber) ? Math.max(1, opts.pageNumber) : 1;
@@ -57,9 +52,8 @@ export async function getDepHistoriesById(token, id, opts = {}) {
   const beid = Number(id);
   if (!Number.isFinite(beid)) throw new Error("ID inválido.");
 
-  // ⚠️ Este endpoint devolve EmployeeDto, não devolve { items, meta }
   // Não concatena "&amp;", usa searchParams.
-  const url = new URL(`${API_BASE}/v1/employee/${beid}`, window.location?.origin || "http://localhost");
+  const url = new URL(`${API_BASE}/v1/employee/${beid}/paged`, window.location?.origin || "http://localhost");
   // Estes params são ignorados pelo servidor neste endpoint, mas não fazem mal.
   url.searchParams.set("pageNumber", String(pageNumber));
   url.searchParams.set("pageSize", String(pageSize));

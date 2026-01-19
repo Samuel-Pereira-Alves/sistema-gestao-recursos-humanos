@@ -115,15 +115,12 @@ export async function createPayHistory(body) {
   });
 }
 
-
 export async function getPayHistoryById(token, id, opts = {}) {
   const pageNumber = Number.isFinite(opts.pageNumber) ? Math.max(1, opts.pageNumber) : 1;
   const pageSize   = Number.isFinite(opts.pageSize)   ? Math.max(1, opts.pageSize)   : 10;
 
-
-  // ⚠️ Este endpoint devolve EmployeeDto, não devolve { items, meta }
   // Não concatena "&amp;", usa searchParams.
-  const url = new URL(`http://localhost:5136/api/v1/employee/${id}`, window.location?.origin || "http://localhost");
+  const url = new URL(`http://localhost:5136/api/v1/employee/${id}/paged`, window.location?.origin || "http://localhost");
   // Estes params são ignorados pelo servidor neste endpoint, mas não fazem mal.
   url.searchParams.set("pageNumber", String(pageNumber));
   url.searchParams.set("pageSize", String(pageSize));
