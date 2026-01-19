@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
+import Select from "react-select";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
-import { addNotification,addNotificationForUser,} from "../../utils/notificationBus";
+import { addNotification, addNotificationForUser, } from "../../utils/notificationBus";
 import BackButton from "../../components/Button/BackButton";
 import Avatar from "../../components/Avatar/Avatar";
 import Loading from "../../components/Loading/Loading";
@@ -71,6 +72,24 @@ export default function Profile() {
     load();
   }, [targetId, location.search, navigate]);
 
+    const departmentOptions = (departments ?? []).map((d) => ({
+    value: d.departmentID ?? d.id,
+    label: d.name ?? d.departmentName,
+  }));
+
+  const currentDeptName = getDepartamentoAtualNome(employee);
+  const selectedDepartmentInit =
+    departmentOptions.find((o) => o.label === currentDeptName) ||
+    null;
+
+  const [selectedDept, setSelectedDept] = useState(selectedDepartmentInit);
+  useEffect(() => {
+    const freshSelected =
+      departmentOptions.find((o) => o.label === currentDeptName) ||
+      null;
+    setSelectedDept(freshSelected);
+  }, [employee, departments]);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     if (name.startsWith("person.")) {
@@ -112,11 +131,13 @@ export default function Profile() {
         salariedFlag: employee.salariedFlag,
         vacationHours: parseInt(employee.vacationHours) || 0,
         sickLeaveHours: parseInt(employee.sickLeaveHours) || 0,
+
+        departmentID: selectedDept?.value ?? employee.departmentID ?? null,
       };
 
       const token = localStorage.getItem("authToken");
       await updateEmployee(idToUpdate, payload, token);
-      
+
       addNotificationForUser(
         `O seu perfil foi atualizado pelo RH.`,
         idToUpdate,
@@ -342,15 +363,17 @@ export default function Profile() {
                       </div>
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label text-muted">
-                        Departamento atual
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        name="departamento"
-                        value={getDepartamentoAtualNome(employee)}
-                        disabled
+                      <label className="form-label text-muted">Departamento</label>
+                      <Select
+                        options={departmentOptions}
+                        value={selectedDept}
+                        onChange={(value) => {
+                          setSelectedDept(value);
+                          setEmployee((prev) => ({ ...prev, departmentID: value?.value ?? null }));
+                        }}
+                        placeholder="Selecionar departamento..."
+                        isClearable
+                        classNamePrefix="react-select"
                       />
                     </div>
                   </>
@@ -393,9 +416,8 @@ export default function Profile() {
                     />
                     <ReadOnlyField
                       label="Nome"
-                      value={`${employee.person?.firstName ?? ""} ${
-                        employee.person?.lastName ?? ""
-                      }`}
+                      value={`${employee.person?.firstName ?? ""} ${employee.person?.lastName ?? ""
+                        }`}
                     />
                     <ReadOnlyField
                       label="Cartão de Cidadão"
@@ -419,8 +441,8 @@ export default function Profile() {
                         employee.maritalStatus === "S"
                           ? "Solteiro(a)"
                           : employee.maritalStatus === "M"
-                          ? "Casado(a)"
-                          : employee.maritalStatus || "N/A"
+                            ? "Casado(a)"
+                            : employee.maritalStatus || "N/A"
                       }
                     />
                     <ReadOnlyField
@@ -429,8 +451,8 @@ export default function Profile() {
                         employee.gender === "M"
                           ? "Masculino"
                           : employee.gender === "F"
-                          ? "Feminino"
-                          : employee.gender || "N/A"
+                            ? "Feminino"
+                            : employee.gender || "N/A"
                       }
                     />
                   </div>

@@ -1,11 +1,11 @@
 using AutoMapper;
-using Azure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
+using sistema_gestao_recursos_humanos.backend.services;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -19,12 +19,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private readonly AdventureWorksContext _db;
         private readonly IMapper _mapper;
         private readonly ILogger<EmployeeController> _logger;
+        private readonly IAppLogService _appLog;
 
-        public EmployeeController(AdventureWorksContext db, IMapper mapper, ILogger<EmployeeController> logger)
+        public EmployeeController(AdventureWorksContext db, IMapper mapper, ILogger<EmployeeController> logger, IAppLogService appLog)
         {
             _db = db;
             _mapper = mapper;
             _logger = logger;
+            _appLog = appLog;
         }
 
         // -----------------------
@@ -40,11 +42,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             return !string.IsNullOrEmpty(tokenBusinessEntityId)
                 && tokenBusinessEntityId == requestedId.ToString();
-        }
-
-        private void AddLog(string message)
-        {
-            _db.Logs.Add(new Log { Message = message, Date = DateTime.UtcNow });
         }
 
         private static string GenerateUsername(Person person)
@@ -86,143 +83,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private static string HashWithBcrypt(string plain) =>
             BCrypt.Net.BCrypt.HashPassword(plain, workFactor: 11);
 
-
-
-        private static IQueryable<Employee> ApplySorting(
-            IQueryable<Employee> query, string? sortBy, string? sortDir)
-        {
-            bool desc = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
-
-            // Defaults estáveis
-            if (string.IsNullOrWhiteSpace(sortBy))
-            {
-                return desc
-                    ? query.OrderByDescending(e => e.Person!.LastName)
-                           .ThenByDescending(e => e.Person!.FirstName)
-                           .ThenByDescending(e => e.BusinessEntityID)
-                    : query.OrderBy(e => e.Person!.LastName)
-                           .ThenBy(e => e.Person!.FirstName)
-                           .ThenBy(e => e.BusinessEntityID);
-            }
-
-            switch (sortBy.Trim().ToLower())
-            {
-                case "lastname":
-                case "surname":
-                    return desc ? query.OrderByDescending(e => e.Person!.LastName)
-                                        .ThenByDescending(e => e.Person!.FirstName)
-                                : query.OrderBy(e => e.Person!.LastName)
-                                       .ThenBy(e => e.Person!.FirstName);
-
-                case "firstname":
-                    return desc ? query.OrderByDescending(e => e.Person!.FirstName)
-                                        .ThenByDescending(e => e.Person!.LastName)
-                                : query.OrderBy(e => e.Person!.FirstName)
-                                       .ThenBy(e => e.Person!.LastName);
-
-                case "hiredate":
-                    return desc ? query.OrderByDescending(e => e.HireDate)
-                                : query.OrderBy(e => e.HireDate);
-
-                case "id":
-                case "employeeid":
-                    return desc ? query.OrderByDescending(e => e.BusinessEntityID)
-                                : query.OrderBy(e => e.BusinessEntityID);
-
-                default:
-                    return desc
-                        ? query.OrderByDescending(e => e.Person!.LastName)
-                               .ThenByDescending(e => e.Person!.FirstName)
-                               .ThenByDescending(e => e.BusinessEntityID)
-                        : query.OrderBy(e => e.Person!.LastName)
-                               .ThenBy(e => e.Person!.FirstName)
-                               .ThenBy(e => e.BusinessEntityID);
-            }
-        }
-
-
-        // -----------------------
-        // GET: api/v1/employee/paged
-        // -----------------------
-        [HttpGet("paged")]
-        [Authorize(Roles = "admin")]
-
-        public async Task<ActionResult<PagedResult<EmployeeDto>>> GetAllPagination(
-    [FromQuery] int pageNumber = 1,
-    [FromQuery] int pageSize = 20,
-    [FromQuery] string? sortBy = null,
-    [FromQuery] string? sortDir = "asc",
-    [FromQuery] string? search = null,
-    CancellationToken ct = default)
-        {
-            _logger.LogInformation("Recebida requisição para obter Employees (admin).");
-            AddLog("Recebida requisição para obter Employees (admin).");
-
-            try
-            {
-                const int MaxPageSize = 200;
-                if (pageNumber < 1) pageNumber = 1;
-                if (pageSize < 1) pageSize = 20;
-                if (pageSize > MaxPageSize) pageSize = MaxPageSize;
-
-                IQueryable<Employee> query = _db.Employees
-                    .AsNoTracking()
-                    .Include(e => e.PayHistories)
-                    .Include(e => e.DepartmentHistories)
-                        .ThenInclude(dh => dh.Department)
-                    .Include(e => e.Person);
-
-                if (!string.IsNullOrWhiteSpace(search))
-                {
-                    string term = search.Trim().ToLower();
-                    query = query.Where(e =>
-                        (e.Person!.FirstName != null && e.Person.FirstName.ToLower().Contains(term)) ||
-                        (e.Person.LastName != null && e.Person.LastName.ToLower().Contains(term))
-                    );
-                }
-
-                query = query.Where(item => item.CurrentFlag).OrderBy(n => n.Person!.FirstName);
-
-                var totalCount = await query.CountAsync(ct);
-
-                var items = await query
-                    .Skip((pageNumber - 1) * pageSize)
-                    .Take(pageSize)
-                    .ToListAsync(ct);
-
-                _logger.LogInformation("Encontrados {Count} Employees (antes da paginação).", totalCount);
-                AddLog($"Encontrados {totalCount} Employees (antes da paginação).");
-                await _db.SaveChangesAsync(ct);
-
-                var itemsDto = _mapper.Map<List<EmployeeDto>>(items);
-
-                var result = new PagedResult<EmployeeDto>
-                {
-                    Items = itemsDto,
-                    TotalCount = totalCount,
-                    PageNumber = pageNumber,
-                    PageSize = pageSize
-                };
-
-                var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    result.TotalCount,
-                    result.PageNumber,
-                    result.PageSize,
-                    result.TotalPages,
-                    result.HasPrevious,
-                    result.HasNext
-                });
-                Response.Headers["X-Pagination"] = paginationHeader;
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return await HandleUnexpectedEmployeeErrorAsync(ex, ct);
-            }
-        }
-
         // -----------------------
         // GET: api/v1/employee
         // -----------------------
@@ -231,6 +91,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<ActionResult<List<EmployeeDto>>> GetAll(CancellationToken ct)
         {
             _logger.LogInformation("Recebida requisição para obter todos os Employees (Role=admin).");
+            await _appLog.InfoAsync("Recebida requisição para obter todos os Employees (Role=admin).");
 
             try
             {
@@ -239,11 +100,13 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 // 2) Logs e persistência de log (conforme original)
                 _logger.LogInformation("Encontrados {Count} Employees.", employees.Count);
+                await _appLog.InfoAsync($"Encontrados {employees.Count} Employees.");
                 await _db.SaveChangesAsync(ct);
 
                 // 3) Mapear para DTOs e devolver
                 var employeesDto = _mapper.Map<List<EmployeeDto>>(employees);
                 _logger.LogInformation("Requisição para obter Employees executada com sucesso.");
+                await _appLog.InfoAsync("Requisição para obter Employees executada com sucesso.");
                 return Ok(employeesDto);
             }
             catch (Exception ex)
@@ -251,21 +114,20 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 return await HandleUnexpectedEmployeeErrorAsync(ex, ct);
             }
         }
- 
 
         [HttpGet("paged")]
         [Authorize(Roles = "admin")]
  
         public async Task<ActionResult<PagedResult<EmployeeDto>>> GetAllPagination(
-    [FromQuery] int pageNumber = 1,
-    [FromQuery] int pageSize = 20,
-    [FromQuery] string? sortBy = null,
-    [FromQuery] string? sortDir = "asc",
-    [FromQuery] string? search = null,
-    CancellationToken ct = default)
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDir = "asc",
+            [FromQuery] string? search = null,
+            CancellationToken ct = default)
         {
             _logger.LogInformation("Recebida requisição para obter Employees (admin).");
-            AddLog("Recebida requisição para obter Employees (admin).");
+            await _appLog.InfoAsync("Recebida requisição para obter Employees (admin).");
  
             try
             {
@@ -300,7 +162,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     .ToListAsync(ct);
  
                 _logger.LogInformation("Encontrados {Count} Employees (antes da paginação).", totalCount);
-                AddLog($"Encontrados {totalCount} Employees (antes da paginação).");
+                await _appLog.InfoAsync($"Encontrados {totalCount} Employees (antes da paginação).");
                 await _db.SaveChangesAsync(ct);
  
                 var itemsDto = _mapper.Map<List<EmployeeDto>>(items);
@@ -331,7 +193,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 return await HandleUnexpectedEmployeeErrorAsync(ex, ct);
             }
         }
- 
 
         private async Task<List<Employee>> GetAllEmployeesWithIncludesAsync(CancellationToken ct)
         {
@@ -345,117 +206,48 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // -----------------------
         // GET: api/v1/employee/{id}
         // -----------------------
-       
-[HttpGet("{id:int}")]
-[Authorize(Roles = "admin, employee")]
-public async Task<ActionResult<EmployeeDto>> GetEmployee(
-    int id,
-    // paginação por coleção via query
-    [FromQuery] int pageNumber = 1,
-    [FromQuery] int pageSize   = 10,
-    CancellationToken ct = default)
-{
-    // 0) Autorização específica (mantida)
-    if (!IsSelfAccessAllowed(HttpContext.User, id))
-    {
-        _logger.LogWarning("Tentativa de acesso não autorizada. ID solicitado={RequestedId}.", id);
-        return Forbid();
-    }
-
-    // 1) Logging de entrada (mantendo padrão e SaveChanges inicial)
-    _logger.LogInformation("Recebida requisição para obter Employee com ID={Id}.", id);
-    AddLog($"Recebida requisição para obter Employee com ID={id}.");
-    await _db.SaveChangesAsync(ct);
-
-    // Normalização dos parâmetros de paginação (com limites)
-    const int MaxPageSize = 200;
-    if (pageNumber  < 1) pageNumber  = 1;
-    if (pageSize    < 1) pageSize    = 10;
-
-    try
-    {
-        // 2) Obter Employee com Includes via helper reutilizável (NÃO ALTERAR)
-        var employee = await GetEmployeeWithIncludesAsync(id, ct);
-        if (employee is null)
+        [HttpGet("{id:int}")]
+        [Authorize(Roles = "admin, employee")]
+        public async Task<ActionResult<EmployeeDto>> GetEmployee(int id, CancellationToken ct)
         {
-            _logger.LogWarning("Employee não encontrado para ID={Id}.", id);
-            AddLog($"Employee não encontrado para ID={id}.");
+            // 0) Autorização específica (mantida)
+            if (!IsSelfAccessAllowed(HttpContext.User, id))
+            {
+                _logger.LogWarning("Tentativa de acesso não autorizada. ID solicitado={RequestedId}.", id);
+                await _appLog.WarnAsync($"Tentativa de acesso não autorizada. ID solicitado={id}.");
+                return Forbid();
+            }
+
+            // 1) Logging de entrada (mantendo padrão e SaveChanges inicial)
+            _logger.LogInformation("Recebida requisição para obter Employee com ID={Id}.", id);
+            await _appLog.InfoAsync($"Recebida requisição para obter Employee com ID={id}.");
             await _db.SaveChangesAsync(ct);
-            return NotFound();
+
+            try
+            {
+                // 2) Obter Employee com Includes via helper reutilizável
+                var employee = await GetEmployeeWithIncludesAsync(id, ct);
+                if (employee is null)
+                {
+                    _logger.LogWarning("Employee não encontrado para ID={Id}.", id);
+                    await _appLog.WarnAsync($"Employee não encontrado para ID={id}.");
+                    await _db.SaveChangesAsync(ct);
+                    return NotFound();
+                }
+
+                // 3) Log de sucesso (mantendo SaveChanges como no original)
+                _logger.LogInformation("Employee encontrado para ID={Id}.", id);
+                await _appLog.InfoAsync($"Employee encontrado para ID={id}.");
+                await _db.SaveChangesAsync(ct);
+
+                // 4) Mapear e devolver
+                return Ok(_mapper.Map<EmployeeDto>(employee));
+            }
+            catch (Exception ex)
+            {
+                return await HandleUnexpectedEmployeeErrorAsync(ex, ct);
+            }
         }
-
-        // 3) Log de sucesso (mantendo SaveChanges como no original)
-        _logger.LogInformation("Employee encontrado para ID={Id}.", id);
-        AddLog($"Employee encontrado para ID={id}.");
-        await _db.SaveChangesAsync(ct);
-
-        // 4) Mapear para DTO (para não mexer no objeto rastreado do EF)
-        var dto = _mapper.Map<EmployeeDto>(employee);
-
-        // 5) Paginar coleções no DTO (em memória), preservando ordenações padrão
-        // ---- PayHistories ----
-        var payAll = dto.PayHistories ?? new List<PayHistoryDto>();
-        var payTotalCount = payAll.Count;
-
-        // Ordenação padrão: RateChangeDate DESC (ajuste se necessário)
-        var payOrdered = payAll.OrderByDescending(p => p.RateChangeDate);
-
-        var payPaged = payOrdered
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-
-        dto.PayHistories = payPaged;
-
-        var payTotalPages = pageSize <= 0 ? 0 : (int)Math.Ceiling(payTotalCount / (double)pageSize);
-        var payHasPrev = pageNumber > 1 && payTotalPages > 0;
-        var payHasNext = pageNumber < payTotalPages;
-
-        Response.Headers["X-Pagination-PayHistories"] =
-            System.Text.Json.JsonSerializer.Serialize(new
-            {
-                Collection = "PayHistories",
-                TotalCount = payTotalCount,
-                PageNumber = pageNumber,
-                PageSize   = pageSize,
-                TotalPages = payTotalPages,
-                HasPrevious = payHasPrev,
-                HasNext     = payHasNext
-            });
-
-        // ---- DepartmentHistories ----
-        var deptAll = dto.DepartmentHistories ?? new List<DepartmentHistoryDto>();
-        var deptTotalCount = deptAll.Count;
-
-        // Ordenação padrão: StartDate DESC (ajuste se o DTO usar outro campo)
-        var deptOrdered = deptAll.OrderByDescending(d => d.StartDate);
-
-
-
-
-        Response.Headers["X-Pagination-DepartmentHistories"] =
-            System.Text.Json.JsonSerializer.Serialize(new
-            {
-                Collection = "DepartmentHistories",
-                TotalCount = deptTotalCount,
-                PageNumber = pageNumber,
-                PageSize   = pageSize,
-            });
-
-        // (Opcional) Cabeçalhos Link por coleção (self/prev/next)
-        // Mantive opcional — se quiseres, posso adicionar:
-        // Response.Headers["Link-PayHistories"] = "...";
-        // Response.Headers["Link-DepartmentHistories"] = "...";
-
-        // 6) Devolver DTO já paginado nas coleções
-        return Ok(dto);
-    }
-    catch (Exception ex)
-    {
-        return await HandleUnexpectedEmployeeErrorAsync(ex, ct);
-    }
-}
-
 
         private async Task<Employee?> GetEmployeeWithIncludesAsync(int id, CancellationToken ct)
         {
@@ -475,7 +267,7 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
         {
             // 1) Logging inicial + persistência de log (como no original)
             _logger.LogInformation("Recebida requisição para eliminar (soft delete) Employee com ID={Id}.", id);
-            AddLog($"Recebida requisição para eliminar (soft delete) Employee com ID={id}.");
+            await _appLog.InfoAsync($"Recebida requisição para eliminar (soft delete) Employee com ID={id}.");
             await _db.SaveChangesAsync(ct);
 
             try
@@ -485,14 +277,14 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
                 if (employee is null)
                 {
                     _logger.LogWarning("Employee não encontrado para ID={Id}.", id);
-                    AddLog($"Employee não encontrado para ID={id}.");
+                    await _appLog.WarnAsync($"Employee não encontrado para ID={id}.");
                     await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
                 // 3) Log de encontrado (mantendo mensagem original) 
                 _logger.LogInformation("Employee encontrado para ID={Id}. A marcar como inativo…", id);
-                AddLog($"Employee encontrado para ID={id}. A marcar como inativo…");
+                await _appLog.InfoAsync($"Employee encontrado para ID={id}. A marcar como inativo…");
 
                 // 4) Marcar como inativo (soft delete) e gravar
                 ApplyEmployeeSoftDelete(employee);
@@ -500,7 +292,7 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
 
                 // 5) Log de sucesso + persistência (como no original)
                 _logger.LogInformation("Employee marcado como inativo com sucesso. ID={Id}.", id);
-                AddLog($"Employee marcado como inativo com sucesso. ID={id}.");
+                await _appLog.InfoAsync($"Employee marcado como inativo com sucesso. ID={id}.");
                 await _db.SaveChangesAsync(ct);
 
                 return NoContent();
@@ -529,8 +321,7 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
         private async Task<IActionResult> HandleEmployeeSoftDeleteDbErrorAsync(DbUpdateException dbEx, int id, CancellationToken ct)
         {
             _logger.LogError(dbEx, "Erro ao atualizar Employee (soft delete) para ID={Id}.", id);
-            AddLog($"Erro ao atualizar Employee (soft delete) para ID={id}.");
-            await _db.SaveChangesAsync(ct);
+            await _appLog.ErrorAsync($"Erro ao atualizar Employee (soft delete) para ID={id}.", dbEx);
 
             return Problem(
                 title: "Erro ao atualizar",
@@ -541,8 +332,7 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
         private async Task<ActionResult> HandleUnexpectedEmployeeErrorAsync(Exception ex, CancellationToken ct)
         {
             _logger.LogError(ex, "Erro inesperado ao processar Employee.");
-            AddLog($"Erro inesperado ao processar Employee.");
-            await _db.SaveChangesAsync(ct);
+            await _appLog.ErrorAsync($"Erro inesperado ao processar Employee.", ex);
 
             return Problem(
                 title: "Erro ao processar empregado",
@@ -559,14 +349,14 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
         {
             // Logging inicial e persistência (como no original)    
             _logger.LogInformation("Recebida requisição para atualizar parcialmente Employee com ID={Id}.", id);
-            AddLog($"Recebida requisição para atualizar parcialmente Employee com ID={id}.");
+            await _appLog.InfoAsync($"Recebida requisição para atualizar parcialmente Employee com ID={id}.");
             await _db.SaveChangesAsync(ct);
 
             // Validação de body
             if (employeeDto is null)
             {
                 _logger.LogWarning("DTO ausente no corpo da requisição para Patch de Employee ID={Id}.", id);
-                AddLog($"DTO ausente no corpo da requisição para Patch de Employee ID={id}.");
+                await _appLog.WarnAsync($"DTO ausente no corpo da requisição para Patch de Employee ID={id}.");
                 await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Body is required." });
             }
@@ -575,14 +365,18 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
             if (id != employeeDto.BusinessEntityID)
             {
                 _logger.LogWarning("ID no path ({PathId}) difere do ID no corpo ({BodyId}).", id, employeeDto.BusinessEntityID);
-                AddLog($"ID no path ({id}) difere do ID no corpo ({employeeDto.BusinessEntityID}).");
+                await _appLog.WarnAsync($"ID no path ({id}) difere do ID no corpo ({employeeDto.BusinessEntityID}).");
                 await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Path ID must match body BusinessEntityID." });
             }
 
             // Autorização (mantida exatamente como no original)
             if (!IsSelfAccessAllowed(HttpContext.User, id))
+            {
+                _logger.LogWarning("Tentativa de acesso não autorizada. ID solicitado={RequestedId}.", id);
+                await _appLog.WarnAsync($"Tentativa de acesso não autorizada. ID solicitado={id}.");
                 return Forbid();
+            }
 
             try
             {
@@ -591,14 +385,14 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
                 if (employee is null)
                 {
                     _logger.LogWarning("Employee não encontrado para ID={Id}.", id);
-                    AddLog($"Employee não encontrado para ID={id}.");
+                    await _appLog.WarnAsync($"Employee não encontrado para ID={id}.");
                     await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
                 // 2) Log de encontrado (mantendo mensagem original)        
                 _logger.LogInformation("Employee encontrado para ID={Id}. A aplicar alterações parciais…", id);
-                AddLog($"Employee encontrado para ID={id}. A aplicar alterações parciais…");
+                await _appLog.InfoAsync($"Employee encontrado para ID={id}. A aplicar alterações parciais…");
 
                 // 3) Aplicar alterações parciais (isolado em helper)
                 ApplyEmployeePartialUpdate(employeeDto, employee);
@@ -608,7 +402,7 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
 
                 // 5) Log de sucesso + persistência (mantido)
                 _logger.LogInformation("Patch aplicado com sucesso para Employee ID={Id}.", id);
-                AddLog($"Patch aplicado com sucesso para Employee ID={id}.");
+                await _appLog.InfoAsync($"Patch aplicado com sucesso para Employee ID={id}.");
                 await _db.SaveChangesAsync(ct);
 
                 // 6) Resposta
@@ -661,8 +455,7 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
         private async Task<IActionResult> HandleEmployeePatchDbErrorAsync(DbUpdateException dbEx, int id, CancellationToken ct)
         {
             _logger.LogError(dbEx, "Erro ao persistir alterações do Patch para Employee ID={Id}.", id);
-            AddLog($"Erro ao persistir alterações do Patch para Employee ID={id}.");
-            await _db.SaveChangesAsync(ct);
+            await _appLog.ErrorAsync($"Erro ao persistir alterações do Patch para Employee ID={id}.", dbEx);
 
             return Problem(
                 title: "Erro ao atualizar",
@@ -678,7 +471,7 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
         public async Task<IActionResult> ApproveCandidate(int jobCandidateId, CancellationToken ct)
         {
             _logger.LogInformation("Iniciando aprovação do candidato. JobCandidateId={JobCandidateId}", jobCandidateId);
-            AddLog($"Iniciando aprovação do candidato. JobCandidateId={jobCandidateId}");
+            await _appLog.InfoAsync($"Iniciando aprovação do candidato. JobCandidateId={jobCandidateId}");
             await _db.SaveChangesAsync(ct);
 
             // 0) Obter candidato
@@ -686,13 +479,13 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
             if (candidate is null)
             {
                 _logger.LogWarning("Candidato não encontrado. JobCandidateId={JobCandidateId}", jobCandidateId);
-                AddLog($"Candidato não encontrado. JobCandidateId={jobCandidateId}");
+                await _appLog.WarnAsync($"Candidato não encontrado. JobCandidateId={jobCandidateId}");
                 await _db.SaveChangesAsync(ct);
                 return NotFound(new { message = "Candidato não encontrado", jobCandidateId });
             }
 
             await using var transaction = await _db.Database.BeginTransactionAsync(ct);
-            AddLog($"Transação iniciada para aprovação. JobCandidateId={jobCandidateId}");
+            await _appLog.InfoAsync($"Transação iniciada para aprovação. JobCandidateId={jobCandidateId}");
             await _db.SaveChangesAsync(ct);
 
             try
@@ -707,14 +500,14 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
                 var beId = await CreateBusinessEntityAsync(now, ct);
 
                 _logger.LogInformation("BusinessEntity criado. BusinessEntityID={BusinessEntityID}", beId);
-                AddLog($"BusinessEntity criado. BusinessEntityID={beId}");
+                await _appLog.InfoAsync($"BusinessEntity criado. BusinessEntityID={beId}");
                 await _db.SaveChangesAsync(ct);
 
                 // 3) Criar Person
                 var person = await CreatePersonForEmployeeAsync(beId, candidate, now, ct);
 
                 _logger.LogInformation("Person criado. BusinessEntityID={BusinessEntityID}", beId);
-                AddLog($"Person criado. BusinessEntityID={beId}");
+                await _appLog.InfoAsync($"Person criado. BusinessEntityID={beId}");
                 await _db.SaveChangesAsync(ct);
 
                 // 4) Gerar username e validar unicidade
@@ -722,18 +515,18 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
                 if (await UsernameExistsAsync(username, ct))
                 {
                     _logger.LogWarning("Conflito de username. Username={Username}", username);
-                    AddLog($"Conflito de username. Username={username}");
+                    await _appLog.WarnAsync($"Conflito de username. Username={username}");
                     await _db.SaveChangesAsync(ct);
 
                     await transaction.RollbackAsync(ct);
-                    AddLog($"Transação revertida por conflito de username. JobCandidateId={jobCandidateId}");
+                    await _appLog.InfoAsync($"Transação revertida por conflito de username. JobCandidateId={jobCandidateId}");
                     await _db.SaveChangesAsync(ct);
 
                     return Conflict(new { message = "Username já existe", username });
                 }
 
                 _logger.LogInformation("Username gerado e validado. Username={Username}", username);
-                AddLog($"Username gerado e validado. Username={username}");
+                await _appLog.InfoAsync($"Username gerado e validado. Username={username}");
                 await _db.SaveChangesAsync(ct);
 
                 // 5) Criar Employee
@@ -742,7 +535,7 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
                 await _db.SaveChangesAsync(ct);
 
                 _logger.LogInformation("Employee criado. BusinessEntityID={BusinessEntityID}, LoginID={LoginID}", beId, employee.LoginID);
-                AddLog($"Employee criado. BusinessEntityID={beId}, LoginID={employee.LoginID}");
+                await _appLog.InfoAsync($"Employee criado. BusinessEntityID={beId}, LoginID={employee.LoginID}");
                 await _db.SaveChangesAsync(ct);
 
                 // 6) Criar SystemUser e remover candidato
@@ -753,8 +546,8 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
 
                 await transaction.CommitAsync(ct);
                 _logger.LogInformation("SystemUser criado e candidato removido. SystemUserId={SystemUserId}, Username={Username}", sysUser.SystemUserId, sysUser.Username);
-                AddLog($"SystemUser criado e candidato removido. SystemUserId={sysUser.SystemUserId}, Username={sysUser.Username}");
-                AddLog($"Transação concluída com sucesso. BusinessEntityID={beId}");
+                await _appLog.InfoAsync($"SystemUser criado e candidato removido. SystemUserId={sysUser.SystemUserId}, Username={sysUser.Username}");
+                await _appLog.InfoAsync($"Transação concluída com sucesso. BusinessEntityID={beId}");
                 await _db.SaveChangesAsync(ct);
 
                 // DEV-only: expõe tempPassword na resposta (não fazer em produção)
@@ -796,7 +589,7 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
                 return null;
 
             _logger.LogInformation("Ativar empregado existente. BusinessEntityID={BusinessEntityID}", previousEmployee.BusinessEntityID);
-            AddLog($"Ativar empregado existente. BusinessEntityID={previousEmployee.BusinessEntityID}");
+            await _appLog.InfoAsync($"Ativar empregado existente. BusinessEntityID={previousEmployee.BusinessEntityID}");
 
             previousEmployee.CurrentFlag = true;
             previousEmployee.ModifiedDate = DateTime.UtcNow;
@@ -808,7 +601,7 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
             await _db.SaveChangesAsync(ct);
 
             _logger.LogInformation("Transação concluída. BusinessEntityID={BusinessEntityID}", previousEmployee.BusinessEntityID);
-            AddLog($"Transação concluída. BusinessEntityID={previousEmployee.BusinessEntityID}");
+            await _appLog.InfoAsync($"Transação concluída. BusinessEntityID={previousEmployee.BusinessEntityID}");
             await _db.SaveChangesAsync(ct);
 
             var dto = _mapper.Map<EmployeeDto>(previousEmployee);
@@ -889,11 +682,11 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
             CancellationToken ct)
         {
             _logger.LogError(ex, "Erro de atualização ao aprovar candidato. JobCandidateId={JobCandidateId}", jobCandidateId);
-            AddLog($"Erro de atualização ao aprovar candidato. JobCandidateId={jobCandidateId}");
+            await _appLog.ErrorAsync($"Erro de atualização ao aprovar candidato. JobCandidateId={jobCandidateId}", ex);
             await _db.SaveChangesAsync(ct);
 
             await transaction.RollbackAsync(ct);
-            AddLog($"Transação revertida devido a DbUpdateException. JobCandidateId={jobCandidateId}");
+            await _appLog.InfoAsync($"Transação revertida devido a DbUpdateException. JobCandidateId={jobCandidateId}");
             await _db.SaveChangesAsync(ct);
 
             return Conflict(new { message = "Erro ao aprovar candidato", detail = ex.Message });
@@ -906,11 +699,11 @@ public async Task<ActionResult<EmployeeDto>> GetEmployee(
             CancellationToken ct)
         {
             _logger.LogError(ex, "Erro interno ao aprovar candidato. JobCandidateId={JobCandidateId}", jobCandidateId);
-            AddLog($"Erro interno ao aprovar candidato. JobCandidateId={jobCandidateId}");
+            await _appLog.ErrorAsync($"Erro interno ao aprovar candidato. JobCandidateId={jobCandidateId}", ex);
             await _db.SaveChangesAsync(ct);
 
             await transaction.RollbackAsync(ct);
-            AddLog($"Transação revertida devido a erro interno. JobCandidateId={jobCandidateId}");
+            await _appLog.InfoAsync($"Transação revertida devido a erro interno. JobCandidateId={jobCandidateId}");
             await _db.SaveChangesAsync(ct);
 
             return Problem(
