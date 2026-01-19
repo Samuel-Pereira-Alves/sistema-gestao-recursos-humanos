@@ -213,3 +213,23 @@ export const getGroupName = (h) =>
       );
       return derived;
     }
+
+    export function normalizeApiError(err) {
+  // Erros DataAnnotations
+  if (err.body?.errors) {
+    return Object.values(err.body.errors).flat().join("\n");
+  }
+ 
+  // ProblemDetails do backend (Conflict, 500, etc.)
+  if (err.body?.detail) {
+    return err.body.detail;
+  }
+ 
+  // erros front end ( Campos obrigatórios, etc. )
+  if (err.message) {
+    return err.message;
+  }
+ 
+  // 4. fallback
+  return "Ocorreu um erro inesperado.";
+}

@@ -1,12 +1,32 @@
+
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { addNotificationForUser } from "../../utils/notificationBus";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
-import {buildDerivedDepartments, formatDate, normalize, idToString, dateInputToIsoMidnight, getBusinessEntityID, getDepartmentID, getShiftID, getStartDate, getEndDate, getDepartmentName, getGroupName, formatDateForRoute } from "../../utils/Utils";
-import { getEmployees } from "../../Service/employeeService";
+import {
+  buildDerivedDepartments,
+  formatDate,
+  normalize,
+  idToString,
+  dateInputToIsoMidnight,
+  getBusinessEntityID,
+  getDepartmentID,
+  getShiftID,
+  getStartDate,
+  getEndDate,
+  getDepartmentName,
+  getGroupName,
+  formatDateForRoute,
+} from "../../utils/Utils";
+import { getAllEmployees, getEmployees } from "../../Service/employeeService";
 import AssignmentModal from "../../components/AssignmentForm/AssignmentModal";
-import { createDepartmentHistory, deleteDepHistory, patchDepartmentHistory } from "../../Service/departmentHistoryService";
+import {
+  createDepartmentHistory,
+  deleteDepHistory,
+  getAllDepartmentsFromEmployees,
+  patchDepartmentHistory,
+} from "../../Service/departmentHistoryService";
 
 const SHIFT_LABELS = { 1: "Manhã", 2: "Tarde", 3: "Noite" };
 const resolveShiftLabel = (id) => SHIFT_LABELS[Number(id)] ?? "—";
@@ -14,77 +34,71 @@ const resolveShiftLabel = (id) => SHIFT_LABELS[Number(id)] ?? "—";
 export default function Movimentos() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+
+  // Movimentos (flatten da página corrente de employees)
   const [items, setItems] = useState([]);
+
+  // Colaboradores para o modal (carregados on-demand)
   const [employees, setEmployees] = useState([]);
+
+  // Lista de departamentos derivada dos movimentos
   const [departments, setDepartments] = useState([]);
+
+  // Pesquisa
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
 
-  const itemsPerPage = 5;
+  // Paginação SERVER-SIDE (employees → flatten)
+  const [serverPage, setServerPage] = useState(1);
+  const [serverPageSize, setServerPageSize] = useState(5); // 👈 só 5 por página
+  const [serverTotalPages, setServerTotalPages] = useState(1);
 
-  const fetchEmployees = async () => {
-    try {
-      const token = localStorage.getItem("authToken")
-      const data = await getEmployees(token);
-      const idStr = localStorage.getItem("businessEntityId");
-      const id = Number(idStr)
-
-      const employeesExceptActual = data
-        .filter(e => e.businessEntityID !== id)
-        .sort((a, b) => {
-          const nameA = (a.person?.firstName || "").toLowerCase();
-          const nameB = (b.person?.firstName || "").toLowerCase();
-          return nameA.localeCompare(nameB);
-        });
-
-      setEmployees(employeesExceptActual)
-    } catch (error) {
-
-    }
-  }
-
+  // === Carregar tabela (server-side) ===
   const fetchData = useCallback(async () => {
     try {
-      const token = localStorage.getItem("authToken");
       setLoading(true);
       setFetchError(null);
+      const token = localStorage.getItem("authToken");
 
-      const data = await getEmployees(token)
+      const data = await getEmployees(token, {
+        pageNumber: serverPage,
+        pageSize: serverPageSize,        // 👈 respeita 5
+        // search: searchTerm.trim(),    // ← ativa só se o back suportar pesquisa server-side
+      });
 
-      const employees = Array.isArray(data) ? data : data?.items ?? [];
+      console.log(data)
+      
+      const employeesArr = Array.isArray(data) ? data : data?.items ?? [];
 
-      const flattened = employees.flatMap((emp) =>
-        (emp.departmentHistories ?? emp.DepartmentHistories ?? []).map(
-          (dh) => ({
-            ...dh,
-            employee: emp,
-          })
-        )
+      const flattened = employeesArr.flatMap((emp) =>
+        (emp?.departmentHistories ?? emp?.DepartmentHistories ?? []).map((dh) => ({
+          ...dh,
+          employee: emp, // referência ao colaborador para render
+        }))
       );
 
       flattened.sort(
         (a, b) => new Date(getStartDate(b)) - new Date(getStartDate(a))
       );
-      setItems(flattened);
 
-      const derivedDeps = buildDerivedDepartments(flattened);
-      setDepartments(derivedDeps);
+      setItems(flattened);
+      console.log(data.meta.totalPages)
+      setServerTotalPages(data?.meta?.totalPages ?? 1);
+
+      const deps = await getAllDepartmentsFromEmployees(token);
+      setDepartments(deps);
     } catch (err) {
+      console.error("[fetchData] erro:", err);
       setFetchError(err.message || "Erro desconhecido ao obter dados.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [serverPage, serverPageSize /*, searchTerm*/]);
 
   useEffect(() => {
     fetchData();
-    fetchEmployees();
   }, [fetchData]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
-
+  // Pesquisa local (fallback) SOBRE a página corrente
   const rawSearch = searchTerm.trim();
   const isNumericSearch = /^\d+$/.test(rawSearch);
   const termo = normalize(searchTerm);
@@ -93,17 +107,15 @@ export default function Movimentos() {
     if (!rawSearch) return items;
 
     return items.filter((h) => {
-      const employee = h.employee ?? {};
-      const person = employee.person ?? {};
+      const employee = h?.employee ?? {};
+      const person = employee?.person ?? {};
 
       if (isNumericSearch) {
-        const beid = idToString(employee.businessEntityID);
+        const beid = idToString(employee?.businessEntityID);
         return beid === rawSearch;
       }
 
-      const fullName = `${normalize(person.firstName)} ${normalize(
-        person.lastName
-      )}`.trim();
+      const fullName = `${normalize(person.firstName)} ${normalize(person.lastName)}`.trim();
       const deptName = normalize(getDepartmentName(h));
       const groupName = normalize(getGroupName(h));
       const start = normalize(formatDate(getStartDate(h)));
@@ -119,11 +131,10 @@ export default function Movimentos() {
     });
   }, [items, rawSearch, termo, isNumericSearch]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
-  const indexOfLast = currentPage * itemsPerPage;
-  const indexOfFirst = indexOfLast - itemsPerPage;
-  const pageItems = filtered.slice(indexOfFirst, indexOfLast);
+  // Como paginamos no servidor, NÃO repaginamos no cliente
+  const pageItems = filtered;
 
+  // === Modal state ===
   const [action, setAction] = useState({
     open: false,
     mode: "create",
@@ -144,54 +155,72 @@ export default function Movimentos() {
     },
   });
 
+
+const fetchEmployeesForModal = useCallback(async () => {
+  try {
+    const token = localStorage.getItem("authToken");
+    const data = await getAllEmployees(token);
+
+    // garante que é array
+    const list = Array.isArray(data) ? data : [];
+
+    const idStr = localStorage.getItem("businessEntityId");
+    const myId = Number(idStr || "0");
+
+    const employeesExceptActual = list
+      .filter(e => Number(e?.businessEntityID) !== myId)
+      .sort((a, b) => {
+        const nameA = (a?.person?.firstName || "").toLowerCase();
+        const nameB = (b?.person?.firstName || "").toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+    setEmployees(employeesExceptActual);
+  } catch (error) {
+    console.error("[fetchEmployeesForModal] erro:", error);
+    // opcional: feedback no UI (toast/alert)
+  }
+}, []);
+
+
   const openCreate = () => {
     setAction({
       open: true,
       mode: "create",
       loading: false,
       error: null,
-      keys: {
-        businessEntityID: "",
-        departmentID: "",
-        shiftID: "",
-        startDate: "",
-      },
-      form: {
-        businessEntityID: "",
-        departmentID: "",
-        shiftID: "",
-        startDate: "",
-        endDate: "",
-      },
+      keys: { businessEntityID: "", departmentID: "", shiftID: "", startDate: "" },
+      form: { businessEntityID: "", departmentID: "", shiftID: "", startDate: "", endDate: "" },
     });
+    fetchEmployeesForModal();
   };
 
-const openDelete = async (h) => {
-  try {
-    const ok = window.confirm("Tem a certeza que deseja apagar este registo?");
-    if (!ok) return;
+  const openDelete = async (h) => {
+    try {
+      const ok = window.confirm("Tem a certeza que deseja apagar este registo?");
+      if (!ok) return;
 
-    const beid = getBusinessEntityID(h);
-    const depId = getDepartmentID(h);
-    const shId  = getShiftID(h);
-    const start = getStartDate(h);              
-    const formattedDate = formatDateForRoute(start);
+      const beid = getBusinessEntityID(h);
+      const depId = getDepartmentID(h);
+      const shId  = getShiftID(h);
+      const start = getStartDate(h);
+      const formattedDate = formatDateForRoute(start);
 
-    const token = localStorage.getItem("authToken");
-    await deleteDepHistory(token, beid, depId, shId, formattedDate);
+      const token = localStorage.getItem("authToken");
+      await deleteDepHistory(token, beid, depId, shId, formattedDate);
 
-    await fetchData();
+      await fetchData();
 
-    addNotificationForUser(
-      "Foi eliminado um movimento de departamentos no seu perfil.",
-      beid,
-      { type: "DEPARTMENT" }
-    );
-  } catch (e) {
-    console.error("[openDelete] error:", e);
-    alert(e.message || "Erro ao apagar registo.");
-  }
-};
+      addNotificationForUser(
+        "Foi eliminado um movimento de departamentos no seu perfil.",
+        beid,
+        { type: "DEPARTMENT" }
+      );
+    } catch (e) {
+      console.error("[openDelete] error:", e);
+      alert(e.message || "Erro ao apagar registo.");
+    }
+  };
 
   const openEdit = (h) => {
     const beid = getBusinessEntityID(h);
@@ -221,8 +250,7 @@ const openDelete = async (h) => {
     });
   };
 
-  const closeAction = () =>
-    setAction((s) => ({ ...s, open: false, error: null }));
+  const closeAction = () => setAction((s) => ({ ...s, open: false, error: null }));
 
   const submitAction = async () => {
     try {
@@ -248,7 +276,11 @@ const openDelete = async (h) => {
         };
 
         await createDepartmentHistory(body);
-        addNotificationForUser("Foi criado um registo de movimentos para o seu perfil.", businessEntityID, { type: "DEPARTMENT" });
+        addNotificationForUser(
+          "Foi criado um registo de movimentos para o seu perfil.",
+          businessEntityID,
+          { type: "DEPARTMENT" }
+        );
       } else {
         const { businessEntityID, departmentID, shiftID, startDate } = keys;
         if (!businessEntityID || !departmentID || !shiftID || !startDate)
@@ -258,8 +290,18 @@ const openDelete = async (h) => {
           endDate: form.endDate ? form.endDate : null,
         };
 
-        await patchDepartmentHistory(businessEntityID, departmentID, shiftID, startDate, patchBody)
-        addNotificationForUser("O seu registo de Movimentos de Departamentos foi atualizado pelo RH.", keys.businessEntityID, { type: "DEPARTMENT" });
+        await patchDepartmentHistory(
+          businessEntityID,
+          departmentID,
+          shiftID,
+          startDate,
+          patchBody
+        );
+        addNotificationForUser(
+          "O seu registo de Movimentos de Departamentos foi atualizado pelo RH.",
+          keys.businessEntityID,
+          { type: "DEPARTMENT" }
+        );
       }
 
       await fetchData();
@@ -303,7 +345,10 @@ const openDelete = async (h) => {
               className="form-control"
               placeholder="Procurar por ID, colaborador, departamento, grupo ou data..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setServerPage(1); // reset página sempre que muda a pesquisa
+              }}
               aria-label="Pesquisar histórico de departamentos"
             />
           )}
@@ -335,8 +380,8 @@ const openDelete = async (h) => {
                   </thead>
                   <tbody>
                     {pageItems.map((h) => {
-                      const employee = h.employee ?? {};
-                      const person = employee.person ?? {};
+                      const employee = h?.employee ?? {};
+                      const person = employee?.person ?? {};
                       const deptName = getDepartmentName(h);
                       const groupName = getGroupName(h);
                       const start = getStartDate(h);
@@ -351,7 +396,7 @@ const openDelete = async (h) => {
                           <td className="px-4 py-3">
                             {person.firstName} {person.lastName}
                             <div className="small text-muted">
-                              ID: {employee.businessEntityID ?? "—"}
+                              ID: {employee?.businessEntityID ?? "—"}
                             </div>
                           </td>
                           <td className="px-4 py-3">{deptName}</td>
@@ -367,14 +412,20 @@ const openDelete = async (h) => {
                               <button
                                 className="btn btn-outline-primary"
                                 onClick={() => openEdit(h)}
-                                disabled={localStorage.getItem("businessEntityId") == employee.businessEntityID}
+                                disabled={
+                                  String(localStorage.getItem("businessEntityId")) ===
+                                  String(employee?.businessEntityID)
+                                }
                               >
                                 Editar
                               </button>
                               <button
-                                disabled={localStorage.getItem("businessEntityId") == employee.businessEntityID}
                                 className="btn btn-outline-danger"
                                 onClick={() => openDelete(h)}
+                                disabled={
+                                  String(localStorage.getItem("businessEntityId")) ===
+                                  String(employee?.businessEntityID)
+                                }
                               >
                                 Eliminar
                               </button>
@@ -390,8 +441,8 @@ const openDelete = async (h) => {
               {/* Mobile Cards */}
               <div className="d-md-none">
                 {pageItems.map((h) => {
-                  const employee = h.employee ?? {};
-                  const person = employee.person ?? {};
+                  const employee = h?.employee ?? {};
+                  const person = employee?.person ?? {};
                   const start = getStartDate(h);
                   const end = getEndDate(h);
                   const key = `${getBusinessEntityID(h)}|${getDepartmentID(
@@ -406,7 +457,7 @@ const openDelete = async (h) => {
                         </strong>
                       </h6>
                       <p className="text-muted small mb-1">
-                        <strong>ID:</strong> {employee.businessEntityID ?? "—"}
+                        <strong>ID:</strong> {employee?.businessEntityID ?? "—"}
                       </p>
                       <p className="text-muted small mb-1">
                         <strong>Departamento:</strong> {getDepartmentName(h)}
@@ -443,20 +494,17 @@ const openDelete = async (h) => {
               {!pageItems.length && (
                 <div className="p-4">
                   <p className="text-muted mb-0">
-                    Sem resultados para <strong>{rawSearch || "…"}</strong>.
-                    Tenta outro termo.
+                    Sem resultados para <strong>{rawSearch || "…"}</strong>. Tenta outro termo.
                   </p>
                 </div>
               )}
-
-              {/* Pagination */}
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                setPage={setCurrentPage}
-              />
-
-            </>
+            
+                <Pagination
+                  currentPage={serverPage}
+                  totalPages={serverTotalPages}
+                  setPage={setServerPage}
+                />
+                </>
           )}
         </div>
       </div>
@@ -470,7 +518,7 @@ const openDelete = async (h) => {
         setAction={setAction}
         closeAction={closeAction}
         submitAction={submitAction}
-        employees={employees}
+        employees={employees}           // ← 5 carregados on-demand
         departments={departments}
         resolveDepartmentName={resolveDepartmentName}
         resolveShiftLabel={resolveShiftLabel}

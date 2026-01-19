@@ -44,3 +44,74 @@ export async function patchDepartmentHistory(businessEntityID, departmentID, shi
     });
 
 }
+
+
+
+/**
+ * Busca todos os colaboradores e extrai os departamentos únicos
+ * encontrados nos departmentHistories.
+ *
+ * @param {string} token - Bearer token de autenticação
+ * @returns {Promise<Array<{ departmentID: number, name: string, groupName: string }>>}
+ */
+export async function getAllDepartmentsFromEmployees(token) {
+  const res = await fetch(`${API_BASE}/v1/employee/`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    let serverMsg = "";
+    try {
+      const err = await res.json();
+      serverMsg = err?.message || err?.error || "";
+    } catch { /* ignore */ }
+    const suffix = serverMsg ? ` - ${serverMsg}` : "";
+    throw new Error(`Erro ao obter colaboradores (HTTP ${res.status})${suffix}`);
+  }
+
+  if (res.status === 204) {
+    return [];
+  }
+
+  /** @type {any[]} */
+  let employees = [];
+  try {
+    const data = await res.json();
+    employees = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+  } catch {
+    employees = [];
+  }
+
+  // Deduplicação por departmentID
+  const map = new Map(); // key: departmentID, value: { departmentID, name, groupName }
+
+  for (const emp of employees) {
+    const histories = emp?.departmentHistories ?? emp?.DepartmentHistories ?? [];
+    for (const h of histories) {
+      // Normaliza campos (alguns backends usam departmentId vs departmentID)
+      const depObj = h?.department ?? {};
+      const departmentID =
+        Number(h?.departmentId ?? h?.departmentID ?? depObj?.departmentID ?? depObj?.departmentId);
+
+      if (!Number.isFinite(departmentID)) continue;
+
+      const name = String(depObj?.name ?? "").trim() || "—";
+      const groupName = String(depObj?.groupName ?? "").trim() || "—";
+
+      if (!map.has(departmentID)) {
+        map.set(departmentID, { departmentID, name, groupName });
+      }
+    }
+  }
+
+  // Ordena por nome do departamento
+  const departments = Array.from(map.values()).sort((a, b) =>
+    a.name.localeCompare(b.name, "pt", { sensitivity: "base" })
+  );
+
+  return departments;
+}

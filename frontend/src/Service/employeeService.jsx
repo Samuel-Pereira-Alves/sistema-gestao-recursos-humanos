@@ -41,7 +41,8 @@ export async function getEmployees(
     search,
   } = {}
 ) {
-  const url = new URL(`${API_BASE}/employee`);
+
+  const url = new URL(`${API_BASE}/employee/paged`);
   const params = new URLSearchParams();
 
   params.set("pageNumber", String(pageNumber));
@@ -126,4 +127,40 @@ export async function deleteEmployee(token, businessEntityID) {
     await res.json();
   } catch { }
   return true;
+}
+
+
+export async function getAllEmployees(token) {
+  const res = await fetch(`${API_BASE}/employee/`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    // tenta capturar mensagem do servidor
+    let serverMsg = "";
+    try {
+      const errBody = await res.json();
+      serverMsg = errBody?.message || errBody?.error || "";
+    } catch { /* ignore */ }
+    const suffix = serverMsg ? ` - ${serverMsg}` : "";
+    throw new Error(`Erro ao obter funcionários (HTTP ${res.status})${suffix}`);
+  }
+
+  // 204 No Content → devolve lista vazia
+  if (res.status === 204) return [];
+
+  // tenta parse do JSON; como o teu endpoint devolve um array, devolve-o tal e qual
+  try {
+    const data = await res.json();
+    if (Array.isArray(data)) return data;
+    // fallback defensivo (caso algum dia mude para wrapper)
+    if (Array.isArray(data?.items)) return data.items;
+    return [];
+  } catch {
+    return [];
+  }
 }

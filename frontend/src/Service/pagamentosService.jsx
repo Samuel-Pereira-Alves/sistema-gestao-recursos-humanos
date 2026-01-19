@@ -8,24 +8,90 @@ function authHeaders() {
   };
 }
 
+function isJsonContentType(ct) {
+  const v = (ct || "").toLowerCase();
+  return (
+    v.includes("application/json") || v.includes("application/problem+json")
+  );
+}
+ 
 async function http(path, init = {}) {
   const headers = { ...authHeaders(), ...(init.headers || {}) };
-
   const res = await fetch(`${API}${path}`, { ...init, headers });
-
+ 
   const ct = res.headers.get("content-type") || "";
-  return ct.includes("application/json") ? res.json() : res.text();
+  let body;
+ 
+  try {
+    if (isJsonContentType(ct)) {
+      body = await res.json();
+    } else {
+      body = await res.text();
+    }
+  } catch {
+    // fallback defensivo
+    body = await res.text();
+  }
+ 
+  // Se por alguma razão vier JSON como string, tenta converter
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      /* fica como texto */
+    }
+  }
+ 
+  if (!res.ok) {
+    // Erro coerente em TODO o app
+    throw { status: res.status, body };
+  }
+ 
+  return body;
 }
+ 
 
-export async function listPagamentosFlattened() {
-  const data = await http("/employee");
-  const employees = Array.isArray(data) ? data : data?.items ?? [];
+
+// Service/pagamentosService.js
+export async function listPagamentosFlattened(pageNumber = 1, pageSize = 10) {
+  const token = localStorage.getItem("authToken");
+
+  // constrói a URL de forma segura
+  const url = new URL("http://localhost:5136/api/v1/employee/paged");
+  url.searchParams.set("pageNumber", String(pageNumber));
+  url.searchParams.set("pageSize", String(pageSize));
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      "Accept": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  const data = await res.json();
+
+  const employees = Array.isArray(data) ? data : (data?.items ?? []);
+
   const flattened = employees.flatMap(emp =>
     (emp.payHistories ?? []).map(ph => ({ ...ph, employee: emp }))
   );
+
   flattened.sort((a, b) => new Date(b.rateChangeDate) - new Date(a.rateChangeDate));
-  return { employees, pagamentos: flattened };
+
+  const meta = {
+    totalCount: data?.totalCount ?? employees.length,
+    pageNumber: data?.pageNumber ?? pageNumber,
+    pageSize: data?.pageSize ?? pageSize,
+    totalPages:
+      data?.totalPages ??
+      Math.ceil((data?.totalCount ?? employees.length) / (Number(pageSize) || 1)),
+  };
+
+  return { employees, pagamentos: flattened, meta };
 }
+
+
 
 export async function patchPayHistory(businessEntityID, rateChangeDate, body) {
   return http(`/payhistory/${businessEntityID}/${rateChangeDate}`, {

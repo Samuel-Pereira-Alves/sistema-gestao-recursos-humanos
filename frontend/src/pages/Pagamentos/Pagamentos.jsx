@@ -7,8 +7,20 @@ import Loading from "../../components/Loading/Loading";
 import ReadOnlyField from "../../components/ReadOnlyField/ReadOnlyField";
 import EditPaymentModal from "../../components/Modals/EditPaymentModal";
 import CreatePaymentModal from "../../components/Modals/CreatePaymentModal";
-import {freqLabel,formatCurrencyEUR,formatDate,dateInputToIsoMidnight,filterPagamentos,paginate} from "../../utils/Utils";
-import {listPagamentosFlattened,patchPayHistory,deletePayHistory,createPayHistory} from "../../Service/pagamentosService";
+import {
+  freqLabel,
+  formatCurrencyEUR,
+  formatDate,
+  dateInputToIsoMidnight,
+  filterPagamentos,
+  normalizeApiError,
+} from "../../utils/Utils";
+import {
+  listPagamentosFlattened,
+  patchPayHistory,
+  deletePayHistory,
+  createPayHistory
+} from "../../Service/pagamentosService";
 import { addNotificationForUser } from "../../utils/notificationBus";
 
 export default function Pagamentos() {
@@ -16,6 +28,7 @@ export default function Pagamentos() {
   const [fetchError, setFetchError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [serverTotalPages, setServerTotalPages] = useState(1);
   const [employees, setEmployees] = useState([]);
   const [pagamentos, setPagamentos] = useState([]);
   const itemsPerPage = 5;
@@ -24,22 +37,26 @@ export default function Pagamentos() {
     setLoading(true);
     setFetchError(null);
     try {
-      const { employees: emps, pagamentos: pays } = await listPagamentosFlattened();
+      const { employees: emps, pagamentos: pays, meta } =
+        await listPagamentosFlattened(currentPage, itemsPerPage);
+
       const myId = Number(localStorage.getItem("businessEntityId"));
       const employeesExceptActual = (emps ?? [])
         .filter((e) => e.businessEntityID !== myId)
         .sort((a, b) =>
           (a.person?.firstName || "").localeCompare(b.person?.firstName || "")
         );
+
       setEmployees(employeesExceptActual);
       setPagamentos(pays ?? []);
+      setServerTotalPages(meta?.totalPages ?? 1);
     } catch (error) {
       console.error(error);
       setFetchError(error.message || "Erro a carregar dados.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPage, itemsPerPage]);
 
   useEffect(() => {
     reload();
@@ -53,10 +70,8 @@ export default function Pagamentos() {
     () => filterPagamentos(pagamentos, searchTerm),
     [pagamentos, searchTerm]
   );
-  const { slice: currentPagamentos, totalPages } = useMemo(
-    () => paginate(pagamentosFiltrados, currentPage, itemsPerPage),
-    [pagamentosFiltrados, currentPage, itemsPerPage]
-  );
+
+  const currentPagamentos = pagamentosFiltrados;
 
   // Estados para edição
   const [editOpen, setEditOpen] = useState(false);
@@ -176,8 +191,8 @@ export default function Pagamentos() {
         rate: "",
         payFrequency: "1",
       });
-    } catch (e) {
-      setCreateError(e.message || "Erro ao criar registo.");
+    } catch (err) {
+      setCreateError(normalizeApiError(err));
     } finally {
       setCreateLoading(false);
     }
@@ -243,7 +258,9 @@ export default function Pagamentos() {
                       </tr>
                     ) : (
                       currentPagamentos.map((p) => {
-                        const key = `${p.businessEntityID ?? p.employee?.businessEntityID}|${p.rateChangeDate}`;
+                        const key = `${
+                          p.businessEntityID ?? p.employee?.businessEntityID
+                        }|${p.rateChangeDate}`;
                         const deleting = deleteLoadingId === key;
                         return (
                           <tr key={p.payHistoryId ?? key}>
@@ -288,7 +305,9 @@ export default function Pagamentos() {
                   <div className="text-center p-3 text-muted">Sem registos</div>
                 ) : (
                   currentPagamentos.map((p) => {
-                    const key = `${p.businessEntityID ?? p.employee?.businessEntityID}|${p.rateChangeDate}`;
+                    const key = `${
+                      p.businessEntityID ?? p.employee?.businessEntityID
+                    }|${p.rateChangeDate}`;
                     const deleting = deleteLoadingId === key;
                     return (
                       <div key={p.payHistoryId ?? key} className="border-bottom p-3">
@@ -335,10 +354,10 @@ export default function Pagamentos() {
                 )}
               </div>
 
-              {/* Pagination */}
+              {/* Pagination (usa o total do back) */}
               <Pagination
                 currentPage={currentPage}
-                totalPages={totalPages}
+                totalPages={serverTotalPages}
                 setPage={setCurrentPage}
               />
             </>

@@ -32,43 +32,110 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             _appLog = appLog;
         }
 
-        // GET: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
-        [HttpGet("{businessEntityId:int}/{rateChangeDate}")]
-        [Authorize(Roles = "admin")]
-        public async Task<ActionResult<PayHistoryDto>> Get(int businessEntityId, DateTime rateChangeDate, CancellationToken ct)
+        
+// GET: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
+[HttpGet("{businessEntityId:int}/{rateChangeDate}")]
+[Authorize(Roles = "admin")]
+public async Task<ActionResult<PayHistoryDto>> Get(
+    int businessEntityId,
+    DateTime rateChangeDate,
+    [FromQuery] int pageNumber = 1,
+    [FromQuery] int pageSize = 20,
+    CancellationToken ct = default)
+{
+    _logger.LogInformation(
+        "Iniciando procura de PayHistory para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}",
+        businessEntityId, rateChangeDate);
+
+    await _appLog.InfoAsync(
+        $"Procura PayHistory: BEID={businessEntityId}, RateChangeDate={rateChangeDate:o}");
+    await _db.SaveChangesAsync(ct); // mantém como no teu código original
+
+    try
+    {
+        // Sanitização simples dos parâmetros de paginação vindos pela query
+        const int MaxPageSize = 200;
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize   < 1) pageSize   = 20;
+        if (pageSize   > MaxPageSize) pageSize = MaxPageSize;
+
+        var history = await GetPayHistoryAsync(businessEntityId, rateChangeDate, ct);
+
+        // ---- Paginação via query (metadados) ----
+        // Como o recurso é singular: totalCount = 1 se encontrou, senão 0.
+        int totalCount = history is null ? 0 : 1;
+
+        // TotalPages calculado com base em pageSize
+        int totalPages = totalCount == 0 ? 0 : (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        // Em um recurso singular, prev/next serão sempre false
+        bool hasPrevious = pageNumber > 1 && totalPages > 0;
+        bool hasNext     = pageNumber < totalPages;
+
+        var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
         {
-            _logger.LogInformation("Iniciando procura de PayHistory para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
-            await _appLog.InfoAsync($"Procura PayHistory: BEID={businessEntityId}, RateChangeDate={rateChangeDate:o}");
-            await _db.SaveChangesAsync(ct);
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize   = pageSize,
+            TotalPages = totalPages,
+            HasPrevious = hasPrevious,
+            HasNext     = hasNext
+        });
+        Response.Headers["X-Pagination"] = paginationHeader;
 
-            try
-            {
-                var history = await GetPayHistoryAsync(businessEntityId, rateChangeDate, ct);
-                if (history is null)
-                {
-                    _logger.LogWarning("Nenhum registo encontrado para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
-                    await _appLog.WarnAsync("Nenhum registo encontrado.");
-                    await _db.SaveChangesAsync(ct);
-                    return NotFound();
-                }
-
-                return Ok(_mapper.Map<PayHistoryDto>(history));
-            }
-            catch (Exception ex)
-            {
-                return await HandleUnexpectedPayHistoryErrorAsync(ex, ct);
-            }
-        }
-        private async Task<PayHistory?> GetPayHistoryAsync(
-            int businessEntityId,
-            DateTime rateChangeDate,
-            CancellationToken ct)
+        // Link header (self/prev/next) utilizando os parâmetros da query
+        string BuildLink(int pn) => Url.ActionLink(null, null, new
         {
-            return await _db.PayHistories
-                    .FirstOrDefaultAsync(ph => ph.BusinessEntityID == businessEntityId &&
-                    ph.RateChangeDate == rateChangeDate, ct);
+            businessEntityId,
+            rateChangeDate,
+            pageNumber = pn,
+            pageSize
+        })!;
+        var links = new List<string> { $"<{BuildLink(pageNumber)}>; rel=\"self\"" };
+        if (hasPrevious) links.Add($"<{BuildLink(pageNumber - 1)}>; rel=\"prev\"");
+        if (hasNext)     links.Add($"<{BuildLink(pageNumber + 1)}>; rel=\"next\"");
+        Response.Headers["Link"] = string.Join(", ", links);
 
+        if (history is null)
+        {
+            _logger.LogWarning(
+                "Nenhum registo encontrado para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}",
+                businessEntityId, rateChangeDate);
+            await _appLog.WarnAsync("Nenhum registo encontrado.");
+            await _db.SaveChangesAsync(ct); // mantém como no teu original
+            return NotFound();
         }
+
+        // (Opcional) ETag condicional (não altera contrato)
+        var etagRaw = $"{businessEntityId}:{rateChangeDate:O}";
+        var etag = Convert.ToBase64String(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(etagRaw)));
+        if (Request.Headers.TryGetValue("If-None-Match", out var inm) && inm.ToString() == etag)
+        {
+            return StatusCode(StatusCodes.Status304NotModified);
+        }
+        Response.Headers.ETag = etag;
+
+        return Ok(_mapper.Map<PayHistoryDto>(history));
+    }
+    catch (Exception ex)
+    {
+        return await HandleUnexpectedPayHistoryErrorAsync(ex, ct);
+    }
+}
+
+private async Task<PayHistory?> GetPayHistoryAsync(
+    int businessEntityId,
+    DateTime rateChangeDate,
+    CancellationToken ct)
+{
+    return await _db.PayHistories
+        .FirstOrDefaultAsync(ph =>
+            ph.BusinessEntityID == businessEntityId &&
+            ph.RateChangeDate == rateChangeDate, ct);
+}
+
         private async Task<ActionResult> HandleUnexpectedPayHistoryErrorAsync(Exception ex, CancellationToken ct)
         {
             _logger.LogError(ex, "Erro inesperado no PayHistory");
@@ -135,6 +202,19 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (DbUpdateException dbEx)
             {
+                var exists = await _db.PayHistories.AnyAsync(ph =>
+                ph.BusinessEntityID == dto.BusinessEntityID &&
+                ph.RateChangeDate == dto.RateChangeDate, ct);
+ 
+                if (exists)
+                {
+                    return Conflict(new ProblemDetails
+                    {
+                        Title = "Registo duplicado",
+                        Detail = "Já existe um registo para este colaborador nesta data.",
+                        Status = StatusCodes.Status409Conflict
+                    });
+                }
                 return await HandleDatabasePayHistoryErrorAsync(dbEx, ct);
             }
             catch (Exception ex)

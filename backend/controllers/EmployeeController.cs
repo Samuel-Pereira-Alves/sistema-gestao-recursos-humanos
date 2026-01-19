@@ -1,4 +1,5 @@
 using AutoMapper;
+using Azure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -141,12 +142,12 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
 
         // -----------------------
-        // GET: api/v1/employee
+        // GET: api/v1/employee/paged
         // -----------------------
-        [HttpGet]
+        [HttpGet("paged")]
         [Authorize(Roles = "admin")]
 
-        public async Task<ActionResult<PagedResult<EmployeeDto>>> GetAll(
+        public async Task<ActionResult<PagedResult<EmployeeDto>>> GetAllPagination(
     [FromQuery] int pageNumber = 1,
     [FromQuery] int pageSize = 20,
     [FromQuery] string? sortBy = null,
@@ -222,6 +223,36 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
         }
 
+        // -----------------------
+        // GET: api/v1/employee
+        // -----------------------
+        [HttpGet]
+        [Authorize(Roles = "admin")]
+        public async Task<ActionResult<List<EmployeeDto>>> GetAll(CancellationToken ct)
+        {
+            _logger.LogInformation("Recebida requisição para obter todos os Employees (Role=admin).");
+
+            try
+            {
+                // 1) Obter dados via helper dedicado (reutilizável)
+                var employees = await GetAllEmployeesWithIncludesAsync(ct);
+
+                // 2) Logs e persistência de log (conforme original)
+                _logger.LogInformation("Encontrados {Count} Employees.", employees.Count);
+                await _db.SaveChangesAsync(ct);
+
+                // 3) Mapear para DTOs e devolver
+                var employeesDto = _mapper.Map<List<EmployeeDto>>(employees);
+                _logger.LogInformation("Requisição para obter Employees executada com sucesso.");
+                return Ok(employeesDto);
+            }
+            catch (Exception ex)
+            {
+                return await HandleUnexpectedEmployeeErrorAsync(ex, ct);
+            }
+        }
+ 
+
         private async Task<List<Employee>> GetAllEmployeesWithIncludesAsync(CancellationToken ct)
         {
             return await _db.Employees
@@ -234,47 +265,117 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // -----------------------
         // GET: api/v1/employee/{id}
         // -----------------------
-        [HttpGet("{id:int}")]
-        [Authorize(Roles = "admin, employee")]
-        public async Task<ActionResult<EmployeeDto>> GetEmployee(int id, CancellationToken ct)
+       
+[HttpGet("{id:int}")]
+[Authorize(Roles = "admin, employee")]
+public async Task<ActionResult<EmployeeDto>> GetEmployee(
+    int id,
+    // paginação por coleção via query
+    [FromQuery] int pageNumber = 1,
+    [FromQuery] int pageSize   = 10,
+    CancellationToken ct = default)
+{
+    // 0) Autorização específica (mantida)
+    if (!IsSelfAccessAllowed(HttpContext.User, id))
+    {
+        _logger.LogWarning("Tentativa de acesso não autorizada. ID solicitado={RequestedId}.", id);
+        return Forbid();
+    }
+
+    // 1) Logging de entrada (mantendo padrão e SaveChanges inicial)
+    _logger.LogInformation("Recebida requisição para obter Employee com ID={Id}.", id);
+    AddLog($"Recebida requisição para obter Employee com ID={id}.");
+    await _db.SaveChangesAsync(ct);
+
+    // Normalização dos parâmetros de paginação (com limites)
+    const int MaxPageSize = 200;
+    if (pageNumber  < 1) pageNumber  = 1;
+    if (pageSize    < 1) pageSize    = 10;
+
+    try
+    {
+        // 2) Obter Employee com Includes via helper reutilizável (NÃO ALTERAR)
+        var employee = await GetEmployeeWithIncludesAsync(id, ct);
+        if (employee is null)
         {
-            // 0) Autorização específica (mantida)
-            if (!IsSelfAccessAllowed(HttpContext.User, id))
-            {
-                _logger.LogWarning("Tentativa de acesso não autorizada. ID solicitado={RequestedId}.", id);
-                return Forbid();
-            }
-
-            // 1) Logging de entrada (mantendo padrão e SaveChanges inicial)
-            _logger.LogInformation("Recebida requisição para obter Employee com ID={Id}.", id);
-            AddLog($"Recebida requisição para obter Employee com ID={id}.");
+            _logger.LogWarning("Employee não encontrado para ID={Id}.", id);
+            AddLog($"Employee não encontrado para ID={id}.");
             await _db.SaveChangesAsync(ct);
-
-            try
-            {
-                // 2) Obter Employee com Includes via helper reutilizável
-                var employee = await GetEmployeeWithIncludesAsync(id, ct);
-                if (employee is null)
-                {
-                    _logger.LogWarning("Employee não encontrado para ID={Id}.", id);
-                    AddLog($"Employee não encontrado para ID={id}.");
-                    await _db.SaveChangesAsync(ct);
-                    return NotFound();
-                }
-
-                // 3) Log de sucesso (mantendo SaveChanges como no original)
-                _logger.LogInformation("Employee encontrado para ID={Id}.", id);
-                AddLog($"Employee encontrado para ID={id}.");
-                await _db.SaveChangesAsync(ct);
-
-                // 4) Mapear e devolver
-                return Ok(_mapper.Map<EmployeeDto>(employee));
-            }
-            catch (Exception ex)
-            {
-                return await HandleUnexpectedEmployeeErrorAsync(ex, ct);
-            }
+            return NotFound();
         }
+
+        // 3) Log de sucesso (mantendo SaveChanges como no original)
+        _logger.LogInformation("Employee encontrado para ID={Id}.", id);
+        AddLog($"Employee encontrado para ID={id}.");
+        await _db.SaveChangesAsync(ct);
+
+        // 4) Mapear para DTO (para não mexer no objeto rastreado do EF)
+        var dto = _mapper.Map<EmployeeDto>(employee);
+
+        // 5) Paginar coleções no DTO (em memória), preservando ordenações padrão
+        // ---- PayHistories ----
+        var payAll = dto.PayHistories ?? new List<PayHistoryDto>();
+        var payTotalCount = payAll.Count;
+
+        // Ordenação padrão: RateChangeDate DESC (ajuste se necessário)
+        var payOrdered = payAll.OrderByDescending(p => p.RateChangeDate);
+
+        var payPaged = payOrdered
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        dto.PayHistories = payPaged;
+
+        var payTotalPages = pageSize <= 0 ? 0 : (int)Math.Ceiling(payTotalCount / (double)pageSize);
+        var payHasPrev = pageNumber > 1 && payTotalPages > 0;
+        var payHasNext = pageNumber < payTotalPages;
+
+        Response.Headers["X-Pagination-PayHistories"] =
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                Collection = "PayHistories",
+                TotalCount = payTotalCount,
+                PageNumber = pageNumber,
+                PageSize   = pageSize,
+                TotalPages = payTotalPages,
+                HasPrevious = payHasPrev,
+                HasNext     = payHasNext
+            });
+
+        // ---- DepartmentHistories ----
+        var deptAll = dto.DepartmentHistories ?? new List<DepartmentHistoryDto>();
+        var deptTotalCount = deptAll.Count;
+
+        // Ordenação padrão: StartDate DESC (ajuste se o DTO usar outro campo)
+        var deptOrdered = deptAll.OrderByDescending(d => d.StartDate);
+
+
+
+
+        Response.Headers["X-Pagination-DepartmentHistories"] =
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                Collection = "DepartmentHistories",
+                TotalCount = deptTotalCount,
+                PageNumber = pageNumber,
+                PageSize   = pageSize,
+            });
+
+        // (Opcional) Cabeçalhos Link por coleção (self/prev/next)
+        // Mantive opcional — se quiseres, posso adicionar:
+        // Response.Headers["Link-PayHistories"] = "...";
+        // Response.Headers["Link-DepartmentHistories"] = "...";
+
+        // 6) Devolver DTO já paginado nas coleções
+        return Ok(dto);
+    }
+    catch (Exception ex)
+    {
+        return await HandleUnexpectedEmployeeErrorAsync(ex, ct);
+    }
+}
+
 
         private async Task<Employee?> GetEmployeeWithIncludesAsync(int id, CancellationToken ct)
         {

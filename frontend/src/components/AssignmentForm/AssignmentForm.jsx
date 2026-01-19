@@ -60,6 +60,7 @@ export default function AssignmentForm({
             <label className="form-label">Departamento</label>
             <select
               className="form-select"
+              size={4}
               value={action.form.departmentID}
               onChange={(e) =>
                 setAction((s) => ({
