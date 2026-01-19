@@ -258,6 +258,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 CancellationToken ct = default)
         {
             _logger.LogInformation("Listar DepartmentHistories do employee {Id} page={Page} size={Size}", id, pageNumber, pageSize);
+            await _appLog.InfoAsync($"Listar DepartmentHistories do employee {id} page={pageNumber} size={pageSize}");
 
             // Sanitização de parâmetros
             if (pageNumber < 1) pageNumber = 1;
@@ -273,6 +274,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (!employeeExists)
             {
                 _logger.LogWarning("Employee {Id} não encontrado.", id);
+                await _appLog.WarnAsync($"Employee {id} não encontrado.");
                 return NotFound(new { message = $"Employee {id} não encontrado." });
             }
 
@@ -300,7 +302,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     EndDate = h.EndDate,
                     Department = new DepartmentDto
                     {
-                        DepartmentID = h.Department.DepartmentID,
+                        DepartmentID = h.Department!.DepartmentID,
                         Name = h.Department.Name,
                         GroupName = h.Department.GroupName
                     }
@@ -320,7 +322,9 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     totalPages
                 }
             };
-
+            _logger.LogInformation("Employee encontrado para ID={Id}.", id);
+            await _appLog.InfoAsync($"Employee encontrado para ID={id}.");
+            await _db.SaveChangesAsync(ct);
             return Ok(response);
         }
 
@@ -470,7 +474,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 await _appLog.InfoAsync($"Employee encontrado para ID={id}. A aplicar alterações parciais…");
 
                 // 3) Aplicar alterações parciais (isolado em helper)
-                ApplyEmployeePartialUpdate(employeeDto, employee);
+                await ApplyEmployeePartialUpdate(employeeDto, employee, ct);
 
                 // 4) Gravar alterações
                 await _db.SaveChangesAsync(ct);
@@ -493,7 +497,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 return await HandleUnexpectedEmployeeErrorAsync(ex, ct);
             }
         }
-        private void ApplyEmployeePartialUpdate(EmployeeDto dto, Employee employee)
+        private async Task ApplyEmployeePartialUpdate(EmployeeDto dto, Employee employee, CancellationToken ct)
         {
             // Campos simples (guarda sem alterar semântica do original)
             if (!string.IsNullOrEmpty(dto.LoginID)) employee.LoginID = dto.LoginID;
@@ -507,6 +511,37 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (dto.SalariedFlag != default(bool)) employee.SalariedFlag = dto.SalariedFlag;
             if (dto.HireDate != default(DateTime)) employee.HireDate = dto.HireDate;
             if (dto.BirthDate != default(DateTime)) employee.BirthDate = dto.BirthDate;
+            if (dto.DepartmentID.HasValue)
+            {
+                var nowUtc = DateTime.UtcNow;
+
+                var currentMovement = await _db.DepartmentHistories
+                    .FirstOrDefaultAsync(dh => dh.BusinessEntityID == dto.BusinessEntityID && dh.StartDate < nowUtc && (dh.EndDate > nowUtc || dh.EndDate == null), ct);
+
+                _logger.LogInformation("Encontrados movimento para BusinessEntityID={BEID}", dto.BusinessEntityID);
+                await _appLog.InfoAsync($"Encontrados movimento para encerrar BEID={dto.BusinessEntityID}");
+
+                var newMovement = new DepartmentHistory
+                {
+                    BusinessEntityID = dto.BusinessEntityID,
+                    DepartmentID = (short)dto.DepartmentID,
+                    StartDate = nowUtc,
+                    ModifiedDate = nowUtc
+                };
+
+                if (currentMovement != null)
+                {
+                    newMovement.EndDate = currentMovement.EndDate;
+                    newMovement.ShiftID = currentMovement.ShiftID;
+                    currentMovement!.EndDate = nowUtc;
+                }
+                else
+                {
+                    newMovement.ShiftID = 1;  //Por default vão todos para o turno da manhã
+                }
+
+                _db.DepartmentHistories.Add(newMovement);
+            }
 
             employee.ModifiedDate = DateTime.UtcNow;
 

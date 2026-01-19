@@ -5,7 +5,20 @@ export async function getDepartments(token) {
     headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error("Erro ao carregar departamentos");
-  return res.json();
+
+  const data = await res.json();
+
+  // Extract unique departments
+  const uniqueDepartments = Array.from(
+    new Map(
+      data.map(entry => {
+        const dep = entry.department;
+        return [dep.departmentID, dep];
+      })
+    ).values()
+  );
+
+  return uniqueDepartments;
 }
 
 export async function getEmployee(id, token) {

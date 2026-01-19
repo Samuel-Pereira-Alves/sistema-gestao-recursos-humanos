@@ -72,23 +72,20 @@ export default function Profile() {
     load();
   }, [targetId, location.search, navigate]);
 
-    const departmentOptions = (departments ?? []).map((d) => ({
+  const departmentOptions = (departments ?? []).map((d) => ({
     value: d.departmentID ?? d.id,
     label: d.name ?? d.departmentName,
   }));
 
-  const currentDeptName = getDepartamentoAtualNome(employee);
-  const selectedDepartmentInit =
-    departmentOptions.find((o) => o.label === currentDeptName) ||
-    null;
+  const selectedDepartmentInit = departmentOptions.find((o) => o.value === employee?.departmentID) ?? null;
 
   const [selectedDept, setSelectedDept] = useState(selectedDepartmentInit);
   useEffect(() => {
+
     const freshSelected =
-      departmentOptions.find((o) => o.label === currentDeptName) ||
-      null;
+      departmentOptions.find((o) => o.value === employee?.departmentID) ?? null;
     setSelectedDept(freshSelected);
-  }, [employee, departments]);
+  }, [employee?.departmentID, departments]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -110,7 +107,7 @@ export default function Profile() {
   };
 
   const handleSave = async () => {
-    const idToUpdate = getEmployeeId(routeId);
+    const idToUpdate = targetId;
     setSaveError(null);
     setSuccessMessage(null);
     try {
@@ -136,6 +133,7 @@ export default function Profile() {
       };
 
       const token = localStorage.getItem("authToken");
+      console.log(payload);
       await updateEmployee(idToUpdate, payload, token);
 
       addNotificationForUser(

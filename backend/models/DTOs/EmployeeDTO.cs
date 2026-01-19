@@ -15,7 +15,7 @@ namespace sistema_gestao_recursos_humanos.backend.models.dtos
         public short SickLeaveHours { get; set; }
         public DateTime ModifiedDate { get; set; }
         public bool CurrentFlag {get; set;} = true;
-
+        public int? DepartmentID {get; set;}
 
         public PersonDto? Person { get; set; }
         public List<DepartmentHistoryDto> DepartmentHistories { get; set; } = new();

@@ -2,14 +2,24 @@ export function getDepartamentoAtualNome(funcionario) {
   const historicos = funcionario?.departmentHistories ?? [];
   if (historicos.length === 0) return "Sem departamento";
 
-  const atual = historicos.find((h) => h.endDate == null);
-  const escolhido =
-    atual ??
-    historicos
-      .slice()
-      .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
+  const hoje = new Date();
+  const validos = historicos.filter(h => new Date(h.startDate) <= hoje);
 
-  return escolhido?.department?.name ?? "Departamento desconhecido";
+  if (validos.length === 0) return "Sem departamento";
+
+  const atual = validos.find(h =>
+    (h.endDate == null || new Date(h.endDate) >= hoje)
+  );
+
+  if (atual) {
+    return atual.department?.name ?? "Departamento desconhecido";
+  }
+
+  const ultimo = validos
+    .slice()
+    .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
+
+  return ultimo?.department?.name ?? "Departamento desconhecido";
 }
 
 export function formatDate(date) {
