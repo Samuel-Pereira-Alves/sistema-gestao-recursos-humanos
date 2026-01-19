@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
@@ -19,7 +18,7 @@ import {
   listPagamentosFlattened,
   patchPayHistory,
   deletePayHistory,
-  createPayHistory
+  createPayHistory,
 } from "../../Service/pagamentosService";
 import { getAllEmployees } from "../../Service/employeeService";
 import { addNotificationForUser } from "../../utils/notificationBus";
@@ -40,8 +39,11 @@ export default function Pagamentos() {
     setFetchError(null);
     try {
       const token = localStorage.getItem("authToken");
-      const { employees: emps, pagamentos: pays, meta } =
-        await listPagamentosFlattened(currentPage, itemsPerPage);
+      const {
+        employees: emps,
+        pagamentos: pays,
+        meta,
+      } = await listPagamentosFlattened(currentPage, itemsPerPage);
 
       const myId = Number(localStorage.getItem("businessEntityId"));
       const employeesExceptActual = (emps ?? [])
@@ -106,10 +108,16 @@ export default function Pagamentos() {
     try {
       setEditLoading(true);
       setEditError(null);
-      await patchPayHistory(editKeys.businessEntityID, editKeys.rateChangeDate, {
-        rate: Number(editForm.rate),
-        payFrequency: Number(editForm.payFrequency),
-      });
+      if (!editForm.rate || !editForm.payFrequency)
+        throw new Error("Preenche todos os campos.");
+      await patchPayHistory(
+        editKeys.businessEntityID,
+        editKeys.rateChangeDate,
+        {
+          rate: Number(editForm.rate),
+          payFrequency: Number(editForm.payFrequency),
+        }
+      );
       await reload();
       addNotificationForUser(
         "O seu registo de Pagamento foi atualizado.",
@@ -118,7 +126,7 @@ export default function Pagamentos() {
       );
       setEditOpen(false);
     } catch (e) {
-      setEditError(e.message || "Erro ao editar registo.");
+      setEditError(normalizeApiError(e));
     } finally {
       setEditLoading(false);
     }
@@ -314,7 +322,10 @@ export default function Pagamentos() {
                     }|${p.rateChangeDate}`;
                     const deleting = deleteLoadingId === key;
                     return (
-                      <div key={p.payHistoryId ?? key} className="border-bottom p-3">
+                      <div
+                        key={p.payHistoryId ?? key}
+                        className="border-bottom p-3"
+                      >
                         <h6>
                           <strong>
                             {p.employee?.person?.firstName}{" "}
