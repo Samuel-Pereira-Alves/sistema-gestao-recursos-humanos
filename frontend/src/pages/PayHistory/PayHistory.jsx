@@ -6,6 +6,7 @@ import Loading from "../../components/Loading/Loading";
 import {formatDate,formatCurrencyEUR,freqLabel,paginate} from "../../utils/Utils";
 import { getEmployee } from "../../Service/employeeService";
 import { mapPayHistories } from "../../utils/Utils";
+import { getPayHistoryById } from "../../Service/pagamentosService";
 
 export default function PayHistoryList() {
   const [loading, setLoading] = useState(false);
@@ -28,9 +29,8 @@ export default function PayHistoryList() {
       setLoading(true);
       setFetchError(null);
       try {
-        const data = await getEmployee(id, token);
-        setEmployee(data);
-        setPayments(mapPayHistories(data?.payHistories));
+        const data = await getPayHistoryById(token, id);
+        setPayments(data.items);
       } catch (err) {
         console.error(err);
         setFetchError(err.message || "Erro desconhecido ao obter dados.");
@@ -54,9 +54,6 @@ export default function PayHistoryList() {
       {/* Header */}
       <div className="mb-4 d-flex justify-content-between align-items-center">
         <h1 className="h3 mb-0">Histórico de Pagamentos</h1>
-        <div className="text-muted small">
-          <EmployeeDetails employee={employee} />
-        </div>
       </div>
 
       {/* Content */}
@@ -97,7 +94,7 @@ export default function PayHistoryList() {
                       currentPayments.map((p, idx) => {
                         const seq = (currentPage - 1) * itemsPerPage + idx + 1;
                         return (
-                          <tr key={p.key}>
+                          <tr key={p.rateChangeDate}>
                             <td className="px-4 py-3">{seq}</td>
                             <td className="px-4 py-3 text-muted">
                               {formatCurrencyEUR(p.rate)}
@@ -124,7 +121,7 @@ export default function PayHistoryList() {
                   currentPayments.map((p, idx) => {
                     const seq = (currentPage - 1) * itemsPerPage + idx + 1;
                     return (
-                      <div key={p.key} className="card mb-2 border-0 shadow-sm">
+                      <div key={p.rateChangeDate} className="card mb-2 border-0 shadow-sm">
                         <div className="card-body">
                           <div className="d-flex justify-content-between align-items-start">
                             <div className="fw-semibold">Pagamento {seq}</div>

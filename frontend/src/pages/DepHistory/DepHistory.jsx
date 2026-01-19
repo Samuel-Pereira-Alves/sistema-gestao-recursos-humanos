@@ -7,6 +7,7 @@ import ReadOnlyField from "../../components/ReadOnlyField/ReadOnlyField";
 import EmployeeDetails from "../../components/EmployeeDetails/EmployeeDetails";
 import {mapDepartmentHistories,normalize,paginate,formatDate,} from "../../utils/Utils";
 import { getEmployee } from "../../Service/employeeService";
+import { getDepHistoriesById } from "../../Service/departmentHistoryService";
 
 export default function DepartmentHistoryList() {
   const [loading, setLoading] = useState(false);
@@ -31,9 +32,10 @@ export default function DepartmentHistoryList() {
       setLoading(true);
       setFetchError(null);
       try {
-        const data = await getEmployee(id, token);
+        const data = await getDepHistoriesById(token, id);
+        console.log(data.items)
         setEmployee(data);
-        setDepartamentos(mapDepartmentHistories(data?.departmentHistories));
+        setDepartamentos(data.items);
       } catch (err) {
         console.error(err);
         setFetchError(err.message || "Erro desconhecido ao obter dados.");
@@ -69,7 +71,6 @@ export default function DepartmentHistoryList() {
 
       <div className="mb-4 d-flex justify-content-between align-items-center">
         <h1 className="h3 mb-3">Histórico de Departamentos</h1>
-        <EmployeeDetails employee={employee} />
       </div>
 
       {/* Search */}
@@ -122,9 +123,9 @@ export default function DepartmentHistoryList() {
                       </tr>
                     ) : (
                       currentDepartamentos.map((d) => (
-                        <tr key={d.key}>
-                          <td>{d.name}</td>
-                          <td className="text-muted">{d.groupName || "—"}</td>
+                        <tr key={d.department.departmentID}>
+                          <td>{d.department.name}</td>
+                          <td className="text-muted">{d.department.groupName || "—"}</td>
                           <td className="text-muted">
                             {formatDate(d.startDate)}
                           </td>
@@ -146,10 +147,10 @@ export default function DepartmentHistoryList() {
                   <div className="text-center p-3 text-muted">Sem registos</div>
                 ) : (
                   currentDepartamentos.map((d) => (
-                    <div key={d.key} className="border-bottom p-3">
-                      <h6>{d.name}</h6>
-                      {d.groupName && (
-                        <p className="text-muted small">{d.groupName}</p>
+                    <div key={d.department.departmentID} className="border-bottom p-3">
+                      <h6>{d.department.name}</h6>
+                      {d.department.groupName && (
+                        <p className="text-muted small">{d.department.groupName}</p>
                       )}
                       <ReadOnlyField
                         label="Início"

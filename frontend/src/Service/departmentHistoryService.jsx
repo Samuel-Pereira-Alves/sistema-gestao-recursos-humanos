@@ -47,13 +47,65 @@ export async function patchDepartmentHistory(businessEntityID, departmentID, shi
 
 
 
-/**
- * Busca todos os colaboradores e extrai os departamentos únicos
- * encontrados nos departmentHistories.
- *
- * @param {string} token - Bearer token de autenticação
- * @returns {Promise<Array<{ departmentID: number, name: string, groupName: string }>>}
- */
+
+
+export async function getDepHistoriesById(token, id, opts = {}) {
+  const pageNumber = Number.isFinite(opts.pageNumber) ? Math.max(1, opts.pageNumber) : 1;
+  const pageSize   = Number.isFinite(opts.pageSize)   ? Math.max(1, opts.pageSize)   : 10;
+
+  if (!token) throw new Error("Token em falta.");
+  const beid = Number(id);
+  if (!Number.isFinite(beid)) throw new Error("ID inválido.");
+
+  // ⚠️ Este endpoint devolve EmployeeDto, não devolve { items, meta }
+  // Não concatena "&amp;", usa searchParams.
+  const url = new URL(`${API_BASE}/v1/employee/${beid}`, window.location?.origin || "http://localhost");
+  // Estes params são ignorados pelo servidor neste endpoint, mas não fazem mal.
+  url.searchParams.set("pageNumber", String(pageNumber));
+  url.searchParams.set("pageSize", String(pageSize));
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (res.status === 204) {
+    return { items: [], meta: { pageNumber, pageSize, totalCount: 0, totalPages: 1 } };
+  }
+
+  if (!res.ok) {
+    const errBody = await res.clone().json().catch(() => null);
+    const serverMsg = errBody?.message || errBody?.error || "";
+    throw new Error(`Erro ao obter Employee (HTTP ${res.status})${serverMsg ? " - " + serverMsg : ""}`);
+  }
+
+  const employee = await res.json();
+
+  // Extrai histories do DTO (suporta departmentHistories/DepartmentHistories)
+  const allHistories = Array.isArray(employee?.departmentHistories ?? employee?.DepartmentHistories)
+    ? (employee.departmentHistories ?? employee.DepartmentHistories)
+    : [];
+
+  // Ordena por startDate DESC (suporta casing startDate/StartDate)
+  const getStart = (h) => new Date(h?.startDate ?? h?.StartDate ?? 0).getTime();
+  const sorted = [...allHistories].sort((a, b) => getStart(b) - getStart(a));
+
+  // Paginação client-side
+  const totalCount = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const startIdx = (pageNumber - 1) * pageSize;
+  const items = sorted.slice(startIdx, startIdx + pageSize);
+
+  return {
+    items,
+    meta: { pageNumber, pageSize, totalCount, totalPages },
+  };
+}
+
+
 export async function getAllDepartmentsFromEmployees(token) {
   const res = await fetch(`${API_BASE}/v1/employee/`, {
     method: "GET",
