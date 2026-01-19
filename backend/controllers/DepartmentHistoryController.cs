@@ -46,6 +46,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 }
 
                 var dto = _mapper.Map<List<DepartmentHistoryDto>>(histories);
+                _logger.LogInformation("Pedido realizado com sucesso.");
+                await _appLog.InfoAsync("Pedido realizado com sucesso.");
+                await _db.SaveChangesAsync(ct);
+
                 return Ok(dto);
             }
             catch (Exception ex)
@@ -93,6 +97,9 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 if (history is null)
                     return await HandleDepartmentHistoryNotFoundAsync(businessEntityId, departmentId, shiftId, startDate, ct);
 
+                _logger.LogInformation("Pedido realizado com sucesso.");
+                await _appLog.InfoAsync("Pedido realizado com sucesso.");
+                await _db.SaveChangesAsync(ct);
                 return Ok(_mapper.Map<DepartmentHistoryDto>(history));
             }
             catch (Exception ex)
@@ -124,10 +131,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             DateTime startDate,
             CancellationToken ct)
         {
-            _logger.LogWarning(
-                "DepartmentHistory não encontrado. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}",
-                businessEntityId, departmentId, shiftId, startDate);
-
+            _logger.LogWarning("DepartmentHistory não encontrado. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}", businessEntityId, departmentId, shiftId, startDate);
             await _appLog.WarnAsync("DepartmentHistory não encontrado.");
             await _db.SaveChangesAsync(ct);
 
@@ -144,7 +148,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             await _db.SaveChangesAsync(ct);
 
             if (dto is null)
+            {
+                _logger.LogWarning("Pedido de create inválido: body nulo ou campos em branco.");
+                await _appLog.WarnAsync("Pedido de create inválido: body nulo ou campos em branco.");
                 return BadRequest(new { message = "Body é obrigatório" });
+            }
 
             try
             {
@@ -190,20 +198,33 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<IActionResult?> ValidateCreateDtoAsync(DepartmentHistoryDto dto, CancellationToken ct)
         {
             if (!await _db.Employees.AnyAsync(e => e.BusinessEntityID == dto.BusinessEntityID, ct))
-                return NotFound(new { message = "Employee não encontrado", businessEntityId = dto.BusinessEntityID });
-
+            {
+                _logger.LogWarning($"Nenhum employee encontrado para BEID={dto.BusinessEntityID}");
+                await _appLog.WarnAsync($"Nenhum employee encontrado para BEID={dto.BusinessEntityID}");
+                return NotFound();
+            }
             if (dto.DepartmentId < short.MinValue || dto.DepartmentId > short.MaxValue)
-                return BadRequest(new { message = "DepartmentId fora do intervalo de short", departmentId = dto.DepartmentId });
-
+            {
+                _logger.LogWarning("Pedido inválido: Departamento Inválido (fora do intervalo de short).");
+                await _appLog.WarnAsync("Pedido inválido: Departamento Inválido (fora do intervalo de short).");
+                return BadRequest();
+            }
             var deptIdShort = (short)dto.DepartmentId;
 
             if (!await _db.Departments.AnyAsync(d => d.DepartmentID == deptIdShort, ct))
-                return NotFound(new { message = "Department não encontrado", departmentId = dto.DepartmentId });
+            {
+                _logger.LogWarning($"Departamento {dto.DepartmentId} não encontrado");
+                await _appLog.WarnAsync($"Departamento {dto.DepartmentId} não encontrado");
+                return NotFound();
+            }
 
             var minSqlDate = new DateTime(1753, 1, 1);
             if (dto.StartDate < minSqlDate)
-                return BadRequest(new { message = "StartDate inválida para SQL Server datetime", startDate = dto.StartDate });
-
+            {
+                _logger.LogWarning($"StartDate({dto.StartDate}) inválida para SQL Server datetime");
+                await _appLog.WarnAsync($"StartDate({dto.StartDate}) inválida para SQL Server datetime");
+                return BadRequest();
+            }
             return null;
         }
 
@@ -302,14 +323,25 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             await _db.SaveChangesAsync(ct);
 
             if (dto is null)
+            {
+                _logger.LogWarning("Pedido inválido: body nulo ou campos em branco.");
+                await _appLog.WarnAsync("Pedido inválido: body nulo ou campos em branco.");
                 return BadRequest(new { message = "Body é obrigatório" });
+            }
 
             try
             {
                 // 1. Obter registo
                 var history = await GetDepartmentHistoryAsync(businessEntityId, departmentId, shiftId, startDate, ct);
                 if (history is null)
+                {
+                    _logger.LogWarning(
+                        "DepartmentHistory não encontrado. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}", businessEntityId, departmentId, shiftId, startDate);
+                    await _appLog.WarnAsync("DepartmentHistory não encontrado.");
+                    await _db.SaveChangesAsync(ct);
+
                     return NotFound();
+                }
 
                 // 2. Validar PATCH usando método já criado
                 var validationError = ValidatePatch(dto, history);
@@ -334,11 +366,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
         }
 
-        private IActionResult? ValidatePatch(DepartmentHistoryDto dto, DepartmentHistory existing)
+        private async Task<IActionResult?> ValidatePatch(DepartmentHistoryDto dto, DepartmentHistory existing)
         {
             if (dto.EndDate.HasValue && dto.EndDate.Value < existing.StartDate)
-                return BadRequest(new { message = "EndDate não pode ser anterior ao StartDate", endDate = dto.EndDate });
-
+            {
+                _logger.LogWarning("EndDate não pode ser anterior ao StartDate");
+                await _appLog.WarnAsync("EndDate não pode ser anterior ao StartDate");
+                return BadRequest();
+            }
             return null;
         }
 
@@ -382,7 +417,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 var history = await GetDepartmentHistoryAsync(businessEntityId, departmentId, shiftId, startDate, ct);
                 if (history is null)
+                {
+                    _logger.LogWarning(
+                        "DepartmentHistory não encontrado. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}", businessEntityId, departmentId, shiftId, startDate);
+                    await _appLog.WarnAsync("DepartmentHistory não encontrado.");
+                    await _db.SaveChangesAsync(ct);
+
                     return NotFound();
+                }
 
                 _db.DepartmentHistories.Remove(history);
                 await _db.SaveChangesAsync(ct);

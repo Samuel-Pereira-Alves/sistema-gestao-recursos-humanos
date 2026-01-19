@@ -82,7 +82,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(ex, "Erro ao processar JobCandidates.");
             await _appLog.ErrorAsync("Erro ao processar JobCandidates.", ex);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro ao processar candidatos",
@@ -271,7 +270,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 _logger.LogError(ex, "Erro ao guardar ficheiro {File}.", safeFileName);
                 await _appLog.ErrorAsync($"Erro ao guardar ficheiro {safeFileName}.", ex);
-                await _db.SaveChangesAsync(ct);
 
                 var problem = Problem(
                     title: "Erro ao guardar o ficheiro",
@@ -325,7 +323,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 try { System.IO.File.Delete(fullPath); } catch { /* ignore */ }
                 _logger.LogError(ex, "Erro ao gravar JobCandidate. Ficheiro removido: {File}.", safeFileName);
                 await _appLog.ErrorAsync($"Erro ao gravar JobCandidate. Ficheiro removido: {safeFileName}.", ex);
-                await _db.SaveChangesAsync(ct);
 
                 return Problem(
                     title: "Erro ao persistir o candidato",
@@ -410,7 +407,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(dbEx, "Erro ao eliminar JobCandidate com ID={Id}.", id);
             await _appLog.ErrorAsync($"Erro ao eliminar JobCandidate com ID={id}.", dbEx);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro ao eliminar",
