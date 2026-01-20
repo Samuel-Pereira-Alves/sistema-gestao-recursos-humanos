@@ -2,18 +2,27 @@ import axios from "axios";
 const API_BASE = "http://localhost:5136/api";
 
 
+
 export async function getCandidatos(token, { pageNumber, pageSize, search }) {
   const url = new URL(`${API_BASE}/v1/jobcandidate`);
   const params = new URLSearchParams();
+
   params.set("pageNumber", String(pageNumber));
   params.set("pageSize", String(pageSize));
 
-  if (search && search.trim()) url.searchParams.set("search", search.trim());
+  if (search && search.trim()) {
+    params.set("search", search.trim());
+  }
 
+  url.search = params.toString();
 
   const res = await fetch(url.toString(), {
-    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
   });
+
   if (!res.ok) throw new Error(`Erro ao carregar candidatos (HTTP ${res.status})`);
 
   const header = res.headers.get("X-Pagination");
@@ -32,6 +41,7 @@ export async function getCandidatos(token, { pageNumber, pageSize, search }) {
     },
   };
 }
+
 
 
 export async function openPdf(id) {

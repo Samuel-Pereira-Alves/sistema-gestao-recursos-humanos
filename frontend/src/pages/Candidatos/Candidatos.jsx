@@ -1,55 +1,57 @@
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
-import { addNotification } from "../../utils/notificationBus";
-import axios from "axios";
+import Pagination from "../../components/Pagination/Pagination";
 import {
   approveCandidate,
   deleteCandidate,
-  getCandidatos,  // ← deve aceitar { pageNumber, pageSize, search }
+  getCandidatos,
   openPdf,
 } from "../../Service/candidatosService";
-import Pagination from "../../components/Pagination/Pagination";
+import { addNotification } from "../../utils/notificationBus";
+import axios from "axios";
 
 export default function Candidatos() {
-  const [isLoading, setIsLoading] = useState(false);
   const [rows, setRows] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Paginação no servidor
+  // Paginação
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 4;
 
-  // Meta da API (normalizada)
   const [meta, setMeta] = useState({
     totalCount: 0,
-    pageNumber: 1,
-    pageSize: itemsPerPage,
     totalPages: 1,
-    hasPrevious: false,
-    hasNext: false,
+    pageNumber: 1,
   });
 
-  // Pesquisa
-  const [searchTerm, setSearchTerm] = useState(""); // input do utilizador
-  const [search, setSearch] = useState("");         // valor debounced que vai ao servidor
+  // Pesquisa + debounce
+  const [searchTerm, setSearchTerm] = useState("");
+  const [search, setSearch] = useState("");
 
-  // Debounce simples (300ms)
+  // Debounce 300ms
   useEffect(() => {
-    const t = setTimeout(() => setSearch(searchTerm), 300);
+    const t = setTimeout(() => {
+      setSearch(searchTerm.trim());
+    }, 300);
     return () => clearTimeout(t);
   }, [searchTerm]);
 
-  // Ao mudar pesquisa (debounced) → voltar à página 1
+  // Quando mudar a pesquisa → voltar à página 1
   useEffect(() => {
     setCurrentPage(1);
   }, [search]);
 
+  // Evitar race conditions
+  const reqIdRef = useRef(0);
+
+  // Map DTO -> UI-table row
   const mapItem = (d) => {
-    const id = d.jobCandidateId ?? d.jobCandidateID ?? d.id ?? d.numero ?? d.JobCandidateId;
-    const first = d.firstName ?? d.person?.firstName ?? d.nome?.split(" ")[0] ?? "";
-    const last = d.lastName ?? d.person?.lastName ?? d.nome?.split(" ").slice(1).join(" ") ?? "";
+    const id = d.jobCandidateId ?? d.jobCandidateID ?? d.id ?? d.JobCandidateId;
+    const first = d.firstName ?? d.person?.firstName ?? "";
+    const last = d.lastName ?? d.person?.lastName ?? "";
     const email = d.email ?? d.person?.email ?? "";
 
     return {
@@ -60,214 +62,143 @@ export default function Candidatos() {
     };
   };
 
+  // Fetch principal
   const fetchCandidatos = useCallback(
     async (page = currentPage) => {
-      try {
-        const token = localStorage.getItem("authToken");
-        setIsLoading(true);
-        setError("");
+      const token = localStorage.getItem("authToken");
+      const myReq = ++reqIdRef.current;
 
-        // 🚀 Paginação + Pesquisa no servidor
+      setIsLoading(true);
+      setError("");
+
+      try {
         const { items, meta } = await getCandidatos(token, {
           pageNumber: page,
           pageSize: itemsPerPage,
-          search, // ← envia o termo debounced
+          search,
         });
 
-        const mapped = (items || []).map(mapItem);
+        if (myReq !== reqIdRef.current) return; // ignora resposta atrasada
+
+        const mapped = (items ?? []).map(mapItem);
         setRows(mapped);
         setMeta(meta);
+
         return { items: mapped, meta };
       } catch (e) {
         console.error(e);
-        setError("Não foi possível carregar os candidatos.");
+        if (myReq !== reqIdRef.current) return;
+        setError("Erro ao carregar candidatos.");
         setRows([]);
-        setMeta((m) => ({ ...m, totalCount: 0, totalPages: 1, pageNumber: 1 }));
+        setMeta((m) => ({ ...m, totalPages: 1, pageNumber: 1 }));
         return { items: [], meta: { totalPages: 1, pageNumber: 1 } };
       } finally {
-        setIsLoading(false);
+        if (myReq === reqIdRef.current) setIsLoading(false);
       }
     },
-    [currentPage, itemsPerPage, search]
+    [currentPage, search]
   );
 
-  // Buscar sempre que page ou search mudam
   useEffect(() => {
     fetchCandidatos(currentPage);
   }, [fetchCandidatos, currentPage]);
 
-  // Abrir PDF numa nova aba
-  const downloadCvPdf = (id) => {
-    openPdf(id);
-  };
+  const downloadCvPdf = (id) => openPdf(id);
 
   const aprovarCandidato = async (id, nome, email) => {
     try {
-      setIsLoading(true);
       await approveCandidate(id);
-      alert("Candidato aprovado com sucesso.");
-
-      const res = await fetchCandidatos(currentPage);
-      // Se a página ficou vazia após a mudança, recua uma página
-      if ((res.items?.length ?? 0) === 0 && currentPage > 1) {
-        const newPage = Math.max(1, Math.min(currentPage - 1, res.meta?.totalPages || 1));
-        if (newPage !== currentPage) setCurrentPage(newPage);
-      }
-
-      addNotification(
-        `O candidato ${nome} foi aprovado como funcionário.`,
-        "admin",
-        { type: "EMPLOYEES" }
-      );
-
-      // (Opcional) enviar email por aqui
-      // await sendEmail(email, true);
-    } catch (err) {
-      console.error(err);
-      alert("Falha ao aprovar candidato.");
-    } finally {
-      setIsLoading(false);
+      alert("Candidato aprovado.");
+      await fetchCandidatos(currentPage);
+      addNotification(`O candidato ${nome} foi aprovado.`, "admin", { type: "EMPLOYEES" });
+    } catch (e) {
+      alert("Erro ao aprovar candidato.");
     }
   };
 
   const eliminarCandidato = async (id, nome, email) => {
     try {
-      if (!confirm("Tens a certeza que queres eliminar este candidato?")) return;
-
-      setIsLoading(true);
-      setError("");
+      if (!confirm("Deseja eliminar este candidato?")) return;
 
       await deleteCandidate(id);
+      alert("Candidato eliminado.");
 
-      const res = await fetchCandidatos(currentPage);
-      if ((res.items?.length ?? 0) === 0 && currentPage > 1) {
-        const newPage = Math.max(1, Math.min(currentPage - 1, res.meta?.totalPages || 1));
-        if (newPage !== currentPage) setCurrentPage(newPage);
+      const result = await fetchCandidatos(currentPage);
+      if ((result.items?.length ?? 0) === 0 && currentPage > 1) {
+        setCurrentPage(Math.max(1, currentPage - 1));
       }
 
-      alert("Candidato eliminado com sucesso.");
-      addNotification(`O candidato ${nome} foi recusado.`, "admin", { type: "CANDIDATE" });
-
-      // (Opcional) enviar email por aqui
-      // await sendEmail(email, false);
-    } catch (err) {
-      console.error(err);
-      setError("Erro ao eliminar candidato. Tenta novamente.");
-      alert("Erro ao eliminar candidato.");
-    } finally {
-      setIsLoading(false);
+      addNotification(`Candidato ${nome} eliminado.`, "admin", { type: "CANDIDATE" });
+    } catch (e) {
+      alert("Erro ao eliminar.");
     }
   };
-
-  // Enviar email (mantido)
-  async function sendEmail(email, condition) {
-    const frase =
-      condition === false
-        ? "Infelizmente, a sua candidatura não foi aprovada nesta fase do processo. Agradecemos o seu interesse e o tempo dedicado à candidatura. Continuaremos a considerar o seu perfil para futuras oportunidades compatíveis."
-        : "Parabéns! A sua candidatura foi aprovada nesta fase do processo. Em breve entraremos em contacto para lhe fornecer mais detalhes sobre os próximos passos. Obrigado pelo seu interesse e confiança.";
-
-    try {
-      await axios.post(
-        "http://localhost:5136/api/email/send",
-        { to: email, subject: "Feedback Candidatura", text: frase },
-        { headers: { "Content-Type": "application/json" } }
-      );
-    } catch (e) {
-      if (e.response) console.error("Erro API:", e.response.data);
-      else console.error("Erro rede/CORS:", e.message);
-    }
-  }
 
   return (
     <div className="container mt-3">
       <BackButton />
 
-      {/* Header */}
-      <div className="mb-2 d-flex justify-content-between align-items-center">
-        <h1 className="mb-0 h4">Gestão de Candidatos</h1>
+      <div className="mb-3 d-flex justify-content-between">
+        <h1 className="h4 mb-0">Gestão de Candidatos</h1>
         <span className="text-muted small">
           Total:&nbsp;
-          <span className="badge bg-secondary bg-opacity-50 text-dark">
-            {meta.totalCount}
-          </span>
+          <span className="badge bg-secondary">{meta.totalCount}</span>
         </span>
       </div>
 
-      {/* Pesquisa */}
-      <div className="mb-3">
-        <input
-          type="text"
-          className="form-control"
-          placeholder="Pesquisar por nome ou email…"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          aria-label="Pesquisar candidatos"
-        />
-      </div>
+      {/* SEARCHBAR */}
+      <input
+        type="text"
+        className="form-control mb-3"
+        placeholder="Pesquisar por nome ou email…"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
 
-      {/* Content */}
-      <div className="card border-0 shadow-sm">
+      <div className="card shadow-sm">
         <div className="card-body p-0">
           {isLoading ? (
             <div className="text-center py-3">
-              <div className="spinner-border text-secondary" role="status">
-                <span className="visually-hidden">Carregando...</span>
-              </div>
+              <div className="spinner-border"></div>
             </div>
           ) : rows.length === 0 ? (
             <div className="text-center py-3 text-muted">Sem candidatos</div>
           ) : (
             <>
-              {/* Desktop Table */}
               <div className="table-responsive d-none d-sm-block">
-                <table className="table table-hover mb-0 table-sm">
+                <table className="table table-hover mb-0">
                   <thead className="table-light">
                     <tr>
-                      <th className="px-3 py-2 text-center">Nº Candidato</th>
-                      <th className="px-3 py-2 text-center">Nome</th>
-                      <th className="px-3 py-2 text-center">CV</th>
-                      <th className="px-3 py-2 text-center">Ações</th>
+                      <th className="text-center">ID</th>
+                      <th className="text-center">Nome</th>
+                      <th className="text-center">CV</th>
+                      <th className="text-center">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((c) => (
                       <tr key={c.id}>
-                        <td className="px-3 py-2 text-center">
-                          <span className="fw-semibold">{c.numero}</span>
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          <span className="fw-semibold">{c.nome}</span>
-                        </td>
-                        <td className="px-3 py-2 text-center">
+                        <td className="text-center">{c.numero}</td>
+                        <td className="text-center">{c.nome}</td>
+                        <td className="text-center">
                           <button
-                            className="btn btn-sm btn-outline-primary text-center"
+                            className="btn btn-sm btn-outline-primary"
                             onClick={() => downloadCvPdf(c.id)}
-                            type="button"
                           >
-                            Ver CV (PDF)
+                            Ver PDF
                           </button>
                         </td>
-                        <td className="px-3 py-2 text-center">
-                          <div className="btn-group btn-group-sm" role="group">
+                        <td className="text-center">
+                          <div className="btn-group btn-group-sm">
                             <button
                               className="btn btn-outline-success"
-                              onClick={() => {
-                                aprovarCandidato(c.id, c.nome, c.email);
-                                sendEmail(c.email, true);
-                              }}
-                              disabled={isLoading}
-                              type="button"
+                              onClick={() => aprovarCandidato(c.id, c.nome, c.email)}
                             >
                               Aprovar
                             </button>
                             <button
                               className="btn btn-outline-danger"
-                              onClick={() => {
-                                eliminarCandidato(c.id, c.nome, c.email);
-                                sendEmail(c.email, false);
-                              }}
-                              disabled={isLoading}
-                              type="button"
+                              onClick={() => eliminarCandidato(c.id, c.nome, c.email)}
                             >
                               Eliminar
                             </button>
@@ -279,51 +210,7 @@ export default function Candidatos() {
                 </table>
               </div>
 
-              {/* Mobile Cards */}
-              <div className="d-md-none">
-                {rows.map((c) => (
-                  <div key={c.id} className="border-bottom p-2">
-                    <div className="d-flex align-items-center mb-1">
-                      <div className="flex-grow-1">
-                        <div className="fw-semibold">Nº {c.numero}</div>
-                      </div>
-                    </div>
-                    <div className="d-flex align-items-center mb-2">
-                      <div className="flex-grow-1">
-                        <div className="fw-semibold">{c.nome}</div>
-                      </div>
-                    </div>
-
-                    <div className="d-flex gap-1">
-                      <button
-                        className="btn btn-sm btn-outline-primary flex-fill"
-                        onClick={() => downloadCvPdf(c.id)}
-                        type="button"
-                      >
-                        Ver CV (PDF)
-                      </button>
-                      <button
-                        className="btn btn-sm btn-outline-success flex-fill"
-                        onClick={() => aprovarCandidato(c.id, c.nome, c.email)}
-                        disabled={isLoading}
-                        type="button"
-                      >
-                        Aprovar
-                      </button>
-                      <button
-                        className="btn btn-sm btn-outline-danger flex-fill"
-                        onClick={() => eliminarCandidato(c.id, c.nome, c.email)}
-                        disabled={isLoading}
-                        type="button"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Pagination (meta do servidor) */}
+              {/* Pagination */}
               <Pagination
                 currentPage={currentPage}
                 totalPages={meta.totalPages}

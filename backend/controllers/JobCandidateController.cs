@@ -54,7 +54,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 [Authorize(Roles = "admin")]
 public async Task<ActionResult<PagedResult<JobCandidateDto>>> GetAll(
     [FromQuery] int pageNumber = 1,
-    [FromQuery] int pageSize = 20,
+    [FromQuery] int pageSize = 4,
     [FromQuery] string? search = null,
     CancellationToken ct = default)
 {
@@ -65,7 +65,7 @@ public async Task<ActionResult<PagedResult<JobCandidateDto>>> GetAll(
     {
         const int MaxPageSize = 200;
         if (pageNumber < 1) pageNumber = 1;
-        if (pageSize < 1) pageSize = 20;
+        if (pageSize < 1) pageSize = 4;
         if (pageSize > MaxPageSize) pageSize = MaxPageSize;
 
         
