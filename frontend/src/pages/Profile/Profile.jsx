@@ -68,7 +68,7 @@ export default function Profile() {
         const data = await getEmployee(targetId, token);
         setEmployee(data);
       } catch (error) {
-        
+        console.error(error);
       }finally  {
         setLoading(false);
       }
@@ -153,7 +153,8 @@ export default function Profile() {
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error) {
       console.error(error);
-      setSaveError(error.message || "Falha ao salvar alterações");
+      setSaveError(normalizeApiError(error));
+      //setSaveError(error.message || "Falha ao salvar alterações");
     }
   };
 

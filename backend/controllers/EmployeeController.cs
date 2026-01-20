@@ -561,6 +561,19 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (DbUpdateException dbEx)
             {
+                var duplicateExists = await _db.Employees
+                    .AsNoTracking()
+                    .AnyAsync(e => e.NationalIDNumber == employeeDto.NationalIDNumber, ct);
+
+                if (duplicateExists)
+                {
+                    return Conflict(new ProblemDetails
+                    {
+                        Title = "Cartão de Cidadão Inválido",
+                        Detail = "Cartão de Cidadão Inválido",
+                        Status = StatusCodes.Status409Conflict
+                    });
+                }
                 return await HandleEmployeePatchDbErrorAsync(dbEx, id, ct);
             }
             catch (Exception ex)

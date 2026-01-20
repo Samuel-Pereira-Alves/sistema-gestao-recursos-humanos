@@ -39,8 +39,22 @@ export async function updateEmployee(id, payload, token) {
     },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  if (!res.ok) {
+    let msg = `Erro ao atualizar (HTTP ${res.status})`;
+
+    try {
+      const error = await res.json();
+      msg = error.detail || error.title || error.message || msg;
+    } catch {
+      // tenta texto simples
+      const text = await res.text().catch(() => "");
+      if (text) msg = text;
+    }
+
+    throw new Error(msg);
+  }
+
+  return res.json().catch(() => null);
 }
 
 export async function getEmployees(
