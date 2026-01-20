@@ -51,6 +51,95 @@ async function http(path, init = {}) {
 }
  
 
+// Service/employeeService.js
+
+
+// Service/employeeService.js
+
+export async function getEmployeesPaged({
+  pageNumber = 1,
+  pageSize = 20,
+  search = "",
+  signal,
+} = {}) {
+  const token = localStorage.getItem("authToken");
+
+  const url = new URL("http://localhost:5136/api/v1/employee/paged");
+  url.searchParams.set("pageNumber", String(Math.max(1, Number(pageNumber) || 1)));
+  url.searchParams.set("pageSize", String(Math.max(1, Number(pageSize) || 20)));
+  if (typeof search === "string" && search.trim()) {
+    url.searchParams.set("search", search.trim());
+  }
+
+  const headers = {
+    Accept: "application/json",
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  let res;
+  try {
+    res = await fetch(url.toString(), {
+      method: "GET",
+      headers,
+      signal,
+    });
+  } catch (err) {
+    // Erros de rede/abort
+    if (err?.name === "AbortError") throw err;
+    throw new Error(`Falha na ligação ao servidor: ${err?.message || "erro de rede"}`);
+  }
+
+  if (!res.ok) {
+    let serverMsg = "";
+    try {
+      const errJson = await res.clone().json();
+      serverMsg = errJson?.message || errJson?.error || "";
+    } catch {
+      try {
+        const errText = await res.clone().text();
+        serverMsg = errText || "";
+      } catch {}
+    }
+    throw new Error(
+      `Erro ao obter funcionários (HTTP ${res.status})${serverMsg ? " - " + serverMsg : ""}`
+    );
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error("Resposta do servidor inválida (JSON).");
+  }
+
+  // Normalização do PagedResult<EmployeeDto>
+  const items = Array.isArray(data?.items) ? data.items : [];
+  const totalCount = Number(data?.totalCount ?? 0);
+  const respPageNumber = Number(data?.pageNumber ?? pageNumber) || 1;
+  const respPageSize = Number(data?.pageSize ?? pageSize) || 20;
+
+  // Usa totalPages do backend se existir; caso contrário, calcula
+  const totalPagesFromServer = Number(data?.totalPages);
+  const computedTotalPages = Math.max(
+    1,
+    Math.ceil((isFinite(totalCount) ? totalCount : items.length) / Math.max(1, respPageSize))
+  );
+  const totalPages = isFinite(totalPagesFromServer) && totalPagesFromServer > 0
+    ? totalPagesFromServer
+    : computedTotalPages;
+
+  return {
+    items,
+    totalCount,
+    pageNumber: respPageNumber,
+    pageSize: respPageSize,
+    totalPages,
+  };
+}
+
+
 
 // Service/pagamentosService.js
 export async function listPagamentosFlattened(pageNumber = 1, pageSize = 10) {
