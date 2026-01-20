@@ -138,6 +138,56 @@ export async function getEmployeesPaged({
 }
 
 
+export async function getAllPayments(
+  { pageNumber = 1, pageSize = 5, search = "", signal } = {}
+) {
+  const token = localStorage.getItem("authToken");
+
+  const url = new URL("http://localhost:5136/api/v1/payhistory/payments/paged");
+  const qs = new URLSearchParams({
+    pageNumber: String(pageNumber),
+    pageSize: String(pageSize),
+  });
+  if (search) qs.set("search", search);
+  url.search = qs.toString();
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    signal, // 👈 suporta cancelamento
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Falha ao carregar: ${res.status}`);
+  }
+
+  const data = await res.json();
+
+  // 👇 Normaliza camelCase/PascalCase e garante totalPages
+  const normalized = {
+    items: data.items ?? data.Items ?? [],
+    totalCount: data.totalCount ?? data.TotalCount ?? 0,
+    pageNumber: data.pageNumber ?? data.PageNumber ?? pageNumber,
+    pageSize: data.pageSize ?? data.PageSize ?? pageSize,
+    totalPages:
+      data.totalPages ??
+      data.TotalPages ??
+      Math.max(
+        1,
+        Math.ceil(
+          (data.totalCount ?? data.TotalCount ?? 0) /
+            (data.pageSize ?? data.PageSize ?? pageSize)
+        )
+      ),
+  };
+
+  return normalized;
+}
+
 
 // Service/pagamentosService.js
 export async function listPagamentosFlattened(pageNumber = 1, pageSize = 10) {

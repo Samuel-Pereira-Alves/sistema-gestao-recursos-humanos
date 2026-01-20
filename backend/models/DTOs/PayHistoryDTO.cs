@@ -9,6 +9,7 @@ namespace sistema_gestao_recursos_humanos.backend.models.dtos
         [Range(6, 199, ErrorMessage = "O valor deve ser maior que 5 e menor que 200.")]
  
         public decimal Rate { get; set; }
+        public Person? Person {get; set;}
         public byte PayFrequency { get; set; }
     }
 }

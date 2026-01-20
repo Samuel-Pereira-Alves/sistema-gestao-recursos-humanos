@@ -18,8 +18,8 @@ import {
   patchPayHistory,
   deletePayHistory,
   createPayHistory,
+  getAllPayments, // 👈 usar apenas este para listar
 } from "../../Service/pagamentosService";
-import { getEmployeesPaged } from "../../Service/employeeService"; // 👈 usa o service correto
 import { getAllEmployees } from "../../Service/employeeService";
 import { addNotificationForUser } from "../../utils/notificationBus";
 
@@ -32,12 +32,11 @@ export default function Pagamentos() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedTerm, setDebouncedTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [serverTotalPages, setServerTotalPages] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Dados
-  const [employees, setEmployees] = useState([]);      // employees para eventuais UIs auxiliares
-  const [employeesDrop, setEmployeesDrop] = useState([]); // dropdown
-  const [pagamentos, setPagamentos] = useState([]);    // lista achatada de PayHistories
+  const [pagamentos, setPagamentos] = useState([]); // lista achatada vinda do back
+  const [employeesDrop, setEmployeesDrop] = useState([]); // para o modal de criar
   const itemsPerPage = 5;
 
   // ---- Concorrência ----
@@ -52,84 +51,68 @@ export default function Pagamentos() {
   }, [searchTerm]);
 
   // Loader principal (página + termo), com AbortController e clamp de página
-  const load = useCallback(
-    async (page, term) => {
-      setFetchError(null);
+ 
+// Loader principal (página + termo), com AbortController e clamp de página
+const load = useCallback(
+  async (page, term) => {
+    setFetchError(null);
 
-      // cancela o pedido anterior
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
+    // cancela o pedido anterior
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-      const myReq = ++reqIdRef.current;
+    const myReq = ++reqIdRef.current;
+    setLoading(true);
 
-      setLoading(true);
-      try {
-        // 1) Chamar o endpoint paginado de employees
-        const { items, totalPages } = await getEmployeesPaged({
-          pageNumber: page,
-          pageSize: itemsPerPage,
-          search: term || "",
-          signal: controller.signal,
-        });
+    try {
+      const data = await getAllPayments({
+        pageNumber: page,
+        pageSize: itemsPerPage,
+        search: term || "",
+        signal: controller.signal,
+      });
 
-        if (myReq !== reqIdRef.current) return; // ignora respostas antigas
+      if (myReq !== reqIdRef.current) return;
 
-        // 2) Guardar employees úteis (ex.: para outras UIs)
-        const myId = Number(localStorage.getItem("businessEntityId"));
-        const employeesExceptActual = (items ?? [])
-          .filter((e) => e.businessEntityID !== myId)
-          .sort((a, b) =>
-            (a.person?.firstName || "").localeCompare(b.person?.firstName || "")
-          );
-        setEmployees(employeesExceptActual);
+      const newTotalPages = Math.max(1, Number(data?.totalPages || 1));
 
-        // 3) Achatar payHistories anexando o employee
-        const pays = (items ?? []).flatMap((emp) =>
-          (emp.payHistories ?? []).map((ph) => ({ ...ph, employee: emp }))
-        );
-
-        // 4) Ordenar por data (mais recentes primeiro)
-        pays.sort(
-          (a, b) => new Date(b.rateChangeDate) - new Date(a.rateChangeDate)
-        );
-
-        setPagamentos(pays);
-
-        // 5) Atualizar totalPages e clamp de página
-        const newTotalPages = Math.max(1, Number(totalPages || 1));
-        if (page > newTotalPages) {
-          setServerTotalPages(newTotalPages);
-          setCurrentPage(1);
-          return;
-        }
-        setServerTotalPages(newTotalPages);
-
-        // 6) Dropdown (best‑effort, não bloqueante)
-        try {
-          const token = localStorage.getItem("authToken");
-          const employeedrop = await getAllEmployees(token);
-          if (myReq === reqIdRef.current) setEmployeesDrop(employeedrop);
-        } catch {
-          // ignora erros do dropdown
-        }
-      } catch (err) {
-        if (err?.name === "AbortError") return;
-        if (myReq !== reqIdRef.current) return;
-
-        console.error(err);
-        setFetchError(err?.message || "Erro a carregar dados.");
-        setEmployees([]);
-        setPagamentos([]);
-        setServerTotalPages(1);
-      } finally {
-        if (myReq === reqIdRef.current) setLoading(false);
+      // 👉 Clamp para última página válida (em vez de ir para 1)
+      if (page > newTotalPages) {
+        setTotalPages(newTotalPages);
+        setCurrentPage(newTotalPages);
+        // Não fazemos return aqui; deixamos o useEffect reagir à mudança da página
+        return;
       }
-    },
-    [itemsPerPage]
-  );
 
-  // Efeito principal: reage a termo (debounced) e página
+      setPagamentos(Array.isArray(data?.items) ? data.items : []);
+      setTotalPages(newTotalPages);
+
+      // Dropdown (best-effort)
+      try {
+        const token = localStorage.getItem("authToken");
+        const employeedrop = await getAllEmployees(token);
+        if (myReq === reqIdRef.current) setEmployeesDrop(employeedrop);
+      } catch {
+        // ignora erros do dropdown
+      }
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      if (myReq !== reqIdRef.current) return;
+
+      console.error(err);
+      setFetchError(err?.message || "Erro a carregar dados.");
+      setPagamentos([]);
+      setTotalPages(1);
+    } finally {
+      if (myReq === reqIdRef.current) setLoading(false);
+    }
+  },
+  [itemsPerPage]
+);
+
+
+  // Reage a termo (debounced) e página
   useEffect(() => {
     const termChanged = debouncedTerm !== lastTermRef.current;
 
@@ -144,6 +127,7 @@ export default function Pagamentos() {
     load(currentPage, debouncedTerm);
   }, [currentPage, debouncedTerm, load]);
 
+  // Cleanup abort
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
@@ -160,9 +144,7 @@ export default function Pagamentos() {
 
   const openEdit = (p) => {
     setEditKeys({
-      businessEntityID: String(
-        p.businessEntityID ?? p.employee?.businessEntityID ?? ""
-      ),
+      businessEntityID: String(p.businessEntityID ?? ""),
       rateChangeDate: p.rateChangeDate ?? "",
     });
     setEditForm({
@@ -202,15 +184,14 @@ export default function Pagamentos() {
   // ---- Eliminar registo ----
   const [deleteLoadingId, setDeleteLoadingId] = useState(null);
   const handleDelete = async (p) => {
-    const businessEntityID =
-      p.businessEntityID ?? p.employee?.businessEntityID ?? "";
+    const businessEntityID = p.businessEntityID;
     const rateChangeDate = p.rateChangeDate ?? "";
     if (!businessEntityID || !rateChangeDate)
       return alert("Chaves do registo em falta.");
 
     if (
       !window.confirm(
-        `Eliminar registo do colaborador ${p.employee?.person?.firstName} ${p.employee?.person?.lastName}?`
+        `Eliminar registo do colaborador ${p.person?.firstName} ${p.person?.lastName}?`
       )
     )
       return;
@@ -344,14 +325,14 @@ export default function Pagamentos() {
                       </tr>
                     ) : (
                       pagamentos.map((p) => {
-                        const key = `${p.businessEntityID ?? p.employee?.businessEntityID}|${p.rateChangeDate}`;
+                        const key = `${p.businessEntityID}|${p.rateChangeDate}`;
                         const deleting = deleteLoadingId === key;
                         return (
                           <tr key={p.payHistoryId ?? key}>
                             <td>
-                              {p.employee?.person?.firstName} {p.employee?.person?.lastName}
+                              {p.person?.firstName} {p.person?.lastName}
                               <div className="small text-muted">
-                                ID: {p.employee?.businessEntityID ?? "—"}
+                                ID: {p.businessEntityID ?? "—"}
                               </div>
                             </td>
                             <td>{formatCurrencyEUR(p.rate)}</td>
@@ -386,16 +367,16 @@ export default function Pagamentos() {
                   <div className="text-center p-3 text-muted">Sem registos</div>
                 ) : (
                   pagamentos.map((p) => {
-                    const key = `${p.businessEntityID ?? p.employee?.businessEntityID}|${p.rateChangeDate}`;
+                    const key = `${p.businessEntityID}|${p.rateChangeDate}`;
                     const deleting = deleteLoadingId === key;
                     return (
                       <div key={p.payHistoryId ?? key} className="border-bottom p-3">
                         <h6>
                           <strong>
-                            {p.employee?.person?.firstName} {p.employee?.person?.lastName}
+                            {p.person?.firstName} {p.person?.lastName}
                           </strong>
                         </h6>
-                        <ReadOnlyField label="ID" value={p.employee?.businessEntityID ?? "—"} />
+                        <ReadOnlyField label="ID" value={p.businessEntityID ?? "—"} />
                         <ReadOnlyField label="Valor" value={formatCurrencyEUR(p.rate)} />
                         <ReadOnlyField label="Data" value={formatDate(p.rateChangeDate)} />
                         <ReadOnlyField label="Frequência" value={freqLabel(p.payFrequency)} />
@@ -420,12 +401,8 @@ export default function Pagamentos() {
               {/* Pagination (usa meta do servidor) */}
               <Pagination
                 currentPage={currentPage}
-                totalPages={serverTotalPages}
-                setPage={(p) => {
-                  if (!loading && p >= 1 && p <= serverTotalPages && p !== currentPage) {
-                    setCurrentPage(p);
-                  }
-                }}
+                totalPages={totalPages}
+                setPage={setCurrentPage}
               />
             </>
           )}
@@ -440,7 +417,7 @@ export default function Pagamentos() {
         onSubmit={submitEdit}
         loading={editLoading}
         error={editError}
-    keys={editKeys}
+        keys={editKeys}
         form={editForm}
         setForm={setEditForm}
       />
