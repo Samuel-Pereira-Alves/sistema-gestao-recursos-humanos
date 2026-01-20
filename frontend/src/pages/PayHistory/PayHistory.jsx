@@ -13,6 +13,7 @@ export default function PayHistoryList() {
   const [fetchError, setFetchError] = useState(null);
   const [employee, setEmployee] = useState(null);
   const [payments, setPayments] = useState([]);
+  const [totalPages, setTotalPages] = useState(0);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -30,7 +31,9 @@ export default function PayHistoryList() {
       setFetchError(null);
       try {
         const data = await getPayHistoryById(token, id);
-        setPayments(data.items);
+        console.log(data)
+        setPayments(data.items.items)
+        setTotalPages(data.items.meta.totalPages)
       } catch (err) {
         console.error(err);
         setFetchError(err.message || "Erro desconhecido ao obter dados.");
@@ -41,12 +44,6 @@ export default function PayHistoryList() {
 
     load();
   }, []);
-
-  const { slice: currentPayments, totalPages } = paginate(
-    payments,
-    currentPage,
-    itemsPerPage
-  );
 
   return (
     <div className="container mt-4">
@@ -81,7 +78,7 @@ export default function PayHistoryList() {
                     </tr>
                   </thead>
                   <tbody>
-                    {currentPayments.length === 0 ? (
+                    {payments.length === 0 ? (
                       <tr>
                         <td
                           colSpan={4}
@@ -91,7 +88,7 @@ export default function PayHistoryList() {
                         </td>
                       </tr>
                     ) : (
-                      currentPayments.map((p, idx) => {
+                      payments.map((p, idx) => {
                         const seq = (currentPage - 1) * itemsPerPage + idx + 1;
                         return (
                           <tr key={p.rateChangeDate}>
@@ -115,10 +112,10 @@ export default function PayHistoryList() {
 
               {/* Mobile Cards */}
               <div className="d-md-none">
-                {currentPayments.length === 0 ? (
+                {payments.length === 0 ? (
                   <div className="text-center p-3 text-muted">Sem registos</div>
                 ) : (
-                  currentPayments.map((p, idx) => {
+                  payments.map((p, idx) => {
                     const seq = (currentPage - 1) * itemsPerPage + idx + 1;
                     return (
                       <div key={p.rateChangeDate} className="card mb-2 border-0 shadow-sm">
