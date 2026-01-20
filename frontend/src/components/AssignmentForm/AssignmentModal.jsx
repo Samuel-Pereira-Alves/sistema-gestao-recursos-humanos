@@ -28,12 +28,12 @@ export default function AssignmentModal({
       : "Guardar alterações";
 
   // Helpers para validação
-  const isCreateInvalid = action.mode === "create" && (
-    !action.form?.businessEntityID ||
-    !action.form?.departmentID ||
-    !action.form?.shiftID ||
-    !action.form?.startDate
-  );
+  // const isCreateInvalid = action.mode === "create" && (
+  //   !action.form?.businessEntityID ||
+  //   !action.form?.departmentID ||
+  //   !action.form?.shiftID ||
+  //   !action.form?.startDate
+  // );
 
   // No edit: só considerar alteração de endDate (padrão pagamentos)
   const initialEndDate = action?.keys?.endDate ?? ""; // pode não existir
@@ -51,7 +51,7 @@ export default function AssignmentModal({
 
   const isEditInvalid = action.mode === "edit" && (!endChanged || !isValidDateOrEmpty(currentEndDate));
 
-  const disablePrimary = action.loading || isCreateInvalid || isEditInvalid;
+  //const disablePrimary = action.loading || isCreateInvalid || isEditInvalid;
 
   return (
     <div
@@ -108,7 +108,7 @@ export default function AssignmentModal({
             <button
               className="btn btn-primary"
               onClick={submitAction}
-              disabled={disablePrimary}
+              //disabled={disablePrimary}
             >
               {primaryLabel}
             </button>

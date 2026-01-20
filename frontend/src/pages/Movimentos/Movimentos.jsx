@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { addNotificationForUser } from "../../utils/notificationBus";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -81,7 +80,7 @@ export default function Movimentos() {
         const data = await getAllDepartments({
           pageNumber: safePage,
           pageSize: itemsPerPage,
-          query: safeTerm,          // pesquisa server-side
+          query: safeTerm, // pesquisa server-side
           signal: controller.signal,
         });
 
@@ -100,7 +99,6 @@ export default function Movimentos() {
         const arr = Array.isArray(data?.items) ? data.items : [];
         setItems(arr);
         setServerTotalPages(newTotalPages);
-
       } catch (err) {
         if (err?.name === "AbortError") return;
         if (myReq !== reqIdRef.current) return;
@@ -113,7 +111,7 @@ export default function Movimentos() {
         if (myReq === reqIdRef.current) setLoading(false);
       }
     },
-    [itemsPerPage]
+    [itemsPerPage],
   );
 
   // Reage a (página, termo debounced)
@@ -189,15 +187,28 @@ export default function Movimentos() {
       mode: "create",
       loading: false,
       error: null,
-      keys: { businessEntityID: "", departmentID: "", shiftID: "", startDate: "" },
-      form: { businessEntityID: "", departmentID: "", shiftID: "", startDate: "", endDate: "" },
+      keys: {
+        businessEntityID: "",
+        departmentID: "",
+        shiftID: "",
+        startDate: "",
+      },
+      form: {
+        businessEntityID: "",
+        departmentID: "",
+        shiftID: "",
+        startDate: "",
+        endDate: "",
+      },
     });
     fetchEmployeesForModal();
   };
 
   const openDelete = async (h) => {
     try {
-      const ok = window.confirm("Tem a certeza que deseja apagar este registo?");
+      const ok = window.confirm(
+        "Tem a certeza que deseja apagar este registo?",
+      );
       if (!ok) return;
 
       const beid = getBusinessEntityID(h);
@@ -214,7 +225,7 @@ export default function Movimentos() {
       addNotificationForUser(
         "Foi eliminado um movimento de departamentos no seu perfil.",
         beid,
-        { type: "DEPARTMENT" }
+        { type: "DEPARTMENT" },
       );
     } catch (e) {
       console.error("[openDelete] error:", e);
@@ -240,7 +251,7 @@ export default function Movimentos() {
         departmentID: String(depId),
         shiftID: String(shId),
         startDate: start,
-        departmentName
+        departmentName,
       },
       form: {
         businessEntityID: String(beid),
@@ -248,12 +259,13 @@ export default function Movimentos() {
         shiftID: String(shId),
         startDate: start,
         endDate: end ?? "",
-        departmentName
+        departmentName,
       },
     });
   };
 
-  const closeAction = () => setAction((s) => ({ ...s, open: false, error: null }));
+  const closeAction = () =>
+    setAction((s) => ({ ...s, open: false, error: null }));
 
   const submitAction = async () => {
     try {
@@ -265,10 +277,10 @@ export default function Movimentos() {
         const businessEntityID = Number(form.businessEntityID);
         const departmentID = Number(form.departmentID);
         const shiftID = Number(form.shiftID);
-        if (!businessEntityID) throw new Error("BusinessEntityID em falta.");
-        if (!departmentID) throw new Error("DepartmentID em falta.");
-        if (!shiftID) throw new Error("ShiftID em falta.");
-        if (!form.startDate) throw new Error("Data Início em falta.");
+
+        if (!businessEntityID || !departmentID || !shiftID || !form.startDate) {
+          throw new Error("Preenche todos os campos.");
+        }
 
         const body = {
           businessEntityID,
@@ -282,10 +294,16 @@ export default function Movimentos() {
         addNotificationForUser(
           "Foi criado um registo de movimentos para o seu perfil.",
           businessEntityID,
-          { type: "DEPARTMENT" }
+          { type: "DEPARTMENT" },
         );
       } else {
-        const { businessEntityID, departmentID, shiftID, startDate, departmentName } = keys;
+        const {
+          businessEntityID,
+          departmentID,
+          shiftID,
+          startDate,
+          departmentName,
+        } = keys;
         if (!businessEntityID || !departmentID || !shiftID || !startDate)
           throw new Error("Chaves do registo em falta.");
 
@@ -297,12 +315,12 @@ export default function Movimentos() {
           shiftID,
           startDate,
           patchBody,
-          departmentName
+          departmentName,
         );
         addNotificationForUser(
           "O seu registo de Movimentos de Departamentos foi atualizado pelo RH.",
           keys.businessEntityID,
-          { type: "DEPARTMENT" }
+          { type: "DEPARTMENT" },
         );
       }
 
@@ -315,15 +333,12 @@ export default function Movimentos() {
     }
   };
 
-  
-// Usa o nome que vem no DTO (h.dep.name) e faz fallback por ID se necessário.
-const resolveDepartmentName = (id) => {
-  const depa = departments.find(d => d.departmentID == id)
-  
-  return depa?.name ?? "ja";
-};
+  // Usa o nome que vem no DTO (h.dep.name) e faz fallback por ID se necessário.
+  const resolveDepartmentName = (id) => {
+    const depa = departments.find((d) => d.departmentID == id);
 
-
+    return depa?.name ?? "ja";
+  };
 
   return (
     <div className="container mt-4">
@@ -416,21 +431,33 @@ const resolveDepartmentName = (id) => {
                             <td className="px-4 py-3">
                               {person.firstName} {person.lastName}
                               <div className="small text-muted">
-                                ID: {h?.businessEntityID ?? person?.businessEntityID ?? "—"}
+                                ID:{" "}
+                                {h?.businessEntityID ??
+                                  person?.businessEntityID ??
+                                  "—"}
                               </div>
                             </td>
                             <td className="px-4 py-3">{deptName}</td>
                             <td className="px-4 py-3">{groupName}</td>
-                            <td className="px-4 py-3 text-muted">{formatDate(start)}</td>
-                            <td className="px-4 py-3 text-muted">{formatDate(end)}</td>
+                            <td className="px-4 py-3 text-muted">
+                              {formatDate(start)}
+                            </td>
+                            <td className="px-4 py-3 text-muted">
+                              {formatDate(end)}
+                            </td>
                             <td className="px-4 py-3 text-end">
                               <div className="d-flex justify-content-end gap-2">
                                 <button
                                   className="btn btn-outline-primary"
                                   onClick={() => openEdit(h)}
                                   disabled={
-                                    String(localStorage.getItem("businessEntityId")) ===
-                                    String(h?.businessEntityID ?? person?.businessEntityID)
+                                    String(
+                                      localStorage.getItem("businessEntityId"),
+                                    ) ===
+                                    String(
+                                      h?.businessEntityID ??
+                                        person?.businessEntityID,
+                                    )
                                   }
                                 >
                                   Editar
@@ -439,8 +466,13 @@ const resolveDepartmentName = (id) => {
                                   className="btn btn-outline-danger"
                                   onClick={() => openDelete(h)}
                                   disabled={
-                                    String(localStorage.getItem("businessEntityId")) ===
-                                    String(h?.businessEntityID ?? person?.businessEntityID)
+                                    String(
+                                      localStorage.getItem("businessEntityId"),
+                                    ) ===
+                                    String(
+                                      h?.businessEntityID ??
+                                        person?.businessEntityID,
+                                    )
                                   }
                                 >
                                   Eliminar
@@ -474,13 +506,17 @@ const resolveDepartmentName = (id) => {
                           </strong>
                         </h6>
                         <p className="text-muted small mb-1">
-                          <strong>ID:</strong> {h?.businessEntityID ?? person?.businessEntityID ?? "—"}
+                          <strong>ID:</strong>{" "}
+                          {h?.businessEntityID ??
+                            person?.businessEntityID ??
+                            "—"}
                         </p>
                         <p className="text-muted small mb-1">
                           <strong>Departamento:</strong> {h?.dep?.name}
                         </p>
                         <p className="text-muted small mb-1">
-                          <strong>Grupo:</strong> {h?.dep?.groupName ?? getGroupName(h)}
+                          <strong>Grupo:</strong>{" "}
+                          {h?.dep?.groupName ?? getGroupName(h)}
                         </p>
                         <p className="text-muted small mb-1">
                           <strong>Início:</strong> {formatDate(start)}
@@ -489,10 +525,16 @@ const resolveDepartmentName = (id) => {
                           <strong>Fim:</strong> {formatDate(end)}
                         </p>
                         <div className="d-flex gap-2">
-                          <button className="btn btn-sm btn-outline-primary" onClick={() => openEdit(h)}>
+                          <button
+                            className="btn btn-sm btn-outline-primary"
+                            onClick={() => openEdit(h)}
+                          >
                             Editar
                           </button>
-                          <button className="btn btn-sm btn-outline-danger ms-2" onClick={() => openDelete(h)}>
+                          <button
+                            className="btn btn-sm btn-outline-danger ms-2"
+                            onClick={() => openDelete(h)}
+                          >
                             Apagar
                           </button>
                         </div>
@@ -506,7 +548,8 @@ const resolveDepartmentName = (id) => {
               {!items.length && (
                 <div className="p-4">
                   <p className="text-muted mb-0">
-                    Sem resultados para <strong>{debouncedTerm || "…"}</strong>. Tenta outro termo.
+                    Sem resultados para <strong>{debouncedTerm || "…"}</strong>.
+                    Tenta outro termo.
                   </p>
                 </div>
               )}
@@ -522,7 +565,9 @@ const resolveDepartmentName = (id) => {
         </div>
       </div>
 
-      {fetchError && <div className="alert alert-danger mt-3">{fetchError}</div>}
+      {fetchError && (
+        <div className="alert alert-danger mt-3">{fetchError}</div>
+      )}
 
       <AssignmentModal
         action={action}

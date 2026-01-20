@@ -161,11 +161,19 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 if (validationError is IActionResult error)
                     return error;
 
+
+                var dateRule = await ValidateEndDateRuleAsync(dto.EndDate, dto.StartDate, "CREATE");
+                if (dateRule is IActionResult dateErr)
+                    return dateErr;
+
+
                 var deptIdShort = (short)dto.DepartmentId;
 
                 // 2) Validar duplicado
                 if (await IsDuplicateHistoryAsync(dto, deptIdShort, ct))
                     return ConflictDuplicate(dto);
+
+
 
                 // 3) Criar registo com transação e fechar movimentos abertos
                 var history = await CreateHistoryTransactionalAsync(dto, deptIdShort, ct);
@@ -344,9 +352,13 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 }
 
                 // 2. Validar PATCH usando método já criado
-                var validationError = ValidatePatch(dto, history);
-                if (validationError is IActionResult err)
+
+
+
+                var validation = await ValidateEndDateRuleAsync(dto.EndDate, history.StartDate, "PATCH");
+                if (validation is IActionResult err)
                     return err;
+
 
                 // 3. Aplicar PATCH usando método já criado
                 ApplyPatch(dto, history);
@@ -366,16 +378,41 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
         }
 
-        private async Task<IActionResult?> ValidatePatch(DepartmentHistoryDto dto, DepartmentHistory existing)
+
+
+        private async Task<IActionResult?> ValidateEndDateRuleAsync(
+            DateTime? endDate,
+            DateTime startDate,
+            string context
+        )
         {
-            if (dto.EndDate.HasValue && dto.EndDate.Value < existing.StartDate)
+
+            if (!endDate.HasValue) return null;
+
+            if (endDate.Value < startDate)
             {
-                _logger.LogWarning("EndDate não pode ser anterior ao StartDate");
+                _logger.LogInformation(
+                    "Validação falhou ({Context}): EndDate({End:o}) < StartDate({Start:o})",
+                    context, endDate.Value, startDate);
+
                 await _appLog.WarnAsync("EndDate não pode ser anterior ao StartDate");
-                return BadRequest();
+
+                var details = new ProblemDetails
+                {
+                    Title = "Movimento de Departamentos Inválido - Data de Fim anterior à Data de Início",
+                    Detail = "Data Final não pode ser anterior à data inicial.",
+                    Status = StatusCodes.Status409Conflict
+                };
+
+                // Usa ObjectResult para manter StatusCode coerente com ProblemDetails
+                return new ObjectResult(details) { StatusCode = StatusCodes.Status409Conflict };
+                // ou: return Conflict(details);
             }
+
             return null;
         }
+
+
 
         private void ApplyPatch(DepartmentHistoryDto dto, DepartmentHistory existing)
         {
@@ -461,102 +498,102 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
         [HttpGet("departments/paged")]
-[Authorize(Roles = "admin")] 
-public async Task<ActionResult<PagedResult<PayHistoryDto>>> GetAllDepartmentsPaged(
+        [Authorize(Roles = "admin")]
+        public async Task<ActionResult<PagedResult<PayHistoryDto>>> GetAllDepartmentsPaged(
     [FromQuery] int pageNumber = 1,
     [FromQuery] int pageSize = 5,
     [FromQuery] string? search = null,
     CancellationToken ct = default)
-{
-    const int MaxPageSize = 200;
-    if (pageNumber < 1) pageNumber = 1;
-    if (pageSize < 1) pageSize = 20;
-    if (pageSize > MaxPageSize) pageSize = MaxPageSize;
-
-    // Base: só PayHistories
-    var q = _db.DepartmentHistories
-        .AsNoTracking()
-        .Include(p => p.Employee) // apenas para projetar Person
-            .ThenInclude(e => e.Person)
-        .AsQueryable();
-
-    // 🔎 Pesquisa simples, cobrindo:
-    // - Nome (First/Last)
-    // - ID do colaborador (numérico)
-    // - Valor (rate) por string
-    // - Data por string (YYYY-MM-DD ou formato corrente)
-    if (!string.IsNullOrWhiteSpace(search))
-    {
-        var s = search.Trim();
-        var like = $"%{s}%";
-        var isNumeric = int.TryParse(s, out var idNumber);
-
-        // Se tiveres collation CI_AI na BD, podes usar EF.Functions.Collate para acentos;
-        // caso contrário, EF.Functions.Like simples fica dependente do collation da coluna.
-        q = q.Where(p =>
-            EF.Functions.Like(p.Employee!.Person!.FirstName!, like) ||
-            EF.Functions.Like(p.Employee!.Person!.LastName!,  like) ||
-            (isNumeric && p.BusinessEntityID == idNumber) 
-        );
-    }
-
-    q = q
-        .OrderBy(p => p.Employee.Person.FirstName)
-        .ThenBy(p => p.BusinessEntityID);
-
-    // Total filtrado
-    var totalCount = await q.CountAsync(ct);
-
-    // Página
-    var items = await q
-        .Skip((pageNumber - 1) * pageSize)
-        .Take(pageSize)
-        .Select(p => new DepartmentHistoryDto
         {
-            BusinessEntityID = p.BusinessEntityID,
-            DepartmentId = p.DepartmentID,
-            StartDate = p.StartDate,
-            EndDate = p.EndDate,
-            Dep = new Department
-            {
-                GroupName = p.Department.GroupName,
-                Name = p.Department.Name,
+            const int MaxPageSize = 200;
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 20;
+            if (pageSize > MaxPageSize) pageSize = MaxPageSize;
 
-            },
-            ShiftID = p.ShiftID,
-            Person = new Person
+            // Base: só PayHistories
+            var q = _db.DepartmentHistories
+                .AsNoTracking()
+                .Include(p => p.Employee) // apenas para projetar Person
+                    .ThenInclude(e => e!.Person)
+                .AsQueryable();
+
+            // 🔎 Pesquisa simples, cobrindo:
+            // - Nome (First/Last)
+            // - ID do colaborador (numérico)
+            // - Valor (rate) por string
+            // - Data por string (YYYY-MM-DD ou formato corrente)
+            if (!string.IsNullOrWhiteSpace(search))
             {
-                BusinessEntityID = p.Employee!.BusinessEntityID,
-                FirstName     = p.Employee.Person!.FirstName,
-                LastName         = p.Employee.Person!.LastName
+                var s = search.Trim();
+                var like = $"%{s}%";
+                var isNumeric = int.TryParse(s, out var idNumber);
+
+                // Se tiveres collation CI_AI na BD, podes usar EF.Functions.Collate para acentos;
+                // caso contrário, EF.Functions.Like simples fica dependente do collation da coluna.
+                q = q.Where(p =>
+                    EF.Functions.Like(p.Employee!.Person!.FirstName!, like) ||
+                    EF.Functions.Like(p.Employee!.Person!.LastName!, like) ||
+                    (isNumeric && p.BusinessEntityID == idNumber)
+                );
             }
-        })
-        .ToListAsync(ct);
 
-    var result = new PagedResult<DepartmentHistoryDto>
-    {
-        Items      = items,
-        TotalCount = totalCount,
-        PageNumber = pageNumber,
-        PageSize   = pageSize
-    };
+            q = q
+                .OrderBy(p => p.Employee!.Person!.FirstName)
+                .ThenBy(p => p.BusinessEntityID);
 
-    // Cabeçalho opcional de paginação
-    var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
-    {
-        result.TotalCount,
-        result.PageNumber,
-        result.PageSize,
-        result.TotalPages,
-        result.HasPrevious,
-        result.HasNext
-    });
-    Response.Headers["X-Pagination"] = paginationHeader;
+            // Total filtrado
+            var totalCount = await q.CountAsync(ct);
 
-    return Ok(result);
-}
+            // Página
+            var items = await q
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new DepartmentHistoryDto
+                {
+                    BusinessEntityID = p.BusinessEntityID,
+                    DepartmentId = p.DepartmentID,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate,
+                    Dep = new Department
+                    {
+                        GroupName = p.Department!.GroupName,
+                        Name = p.Department.Name,
+
+                    },
+                    ShiftID = p.ShiftID,
+                    Person = new Person
+                    {
+                        BusinessEntityID = p.Employee!.BusinessEntityID,
+                        FirstName = p.Employee.Person!.FirstName,
+                        LastName = p.Employee.Person!.LastName
+                    }
+                })
+                .ToListAsync(ct);
+
+            var result = new PagedResult<DepartmentHistoryDto>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
+            // Cabeçalho opcional de paginação
+            var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                result.TotalCount,
+                result.PageNumber,
+                result.PageSize,
+                result.TotalPages,
+                result.HasPrevious,
+                result.HasNext
+            });
+            Response.Headers["X-Pagination"] = paginationHeader;
+
+            return Ok(result);
+        }
     }
 
 
-    
+
 }

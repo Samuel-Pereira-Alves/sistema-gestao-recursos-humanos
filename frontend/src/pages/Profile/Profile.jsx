@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from "react";
 import Select from "react-select";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
-import { addNotification, addNotificationForUser, } from "../../utils/notificationBus";
+import {
+  addNotification,
+  addNotificationForUser,
+} from "../../utils/notificationBus";
 import BackButton from "../../components/Button/BackButton";
 import Avatar from "../../components/Avatar/Avatar";
 import Loading from "../../components/Loading/Loading";
 import ReadOnlyField from "../../components/ReadOnlyField/ReadOnlyField";
-import { getDepartamentoAtualNome, formatDate } from "../../utils/Utils";
+import {
+  getDepartamentoAtualNome,
+  formatDate,
+  normalizeApiError,
+} from "../../utils/Utils";
 import {
   getDepartments,
   getEmployee,
@@ -36,7 +43,7 @@ export default function Profile() {
 
   const targetId = getEmployeeId(routeId, location.search);
 
-  // Carrega departamentos 
+  // Carrega departamentos
   useEffect(() => {
     (async () => {
       try {
@@ -61,11 +68,8 @@ export default function Profile() {
         const data = await getEmployee(targetId, token);
         setEmployee(data);
       } catch (error) {
-        console.error(error);
-        setFetchError(
-          error.message || "Erro desconhecido ao obter funcionário."
-        );
-      } finally {
+        
+      }finally  {
         setLoading(false);
       }
     };
@@ -77,11 +81,11 @@ export default function Profile() {
     label: d.name ?? d.departmentName,
   }));
 
-  const selectedDepartmentInit = departmentOptions.find((o) => o.value === employee?.departmentID) ?? null;
+  const selectedDepartmentInit =
+    departmentOptions.find((o) => o.value === employee?.departmentID) ?? null;
 
   const [selectedDept, setSelectedDept] = useState(selectedDepartmentInit);
   useEffect(() => {
-
     const freshSelected =
       departmentOptions.find((o) => o.value === employee?.departmentID) ?? null;
     setSelectedDept(freshSelected);
@@ -139,7 +143,7 @@ export default function Profile() {
       addNotificationForUser(
         `O seu perfil foi atualizado pelo RH.`,
         idToUpdate,
-        { type: "PROFILE" }
+        { type: "PROFILE" },
       );
 
       const updated = await getEmployee(idToUpdate, token);
@@ -167,6 +171,7 @@ export default function Profile() {
   if (!employee)
     return (
       <div className="container mt-5 text-center">
+        <BackButton />
         <div className="alert alert-light border text-muted d-inline-block">
           Funcionário não encontrado
         </div>
@@ -361,13 +366,18 @@ export default function Profile() {
                       </div>
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label text-muted">Departamento</label>
+                      <label className="form-label text-muted">
+                        Departamento
+                      </label>
                       <Select
                         options={departmentOptions}
                         value={selectedDept}
                         onChange={(value) => {
                           setSelectedDept(value);
-                          setEmployee((prev) => ({ ...prev, departmentID: value?.value ?? null }));
+                          setEmployee((prev) => ({
+                            ...prev,
+                            departmentID: value?.value ?? null,
+                          }));
                         }}
                         placeholder="Selecionar departamento..."
                         isClearable
@@ -414,8 +424,9 @@ export default function Profile() {
                     />
                     <ReadOnlyField
                       label="Nome"
-                      value={`${employee.person?.firstName ?? ""} ${employee.person?.lastName ?? ""
-                        }`}
+                      value={`${employee.person?.firstName ?? ""} ${
+                        employee.person?.lastName ?? ""
+                      }`}
                     />
                     <ReadOnlyField
                       label="Cartão de Cidadão"

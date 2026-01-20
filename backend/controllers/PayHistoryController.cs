@@ -326,7 +326,7 @@ public async Task<ActionResult<PagedResult<PayHistoryDto>>> GetAllPaymentsPaged(
     var q = _db.PayHistories
         .AsNoTracking()
         .Include(p => p.Employee) // apenas para projetar Person
-            .ThenInclude(e => e.Person)
+            .ThenInclude(e => e!.Person)
         .AsQueryable();
 
     // 🔎 Pesquisa simples, cobrindo:
@@ -355,7 +355,7 @@ public async Task<ActionResult<PagedResult<PayHistoryDto>>> GetAllPaymentsPaged(
 
     // Ordenação estável (mais recentes primeiro)
     q = q
-        .OrderBy(p => p.Employee.Person.FirstName)
+        .OrderBy(p => p.Employee!.Person!.FirstName)
         .ThenBy(p => p.BusinessEntityID);
 
     // Total filtrado
