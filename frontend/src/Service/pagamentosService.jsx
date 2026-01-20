@@ -115,11 +115,9 @@ export async function createPayHistory(body) {
   });
 }
 
-
 export async function getPayHistoryById(token, id, opts = {}) {
   const pageNumber = Number.isFinite(opts.pageNumber) ? Math.max(1, opts.pageNumber) : 1;
   const pageSize   = Number.isFinite(opts.pageSize)   ? Math.max(1, opts.pageSize)   : 10;
-
 
   // ⚠️ Este endpoint devolve EmployeeDto, não devolve { items, meta }
   // Não concatena "&amp;", usa searchParams.
