@@ -19,7 +19,7 @@ import {
   deletePayHistory,
   createPayHistory,
 } from "../../Service/pagamentosService";
-import { getEmployeesPaged } from "../../Service/employeeService"; // 👈 usa o service correto
+import { getEmployeesPaged } from "../../Service/pagamentosService";
 import { getAllEmployees } from "../../Service/employeeService";
 import { addNotificationForUser } from "../../utils/notificationBus";
 

@@ -400,7 +400,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             return Ok(response);
         }
 
-
         private async Task<Employee?> GetEmployeeWithIncludesAsync(int id, CancellationToken ct)
         {
             return await _db.Employees
