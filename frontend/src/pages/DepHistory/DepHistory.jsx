@@ -1,12 +1,12 @@
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
 import Loading from "../../components/Loading/Loading";
 import ReadOnlyField from "../../components/ReadOnlyField/ReadOnlyField";
-// import EmployeeDetails from "../../components/EmployeeDetails/EmployeeDetails"; // usa se exibires o header
-import { normalize, formatDate } from "../../utils/Utils";
+// import EmployeeDetails from "../../components/EmployeeDetails/EmployeeDetails";
+import { formatDate } from "../../utils/Utils";
 import { getDepHistoriesById } from "../../Service/departmentHistoryService";
 
 export default function DepartmentHistoryList() {
@@ -15,79 +15,123 @@ export default function DepartmentHistoryList() {
 
   // Pesquisa e paginação
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedTerm, setDebouncedTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
   // Dados
-  const [departamentos, setDepartamentos] = useState([]); // depHistories.items
+  const [departamentos, setDepartamentos] = useState([]);
   const [employee, setEmployee] = useState(null);
   const [totalPages, setTotalPages] = useState(1);
 
   const id = localStorage.getItem("businessEntityId");
   const token = localStorage.getItem("authToken");
 
-  const load = useCallback(async (page) => {
-    if (!id) {
-      setFetchError("ID do funcionário não encontrado no localStorage.");
-      return;
-    }
-    setLoading(true);
-    setFetchError(null);
-    try {
-      // 👇 agora o service devolve { employee, depHistories: { items, meta }, payHistories ... }
-      const data = await getDepHistoriesById(token, id, {
-        pageNumber: page,
-        pageSize: itemsPerPage,
-      });
+  // ---- Controle de concorrência / pedidos fora de ordem ----
+  const abortRef = useRef(null);
+  const reqSeqRef = useRef(0);         // id incremental de pedidos
+  const lastTermRef = useRef("");      // para detetar mudanças de termo no efeito
 
-      // defesa para formatos diferentes
-      const depItems = Array.isArray(data?.depHistories?.items)
-        ? data.depHistories.items
-        : Array.isArray(data?.items) // fallback antigo
-        ? data.items
-        : [];
-
-      const depMeta = data?.depHistories?.meta ?? data?.meta ?? {
-        pageNumber: page,
-        pageSize: itemsPerPage,
-        totalCount: depItems.length,
-        totalPages: 1,
-      };
-
-      setEmployee(data?.employee ?? null);
-      setDepartamentos(depItems);
-      setTotalPages(Number(depMeta.totalPages || 1));
-    } catch (err) {
-      console.error(err);
-      setFetchError(err.message || "Erro desconhecido ao obter dados.");
-      setDepartamentos([]);
-      setTotalPages(1);
-    } finally {
-      setLoading(false);
-    }
-  }, [id, token]);
-
-  // Carrega ao montar e quando muda a página
+  // Debounce 350ms
   useEffect(() => {
-    load(currentPage);
-  }, [load, currentPage]);
-
-  // Reset para página 1 ao mudar a pesquisa (pesquisa é local, sobre a página atual)
-  useEffect(() => {
-    setCurrentPage(1);
+    const t = setTimeout(() => setDebouncedTerm(searchTerm.trim()), 350);
+    return () => clearTimeout(t);
   }, [searchTerm]);
 
-  // Filtro local sobre os items da página atual
-  const termo = normalize(searchTerm);
-  const filteredDepartamentos = useMemo(() => {
-    const list = Array.isArray(departamentos) ? departamentos : [];
-    if (!termo) return list;
-    return list.filter((d) => {
-      const name = normalize(d?.department?.name || "");
-      const group = normalize(d?.department?.groupName || "");
-      return name.includes(termo) || group.includes(termo);
-    });
-  }, [departamentos, termo]);
+  // Loader principal — seguro contra corrida de pedidos
+  const load = useCallback(
+    async (page, term) => {
+      if (!id) {
+        setFetchError("ID do funcionário não encontrado no localStorage.");
+        setDepartamentos([]);
+        setTotalPages(1);
+        return;
+      }
+
+      // Cancela pedido anterior e cria um novo controller
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      // Marca id deste pedido
+      const myReqId = ++reqSeqRef.current;
+
+      setLoading(true);
+      setFetchError(null);
+      try {
+        const data = await getDepHistoriesById(token, id, {
+          pageNumber: page,
+          pageSize: itemsPerPage,
+          q: term || "",
+          signal: controller.signal, // 👈 precisa do ajuste no service (abaixo)
+        });
+
+        // Se já houve outro pedido mais recente, ignora este
+        if (myReqId !== reqSeqRef.current) return;
+
+        const depItems = Array.isArray(data?.depHistories?.items)
+          ? data.depHistories.items
+          : Array.isArray(data?.items)
+          ? data.items
+          : [];
+
+        const depMeta = data?.depHistories?.meta ?? data?.meta ?? {
+          pageNumber: page,
+          pageSize: itemsPerPage,
+          totalCount: depItems.length,
+          totalPages: 1,
+        };
+
+        const newTotalPages = Math.max(1, Number(depMeta.totalPages || 1));
+
+        // ⚠️ Se a página atual é maior do que o total após o filtro,
+        // reposiciona automaticamente (aqui escolhi voltar para 1).
+        if (page > newTotalPages) {
+          setTotalPages(newTotalPages);
+          setCurrentPage(1); // isto dispara novo load pelo efeito abaixo
+          return;
+        }
+
+        setEmployee(data?.employee ?? null);
+        setDepartamentos(depItems);
+        setTotalPages(newTotalPages);
+      } catch (err) {
+        // Aborto não é erro
+        if (err?.name === "AbortError") return;
+        if (myReqId !== reqSeqRef.current) return;
+
+        console.error(err);
+        setFetchError(err?.message || "Erro desconhecido ao obter dados.");
+        setDepartamentos([]);
+        setTotalPages(1);
+      } finally {
+        if (myReqId === reqSeqRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [id, token] // itemsPerPage é constante
+  );
+
+  // Efeito único: reage a mudanças de página OU termo,
+  // mas evita chamada duplicada quando o termo muda (primeiro força page=1)
+  useEffect(() => {
+    const termChanged = debouncedTerm !== lastTermRef.current;
+    if (termChanged) {
+      lastTermRef.current = debouncedTerm;
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        return; // evita chamar load com página antiga; chamará quando page=1
+      }
+    }
+    // Chegando aqui: termo não mudou OU já estamos na página 1
+    load(currentPage, debouncedTerm);
+  }, [currentPage, debouncedTerm, load]);
+
+  // Cleanup ao desmontar
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
 
   return (
     <div className="container mt-4">
@@ -95,24 +139,27 @@ export default function DepartmentHistoryList() {
 
       <div className="mb-4 d-flex justify-content-between align-items-center">
         <h1 className="h3 mb-3">Histórico de Departamentos</h1>
-        {/* podes mostrar info leve do colaborador se quiseres */}
         {/* {employee && <EmployeeDetails employee={employee} />} */}
       </div>
 
-      {/* Search */}
+      {/* Search (sempre visível, não desativar para não “piscar” o focus) */}
       <div className="card mb-3 border-0 shadow-sm">
-        <div className="card-body">
-          {loading ? (
-            <Loading text="Carregando dados..." />
-          ) : (
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Procurar por departamento ou grupo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              aria-label="Pesquisar histórico de departamentos"
-            />
+        <div className="card-body position-relative">
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Procurar por departamento ou grupo..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            aria-label="Pesquisar histórico de departamentos"
+          />
+          {loading && (
+            <div
+              className="position-absolute top-50 end-0 translate-middle-y me-3 text-muted small"
+              aria-hidden="true"
+            >
+              <span className="spinner-border spinner-border-sm" /> A carregar...
+            </div>
           )}
         </div>
       </div>
@@ -122,11 +169,9 @@ export default function DepartmentHistoryList() {
         <div className="card-body p-0">
           {fetchError ? (
             <div className="text-center py-5">
-              <div className="alert alert-light border text-muted">
-                {fetchError}
-              </div>
+              <div className="alert alert-light border text-muted">{fetchError}</div>
             </div>
-          ) : loading ? (
+          ) : loading && departamentos.length === 0 ? (
             <Loading text="Carregando histórico..." />
           ) : (
             <>
@@ -142,15 +187,14 @@ export default function DepartmentHistoryList() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredDepartamentos.length === 0 ? (
+                    {departamentos.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="text-center text-muted">
                           Sem registos
                         </td>
                       </tr>
                     ) : (
-                      filteredDepartamentos.map((d) => {
-                        // chave mais estável que só o departmentID
+                      departamentos.map((d) => {
                         const key = `${d.businessEntityID ?? ""}|${d.departmentID ?? d.departmentId ?? d.department?.departmentID ?? ""}|${d.shiftID ?? ""}|${d.startDate ?? ""}`;
                         return (
                           <tr key={key}>
@@ -158,9 +202,7 @@ export default function DepartmentHistoryList() {
                             <td className="text-muted">
                               {d?.department?.groupName || "—"}
                             </td>
-                            <td className="text-muted">
-                              {formatDate(d?.startDate)}
-                            </td>
+                            <td className="text-muted">{formatDate(d?.startDate)}</td>
                             <td className="text-muted">
                               {d?.endDate == null ? "Atual" : formatDate(d?.endDate)}
                             </td>
@@ -174,10 +216,10 @@ export default function DepartmentHistoryList() {
 
               {/* Mobile Cards */}
               <div className="d-md-none">
-                {filteredDepartamentos.length === 0 ? (
+                {departamentos.length === 0 ? (
                   <div className="text-center p-3 text-muted">Sem registos</div>
                 ) : (
-                  filteredDepartamentos.map((d) => {
+                  departamentos.map((d) => {
                     const key = `${d.businessEntityID ?? ""}|${d.departmentID ?? d.departmentId ?? d.department?.departmentID ?? ""}|${d.shiftID ?? ""}|${d.startDate ?? ""}`;
                     return (
                       <div key={key} className="border-bottom p-3">
@@ -196,11 +238,11 @@ export default function DepartmentHistoryList() {
                 )}
               </div>
 
-              {/* Pagination — vem do servidor */}
+              {/* Pagination */}
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                setPage={setCurrentPage}
+                setPage={ setCurrentPage}
               />
             </>
           )}

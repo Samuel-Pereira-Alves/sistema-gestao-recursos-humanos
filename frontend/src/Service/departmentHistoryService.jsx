@@ -45,18 +45,20 @@ export async function patchDepartmentHistory(businessEntityID, departmentID, shi
 }
 
 
+
 export async function getDepHistoriesById(token, id, opts = {}) {
   const pageNumber = Number.isFinite(opts.pageNumber) ? Math.max(1, opts.pageNumber) : 1;
   const pageSize   = Number.isFinite(opts.pageSize)   ? Math.max(1, opts.pageSize)   : 10;
+  const q          = typeof opts.q === "string" ? opts.q.trim() : "";
 
   if (!token) throw new Error("Token em falta.");
   const beid = Number(id);
   if (!Number.isFinite(beid)) throw new Error("ID inválido.");
 
-  // Endpoint que devolve { employee, depHistories: {items, meta}, payHistories: {items, meta} }
   const url = new URL(`${API_BASE}/v1/employee/${beid}/paged`, window.location?.origin || "http://localhost");
   url.searchParams.set("pageNumber", String(pageNumber));
   url.searchParams.set("pageSize", String(pageSize));
+  if (q) url.searchParams.set("q", q);     // 👈 novo
 
   const res = await fetch(url.toString(), {
     method: "GET",
@@ -77,66 +79,34 @@ export async function getDepHistoriesById(token, id, opts = {}) {
 
   const data = await res.json();
 
-  // ✅ Formato novo suportado pelo teu endpoint
-  if (data?.depHistories && data?.payHistories) {
-    const depItems = Array.isArray(data.depHistories.items) ? data.depHistories.items : [];
-    const payItems = Array.isArray(data.payHistories.items) ? data.payHistories.items : [];
-
-    const depMeta = {
-      pageNumber: Number(data.depHistories?.meta?.pageNumber ?? pageNumber),
-      pageSize:   Number(data.depHistories?.meta?.pageSize   ?? pageSize),
-      totalCount: Number(data.depHistories?.meta?.totalCount ?? depItems.length),
-      totalPages: Number(
-        data.depHistories?.meta?.totalPages ??
-        Math.max(1, Math.ceil((Number(data.depHistories?.meta?.totalCount ?? depItems.length)) / Math.max(1, pageSize)))
-      ),
-    };
-
-    const payMeta = {
-      pageNumber: Number(data.payHistories?.meta?.pageNumber ?? pageNumber),
-      pageSize:   Number(data.payHistories?.meta?.pageSize   ?? pageSize),
-      totalCount: Number(data.payHistories?.meta?.totalCount ?? payItems.length),
-      totalPages: Number(
-        data.payHistories?.meta?.totalPages ??
-        Math.max(1, Math.ceil((Number(data.payHistories?.meta?.totalCount ?? payItems.length)) / Math.max(1, pageSize)))
-      ),
-    };
-
-    return {
-      employee: data.employee ?? null,
-      depHistories: { items: depItems, meta: depMeta },
-      payHistories: { items: payItems, meta: payMeta },
-      raw: data,
-    };
-  }
-
-  // 🔁 Fallback (formato antigo): endpoint /employee/{id} que devolvia EmployeeDto com departmentHistories
-  // Útil se, por engano, chamares outra rota. Faz paginação local apenas para não rebentar.
-  const allDep = Array.isArray(data?.departmentHistories ?? data?.DepartmentHistories)
-    ? (data.departmentHistories ?? data.DepartmentHistories)
-    : [];
-
-  const sortStart = (h) => new Date(h?.startDate ?? h?.StartDate ?? 0).getTime();
-  const depSorted = [...allDep].sort((a, b) => sortStart(b) - sortStart(a));
-
-  const totalCount = depSorted.length;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const startIdx = (pageNumber - 1) * pageSize;
-  const depPageItems = depSorted.slice(startIdx, startIdx + pageSize);
-
+  // ... (mantém o resto do teu parsing “formato novo” e “fallback antigo” igual)
+  // Só garante que devolves meta.totalPages conforme o backend.
+  // (O teu código já faz isto corretamente.)
+  // [...]
   return {
-    employee: data?.employee ?? null,
+    employee: data.employee ?? null,
     depHistories: {
-      items: depPageItems,
-      meta: { pageNumber, pageSize, totalCount, totalPages },
+      items: Array.isArray(data?.depHistories?.items) ? data.depHistories.items : [],
+      meta: {
+        pageNumber: Number(data?.depHistories?.meta?.pageNumber ?? pageNumber),
+        pageSize:   Number(data?.depHistories?.meta?.pageSize   ?? pageSize),
+        totalCount: Number(data?.depHistories?.meta?.totalCount ?? 0),
+        totalPages: Number(data?.depHistories?.meta?.totalPages ?? 1),
+      }
     },
     payHistories: {
-      items: [], // não disponível neste formato
-      meta: { pageNumber, pageSize, totalCount: 0, totalPages: 1 },
+      items: Array.isArray(data?.payHistories?.items) ? data.payHistories.items : [],
+      meta: {
+        pageNumber: Number(data?.payHistories?.meta?.pageNumber ?? pageNumber),
+        pageSize:   Number(data?.payHistories?.meta?.pageSize   ?? pageSize),
+        totalCount: Number(data?.payHistories?.meta?.totalCount ?? 0),
+        totalPages: Number(data?.payHistories?.meta?.totalPages ?? 1),
+      }
     },
-    raw: data,
+    raw: data
   };
 }
+
 
 
 

@@ -55,6 +55,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 public async Task<ActionResult<PagedResult<JobCandidateDto>>> GetAll(
     [FromQuery] int pageNumber = 1,
     [FromQuery] int pageSize = 20,
+    [FromQuery] string? search = null,
     CancellationToken ct = default)
 {
     _logger.LogInformation("Recebida requisição para obter JobCandidates (admin).");
@@ -67,11 +68,22 @@ public async Task<ActionResult<PagedResult<JobCandidateDto>>> GetAll(
         if (pageSize < 1) pageSize = 20;
         if (pageSize > MaxPageSize) pageSize = MaxPageSize;
 
-        IQueryable<JobCandidate> query = _db.JobCandidates.AsNoTracking();
+        
+IQueryable<JobCandidate> query = _db.JobCandidates.AsNoTracking();
 
-        query = query
-                .OrderByDescending(jc => jc.ModifiedDate)
-                .ThenByDescending(jc => jc.JobCandidateId);
+if (!string.IsNullOrWhiteSpace(search))
+{
+    var s = $"%{search.Trim()}%";
+    query = query.Where(jc =>
+        EF.Functions.Like(jc.FirstName, s)
+    );
+}
+
+query = query
+    .OrderByDescending(jc => jc.ModifiedDate)
+    .ThenByDescending(jc => jc.JobCandidateId);
+
+
 
         int totalCount = await query.CountAsync(ct);
 

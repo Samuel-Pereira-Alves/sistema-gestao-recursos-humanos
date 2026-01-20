@@ -2,12 +2,14 @@ import axios from "axios";
 const API_BASE = "http://localhost:5136/api";
 
 
-export async function getCandidatos(token, { pageNumber = 1, pageSize = 20 } = {}) {
+export async function getCandidatos(token, { pageNumber, pageSize, search }) {
   const url = new URL(`${API_BASE}/v1/jobcandidate`);
   const params = new URLSearchParams();
   params.set("pageNumber", String(pageNumber));
   params.set("pageSize", String(pageSize));
-  url.search = params.toString();
+
+  if (search && search.trim()) url.searchParams.set("search", search.trim());
+
 
   const res = await fetch(url.toString(), {
     headers: { Accept: "application/json", Authorization: `Bearer ${token}` },

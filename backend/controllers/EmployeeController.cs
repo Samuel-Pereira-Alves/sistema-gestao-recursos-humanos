@@ -255,6 +255,8 @@ public async Task<ActionResult<PagedResult<EmployeeDto>>> GetAllPagination(
 
 
 
+
+
 [HttpGet("{id:int}/paged")]
 [Authorize(Roles = "admin, employee")]
 public async Task<ActionResult> GetByEmployee(
@@ -264,11 +266,13 @@ public async Task<ActionResult> GetByEmployee(
     [FromQuery] string? q = null,
     CancellationToken ct = default)
 {
+    // Sanitização
     if (pageNumber < 1) pageNumber = 1;
     const int MaxPageSize = 100;
     if (pageSize < 1) pageSize = 10;
     if (pageSize > MaxPageSize) pageSize = MaxPageSize;
 
+    // Confirma existência do employee
     var exists = await _db.Employees
         .AsNoTracking()
         .AnyAsync(e => e.BusinessEntityID == id, ct);
@@ -276,6 +280,7 @@ public async Task<ActionResult> GetByEmployee(
     if (!exists)
         return NotFound(new { message = $"Employee {id} não encontrado." });
 
+    // Header leve do employee (apenas campos necessários no ecrã)
     var employeeHeader = await _db.Employees
         .AsNoTracking()
         .Where(e => e.BusinessEntityID == id)
@@ -296,7 +301,7 @@ public async Task<ActionResult> GetByEmployee(
         })
         .FirstOrDefaultAsync(ct);
 
-    // 👇 INICIAR SEM Include → mantém o tipo como IQueryable<DepartmentHistory>
+    // Base queries (SEM Include aqui para não alterar o tipo)
     IQueryable<DepartmentHistory> qDep = _db.DepartmentHistories
         .AsNoTracking()
         .Where(h => h.BusinessEntityID == id);
@@ -305,25 +310,25 @@ public async Task<ActionResult> GetByEmployee(
         .AsNoTracking()
         .Where(p => p.BusinessEntityID == id);
 
-    // Filtro da pesquisa (opcionalmente accent-insensitive se tiveres esse collation)
+    // Pesquisa (opcional). O EF vai gerar o join para Department automaticamente nesta filtragem.
     if (!string.IsNullOrWhiteSpace(q))
     {
         var term = q.Trim();
-
-        // Se usas SQL Server e tens o collation "Latin1_General_CI_AI", podes aplicar:
+        // Se tens o collation "Latin1_General_CI_AI" no SQL Server, isto torna a pesquisa case/acento-insensitive.
+        // Caso contrário, troca para EF.Functions.Like(h.Department!.Name, $"%{term}%") e GroupName idem.
         qDep = qDep.Where(h =>
             EF.Functions.Like(EF.Functions.Collate(h.Department!.Name, "Latin1_General_CI_AI"), $"%{term}%") ||
             EF.Functions.Like(EF.Functions.Collate(h.Department!.GroupName, "Latin1_General_CI_AI"), $"%{term}%")
         );
     }
 
-    // Totais (já com o filtro aplicado)
+    // Totais (já com filtro aplicado em DepartmentHistories)
     var depTotal = await qDep.CountAsync(ct);
     var payTotal = await qPay.CountAsync(ct);
 
     var skip = (pageNumber - 1) * pageSize;
 
-    // 👇 SÓ AQUI aplicas o Include, imediatamente antes do Order/Skip/Take/Select
+    // DepartmentHistories — aplica Include APENAS aqui (evita conflito IQueryable vs IIncludableQueryable)
     var depItems = await qDep
         .Include(h => h.Department)
         .OrderByDescending(h => h.StartDate)
@@ -332,7 +337,7 @@ public async Task<ActionResult> GetByEmployee(
         .Select(h => new DepartmentHistoryDto
         {
             BusinessEntityID = h.BusinessEntityID,
-            DepartmentId     = h.DepartmentID,
+            DepartmentId     = h.DepartmentID,      // ajusta se o teu DTO for DepartmentID
             ShiftID          = h.ShiftID,
             StartDate        = h.StartDate,
             EndDate          = h.EndDate,
@@ -345,6 +350,7 @@ public async Task<ActionResult> GetByEmployee(
         })
         .ToListAsync(ct);
 
+    // PayHistories — paginação independente; sem filtro por 'q' (mantém comportamento anterior)
     var payItems = await qPay
         .OrderByDescending(p => p.RateChangeDate)
         .Skip(skip)
@@ -390,8 +396,6 @@ public async Task<ActionResult> GetByEmployee(
 
     return Ok(response);
 }
-
-
 
 
         private async Task<Employee?> GetEmployeeWithIncludesAsync(int id, CancellationToken ct)

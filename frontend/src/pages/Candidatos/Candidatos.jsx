@@ -7,9 +7,8 @@ import axios from "axios";
 import {
   approveCandidate,
   deleteCandidate,
-  getCandidatos,
+  getCandidatos,  // ← deve aceitar { pageNumber, pageSize, search }
   openPdf,
-  // sendFeedbackEmail // se passares a usar o service
 } from "../../Service/candidatosService";
 import Pagination from "../../components/Pagination/Pagination";
 
@@ -22,7 +21,7 @@ export default function Candidatos() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Metadados vindos da API
+  // Meta da API (normalizada)
   const [meta, setMeta] = useState({
     totalCount: 0,
     pageNumber: 1,
@@ -32,17 +31,25 @@ export default function Candidatos() {
     hasNext: false,
   });
 
-  // (Opcional) se quiseres manter pesquisa no UI, podemos ligar ao backend depois
-  // Por enquanto não afeta o fetch (sem search no backend)
-  const [searchTerm, setSearchTerm] = useState("");
+  // Pesquisa
+  const [searchTerm, setSearchTerm] = useState(""); // input do utilizador
+  const [search, setSearch] = useState("");         // valor debounced que vai ao servidor
+
+  // Debounce simples (300ms)
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchTerm), 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // Ao mudar pesquisa (debounced) → voltar à página 1
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const mapItem = (d) => {
-    const id =
-      d.jobCandidateId ?? d.jobCandidateID ?? d.id ?? d.numero ?? d.JobCandidateId;
-    const first =
-      d.firstName ?? d.person?.firstName ?? d.nome?.split(" ")[0] ?? "";
-    const last =
-      d.lastName ?? d.person?.lastName ?? d.nome?.split(" ").slice(1).join(" ") ?? "";
+    const id = d.jobCandidateId ?? d.jobCandidateID ?? d.id ?? d.numero ?? d.JobCandidateId;
+    const first = d.firstName ?? d.person?.firstName ?? d.nome?.split(" ")[0] ?? "";
+    const last = d.lastName ?? d.person?.lastName ?? d.nome?.split(" ").slice(1).join(" ") ?? "";
     const email = d.email ?? d.person?.email ?? "";
 
     return {
@@ -60,14 +67,14 @@ export default function Candidatos() {
         setIsLoading(true);
         setError("");
 
-        // 🔴 Apenas paginação no servidor (sem sort/search)
+        // 🚀 Paginação + Pesquisa no servidor
         const { items, meta } = await getCandidatos(token, {
           pageNumber: page,
           pageSize: itemsPerPage,
+          search, // ← envia o termo debounced
         });
 
         const mapped = (items || []).map(mapItem);
-
         setRows(mapped);
         setMeta(meta);
         return { items: mapped, meta };
@@ -81,9 +88,10 @@ export default function Candidatos() {
         setIsLoading(false);
       }
     },
-    [currentPage, itemsPerPage]
+    [currentPage, itemsPerPage, search]
   );
 
+  // Buscar sempre que page ou search mudam
   useEffect(() => {
     fetchCandidatos(currentPage);
   }, [fetchCandidatos, currentPage]);
@@ -100,7 +108,7 @@ export default function Candidatos() {
       alert("Candidato aprovado com sucesso.");
 
       const res = await fetchCandidatos(currentPage);
-      // Se a página ficou vazia após mudanças, recua uma página
+      // Se a página ficou vazia após a mudança, recua uma página
       if ((res.items?.length ?? 0) === 0 && currentPage > 1) {
         const newPage = Math.max(1, Math.min(currentPage - 1, res.meta?.totalPages || 1));
         if (newPage !== currentPage) setCurrentPage(newPage);
@@ -113,7 +121,7 @@ export default function Candidatos() {
       );
 
       // (Opcional) enviar email por aqui
-      // await sendFeedbackEmail(email, true);
+      // await sendEmail(email, true);
     } catch (err) {
       console.error(err);
       alert("Falha ao aprovar candidato.");
@@ -141,7 +149,7 @@ export default function Candidatos() {
       addNotification(`O candidato ${nome} foi recusado.`, "admin", { type: "CANDIDATE" });
 
       // (Opcional) enviar email por aqui
-      // await sendFeedbackEmail(email, false);
+      // await sendEmail(email, false);
     } catch (err) {
       console.error(err);
       setError("Erro ao eliminar candidato. Tenta novamente.");
@@ -151,7 +159,7 @@ export default function Candidatos() {
     }
   };
 
-  // Enviar email (mantive tua função, mas idealmente usa um service)
+  // Enviar email (mantido)
   async function sendEmail(email, condition) {
     const frase =
       condition === false
@@ -183,6 +191,18 @@ export default function Candidatos() {
             {meta.totalCount}
           </span>
         </span>
+      </div>
+
+      {/* Pesquisa */}
+      <div className="mb-3">
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Pesquisar por nome ou email…"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          aria-label="Pesquisar candidatos"
+        />
       </div>
 
       {/* Content */}
