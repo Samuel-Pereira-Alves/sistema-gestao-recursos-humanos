@@ -20,6 +20,7 @@ import {
   createPayHistory,
   getAllPayments, // 👈 usar apenas este para listar
 } from "../../Service/pagamentosService";
+import { getEmployeesPaged } from "../../Service/pagamentosService";
 import { getAllEmployees } from "../../Service/employeeService";
 import { addNotificationForUser } from "../../utils/notificationBus";
 

@@ -9,7 +9,6 @@ using sistema_gestao_recursos_humanos.backend.services;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using Microsoft.EntityFrameworkCore;
 
 namespace sistema_gestao_recursos_humanos.backend.controllers
 {
@@ -116,85 +115,90 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
         }
 
-      
-// using Microsoft.EntityFrameworkCore;
+        [HttpGet("paged")]
+        [Authorize(Roles = "admin")]
+        public async Task<ActionResult<PagedResult<EmployeeDto>>> GetAllPagination(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? search = null,
+            CancellationToken ct = default)
+        {
+            _logger.LogInformation("Recebida requisição para obter Employees (admin).");
+            await _appLog.InfoAsync("Recebida requisição para obter Employees (admin).");
+            try
+            {
+                const int MaxPageSize = 200;
+                if (pageNumber < 1) pageNumber = 1;
+                if (pageSize < 1) pageSize = 20;
+                if (pageSize > MaxPageSize) pageSize = MaxPageSize;
 
-[HttpGet("paged")]
-[Authorize(Roles = "admin")]
-public async Task<ActionResult<PagedResult<EmployeeDto>>> GetAllPagination(
-    [FromQuery] int pageNumber = 1,
-    [FromQuery] int pageSize = 20,
-    [FromQuery] string? search = null,
-    CancellationToken ct = default)
-{
-    _logger.LogInformation("Recebida requisição para obter Employees (admin).");
-    await _appLog.InfoAsync("Recebida requisição para obter Employees (admin).");
+                // Base sem coleções (evita carregar PayHistories/DepartmentHistories nesta listagem)
+                IQueryable<Employee> query = _db.Employees
+                    .AsNoTracking()
+                    .Include(e => e.Person)
+                    .Where(e => e.CurrentFlag);
 
-    const int MaxPageSize = 200;
-    if (pageNumber < 1) pageNumber = 1;
-    if (pageSize < 1) pageSize = 20;
-    if (pageSize > MaxPageSize) pageSize = MaxPageSize;
+                // Pesquisa (accent-insensitive se o collation existir; senão usa Like/Contains simples)
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var s = search.Trim();
+                    var like = $"%{s}%";
+                    var isNumeric = int.TryParse(s, out var idNumber);
 
-    // Base sem coleções (evita carregar PayHistories/DepartmentHistories nesta listagem)
-    IQueryable<Employee> query = _db.Employees
-        .AsNoTracking()
-        .Include(e => e.Person)
-        .Where(e => e.CurrentFlag);
+                    // Tenta usar CI_AI; se não existir na tua BD, substitui por EF.Functions.Like(...) simples
+                    query = query.Where(e =>
+                        EF.Functions.Like(EF.Functions.Collate(e.Person!.FirstName!, "Latin1_General_CI_AI"), like) ||
+                        EF.Functions.Like(EF.Functions.Collate(e.Person!.LastName!, "Latin1_General_CI_AI"), like) ||
+                        EF.Functions.Like(EF.Functions.Collate(e.JobTitle!, "Latin1_General_CI_AI"), like) ||
+                        (isNumeric && e.BusinessEntityID == idNumber)
+                    );
+                }
 
-    // 🔎 Pesquisa (accent-insensitive se o collation existir; senão usa Like/Contains simples)
-    if (!string.IsNullOrWhiteSpace(search))
-    {
-        var s = search.Trim();
-        var like = $"%{s}%";
-        var isNumeric = int.TryParse(s, out var idNumber);
+                // Ordenação estável
+                query = query
+                    .OrderBy(e => e.Person!.FirstName)
+                    .ThenBy(e => e.Person!.LastName)
+                    .ThenBy(e => e.BusinessEntityID);
 
-        // Tenta usar CI_AI; se não existir na tua BD, substitui por EF.Functions.Like(...) simples
-        query = query.Where(e =>
-            EF.Functions.Like(EF.Functions.Collate(e.Person!.FirstName!, "Latin1_General_CI_AI"), like) ||
-            EF.Functions.Like(EF.Functions.Collate(e.Person!.LastName!,  "Latin1_General_CI_AI"), like) ||
-            EF.Functions.Like(EF.Functions.Collate(e.JobTitle!,          "Latin1_General_CI_AI"), like) ||
-            (isNumeric && e.BusinessEntityID == idNumber)
-        );
-    }
+                var totalCount = await query.CountAsync(ct);
 
-    // 📑 Ordenação estável
-    query = query
-        .OrderBy(e => e.Person!.FirstName)
-        .ThenBy(e => e.Person!.LastName)
-        .ThenBy(e => e.BusinessEntityID);
+                _logger.LogInformation("Encontrados {Count} Employees (antes da paginação).", totalCount);
+                await _appLog.InfoAsync($"Encontrados {totalCount} Employees (antes da paginação).");
+                await _db.SaveChangesAsync(ct);
 
-    var totalCount = await query.CountAsync(ct);
+                var items = await query
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
 
-    var items = await query
-        .Skip((pageNumber - 1) * pageSize)
-        .Take(pageSize)
-        .ToListAsync(ct);
+                var itemsDto = _mapper.Map<List<EmployeeDto>>(items);
 
-    var itemsDto = _mapper.Map<List<EmployeeDto>>(items);
+                var result = new PagedResult<EmployeeDto>
+                {
+                    Items = itemsDto,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
 
-    var result = new PagedResult<EmployeeDto>
-    {
-        Items = itemsDto,
-        TotalCount = totalCount,
-        PageNumber = pageNumber,
-        PageSize = pageSize
-    };
+                var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    result.TotalCount,
+                    result.PageNumber,
+                    result.PageSize,
+                    result.TotalPages,
+                    result.HasPrevious,
+                    result.HasNext
+                });
+                Response.Headers["X-Pagination"] = paginationHeader;
 
-    var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
-    {
-        result.TotalCount,
-        result.PageNumber,
-        result.PageSize,
-        result.TotalPages,
-        result.HasPrevious,
-        result.HasNext
-    });
-    Response.Headers["X-Pagination"] = paginationHeader;
-
-    return Ok(result);
-}
-
-
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return await HandleUnexpectedEmployeeErrorAsync(ex, ct);
+            }
+        }
 
         private async Task<List<Employee>> GetAllEmployeesWithIncludesAsync(CancellationToken ct)
         {
@@ -251,152 +255,150 @@ public async Task<ActionResult<PagedResult<EmployeeDto>>> GetAllPagination(
             }
         }
 
-    
-
-
-
-
-
-[HttpGet("{id:int}/paged")]
-[Authorize(Roles = "admin, employee")]
-public async Task<ActionResult> GetByEmployee(
-    int id,
-    [FromQuery] int pageNumber = 1,
-    [FromQuery] int pageSize = 10,
-    [FromQuery] string? q = null,
-    CancellationToken ct = default)
-{
-    // Sanitização
-    if (pageNumber < 1) pageNumber = 1;
-    const int MaxPageSize = 100;
-    if (pageSize < 1) pageSize = 10;
-    if (pageSize > MaxPageSize) pageSize = MaxPageSize;
-
-    // Confirma existência do employee
-    var exists = await _db.Employees
-        .AsNoTracking()
-        .AnyAsync(e => e.BusinessEntityID == id, ct);
-
-    if (!exists)
-        return NotFound(new { message = $"Employee {id} não encontrado." });
-
-    // Header leve do employee (apenas campos necessários no ecrã)
-    var employeeHeader = await _db.Employees
-        .AsNoTracking()
-        .Where(e => e.BusinessEntityID == id)
-        .Select(e => new
+        [HttpGet("{id:int}/paged")]
+        [Authorize(Roles = "admin, employee")]
+        public async Task<ActionResult> GetByEmployee(
+            int id,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? q = null,
+            CancellationToken ct = default)
         {
-            e.BusinessEntityID,
-            e.JobTitle,
-            e.Gender,
-            e.HireDate,
-            Person = new
+            _logger.LogInformation("Listar histories (dep/pay) do employee {Id} page={Page} size={Size}", id, pageNumber, pageSize);
+            await _appLog.InfoAsync($"Listar histories (dep/pay) do employee {id} page={pageNumber} size={pageSize}");
+
+            // Sanitização
+            if (pageNumber < 1) pageNumber = 1;
+            const int MaxPageSize = 100;
+            if (pageSize < 1) pageSize = 10;
+            if (pageSize > MaxPageSize) pageSize = MaxPageSize;
+
+            // Confirma existência do employee
+            var exists = await _db.Employees
+                .AsNoTracking()
+                .AnyAsync(e => e.BusinessEntityID == id, ct);
+
+            if (!exists)
             {
-                e.Person.FirstName,
-                e.Person.LastName,
-                e.Person.MiddleName,
-                e.Person.Title,
-                e.Person.Suffix
+                _logger.LogWarning("Employee {Id} não encontrado.", id);
+                await _appLog.WarnAsync($"Employee {id} não encontrado.");
+                return NotFound(new { message = $"Employee {id} não encontrado." });
             }
-        })
-        .FirstOrDefaultAsync(ct);
 
-    // Base queries (SEM Include aqui para não alterar o tipo)
-    IQueryable<DepartmentHistory> qDep = _db.DepartmentHistories
-        .AsNoTracking()
-        .Where(h => h.BusinessEntityID == id);
+            // Header leve do employee (apenas campos necessários no ecrã)
+            var employeeHeader = await _db.Employees
+                .AsNoTracking()
+                .Where(e => e.BusinessEntityID == id)
+                .Select(e => new
+                {
+                    e.BusinessEntityID,
+                    e.JobTitle,
+                    e.Gender,
+                    e.HireDate,
+                    Person = new
+                    {
+                        e.Person!.FirstName,
+                        e.Person.LastName,
+                        e.Person.MiddleName,
+                        e.Person.Title,
+                        e.Person.Suffix
+                    }
+                })
+                .FirstOrDefaultAsync(ct);
 
-    IQueryable<PayHistory> qPay = _db.PayHistories
-        .AsNoTracking()
-        .Where(p => p.BusinessEntityID == id);
+            // Base queries (SEM Include aqui para não alterar o tipo)
+            IQueryable<DepartmentHistory> qDep = _db.DepartmentHistories
+                .AsNoTracking()
+                .Where(h => h.BusinessEntityID == id);
 
-    // Pesquisa (opcional). O EF vai gerar o join para Department automaticamente nesta filtragem.
-    if (!string.IsNullOrWhiteSpace(q))
-    {
-        var term = q.Trim();
-        // Se tens o collation "Latin1_General_CI_AI" no SQL Server, isto torna a pesquisa case/acento-insensitive.
-        // Caso contrário, troca para EF.Functions.Like(h.Department!.Name, $"%{term}%") e GroupName idem.
-        qDep = qDep.Where(h =>
-            EF.Functions.Like(EF.Functions.Collate(h.Department!.Name, "Latin1_General_CI_AI"), $"%{term}%") ||
-            EF.Functions.Like(EF.Functions.Collate(h.Department!.GroupName, "Latin1_General_CI_AI"), $"%{term}%")
-        );
-    }
+            IQueryable<PayHistory> qPay = _db.PayHistories
+                .AsNoTracking()
+                .Where(p => p.BusinessEntityID == id);
 
-    // Totais (já com filtro aplicado em DepartmentHistories)
-    var depTotal = await qDep.CountAsync(ct);
-    var payTotal = await qPay.CountAsync(ct);
-
-    var skip = (pageNumber - 1) * pageSize;
-
-    // DepartmentHistories — aplica Include APENAS aqui (evita conflito IQueryable vs IIncludableQueryable)
-    var depItems = await qDep
-        .Include(h => h.Department)
-        .OrderByDescending(h => h.StartDate)
-        .Skip(skip)
-        .Take(pageSize)
-        .Select(h => new DepartmentHistoryDto
-        {
-            BusinessEntityID = h.BusinessEntityID,
-            DepartmentId     = h.DepartmentID,      // ajusta se o teu DTO for DepartmentID
-            ShiftID          = h.ShiftID,
-            StartDate        = h.StartDate,
-            EndDate          = h.EndDate,
-            Department       = new DepartmentDto
+            // Pesquisa (opcional). O EF vai gerar o join para Department automaticamente nesta filtragem.
+            if (!string.IsNullOrWhiteSpace(q))
             {
-                DepartmentID = h.Department!.DepartmentID,
-                Name         = h.Department!.Name,
-                GroupName    = h.Department!.GroupName
+                var term = q.Trim();
+                qDep = qDep.Where(h =>
+                    EF.Functions.Like(EF.Functions.Collate(h.Department!.Name, "Latin1_General_CI_AI"), $"%{term}%") ||
+                    EF.Functions.Like(EF.Functions.Collate(h.Department!.GroupName, "Latin1_General_CI_AI"), $"%{term}%")
+                );
             }
-        })
-        .ToListAsync(ct);
 
-    // PayHistories — paginação independente; sem filtro por 'q' (mantém comportamento anterior)
-    var payItems = await qPay
-        .OrderByDescending(p => p.RateChangeDate)
-        .Skip(skip)
-        .Take(pageSize)
-        .Select(p => new PayHistoryDto
-        {
-            BusinessEntityID = p.BusinessEntityID,
-            RateChangeDate   = p.RateChangeDate,
-            Rate             = p.Rate,
-            PayFrequency     = p.PayFrequency
-        })
-        .ToListAsync(ct);
+            // Totais (já com filtro aplicado em DepartmentHistories)
+            var depTotal = await qDep.CountAsync(ct);
+            var payTotal = await qPay.CountAsync(ct);
 
-    var depTotalPages = Math.Max(1, (int)Math.Ceiling(depTotal / (double)pageSize));
-    var payTotalPages = Math.Max(1, (int)Math.Ceiling(payTotal / (double)pageSize));
+            var skip = (pageNumber - 1) * pageSize;
 
-    var response = new
-    {
-        employee = employeeHeader,
-        depHistories = new
-        {
-            items = depItems,
-            meta = new
+            // DepartmentHistories — aplica Include APENAS aqui (evita conflito IQueryable vs IIncludableQueryable)
+            var depItems = await qDep
+                .Include(h => h.Department)
+                .OrderByDescending(h => h.StartDate)
+                .Skip(skip)
+                .Take(pageSize)
+                .Select(h => new DepartmentHistoryDto
+                {
+                    BusinessEntityID = h.BusinessEntityID,
+                    DepartmentId = h.DepartmentID,      // ajusta se o teu DTO for DepartmentID
+                    ShiftID = h.ShiftID,
+                    StartDate = h.StartDate,
+                    EndDate = h.EndDate,
+                    Department = new DepartmentDto
+                    {
+                        DepartmentID = h.Department!.DepartmentID,
+                        Name = h.Department!.Name,
+                        GroupName = h.Department!.GroupName
+                    }
+                })
+                .ToListAsync(ct);
+
+            // PayHistories — paginação independente; sem filtro por 'q' (mantém comportamento anterior)
+            var payItems = await qPay
+                .OrderByDescending(p => p.RateChangeDate)
+                .Skip(skip)
+                .Take(pageSize)
+                .Select(p => new PayHistoryDto
+                {
+                    BusinessEntityID = p.BusinessEntityID,
+                    RateChangeDate = p.RateChangeDate,
+                    Rate = p.Rate,
+                    PayFrequency = p.PayFrequency
+                })
+                .ToListAsync(ct);
+
+            var depTotalPages = Math.Max(1, (int)Math.Ceiling(depTotal / (double)pageSize));
+            var payTotalPages = Math.Max(1, (int)Math.Ceiling(payTotal / (double)pageSize));
+
+            var response = new
             {
-                pageNumber,
-                pageSize,
-                totalCount = depTotal,
-                totalPages = depTotalPages
-            }
-        },
-        payHistories = new
-        {
-            items = payItems,
-            meta = new
-            {
-                pageNumber,
-                pageSize,
-                totalCount = payTotal,
-                totalPages = payTotalPages
-            }
+                employee = employeeHeader,
+                depHistories = new
+                {
+                    items = depItems,
+                    meta = new
+                    {
+                        pageNumber,
+                        pageSize,
+                        totalCount = depTotal,
+                        totalPages = depTotalPages
+                    }
+                },
+                payHistories = new
+                {
+                    items = payItems,
+                    meta = new
+                    {
+                        pageNumber,
+                        pageSize,
+                        totalCount = payTotal,
+                        totalPages = payTotalPages
+                    }
+                }
+            };
+
+            return Ok(response);
         }
-    };
-
-    return Ok(response);
-}
-
 
         private async Task<Employee?> GetEmployeeWithIncludesAsync(int id, CancellationToken ct)
         {
