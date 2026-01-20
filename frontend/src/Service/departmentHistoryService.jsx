@@ -44,8 +44,6 @@ export async function patchDepartmentHistory(businessEntityID, departmentID, shi
     });
 }
 
-
-
 export async function getDepHistoriesById(token, id, opts = {}) {
   const pageNumber = Number.isFinite(opts.pageNumber) ? Math.max(1, opts.pageNumber) : 1;
   const pageSize   = Number.isFinite(opts.pageSize)   ? Math.max(1, opts.pageSize)   : 10;
@@ -107,9 +105,6 @@ export async function getDepHistoriesById(token, id, opts = {}) {
   };
 }
 
-
-
-
 export async function getAllDepartmentsFromEmployees(token) {
   const res = await fetch(`${API_BASE}/v1/employee/`, {
     method: "GET",
@@ -170,4 +165,60 @@ export async function getAllDepartmentsFromEmployees(token) {
   );
 
   return departments;
+}
+
+export async function getAllDepartments(
+  { pageNumber = 1, pageSize = 5, query = "", signal } = {}
+) {
+  const token = localStorage.getItem("authToken");
+ 
+  const url = new URL("http://localhost:5136/api/v1/departmentHistory/departments/paged");
+ 
+  const qs = new URLSearchParams({
+    pageNumber: String(pageNumber),
+    pageSize: String(pageSize),
+  });
+ 
+  // Garantir tipo string SEMPRE
+  const q = (query ?? "").toString().trim();
+  if (q) qs.set("search", q);
+  url.search = qs.toString(); 
+ 
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    signal, // volta a pôr o cancelamento (opcional mas recomendado)
+  });
+ 
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.error("[getAllDepartments] HTTP", res.status, text);
+    throw new Error(text || `Falha ao carregar (${res.status})`);
+  }
+ 
+  const raw = await res.json();
+ 
+  // Normalização (caso venha PascalCase)
+  const normalized = {
+    items: raw.items ?? raw.Items ?? [],
+    totalCount: raw.totalCount ?? raw.TotalCount ?? 0,
+    pageNumber: raw.pageNumber ?? raw.PageNumber ?? pageNumber,
+    pageSize: raw.pageSize ?? raw.PageSize ?? pageSize,
+    totalPages:
+      raw.totalPages ??
+      raw.TotalPages ??
+      Math.max(
+        1,
+        Math.ceil(
+          (raw.totalCount ?? raw.TotalCount ?? 0) /
+            (raw.pageSize ?? raw.PageSize ?? pageSize)
+        )
+      ),
+    meta: raw.meta ?? raw.Meta ?? null,
+  };
+ 
+  return normalized;
 }
