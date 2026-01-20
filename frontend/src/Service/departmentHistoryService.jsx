@@ -44,6 +44,7 @@ export async function patchDepartmentHistory(businessEntityID, departmentID, shi
     });
 }
 
+
 export async function getDepHistoriesById(token, id, opts = {}) {
   const pageNumber = Number.isFinite(opts.pageNumber) ? Math.max(1, opts.pageNumber) : 1;
   const pageSize   = Number.isFinite(opts.pageSize)   ? Math.max(1, opts.pageSize)   : 10;
@@ -52,9 +53,8 @@ export async function getDepHistoriesById(token, id, opts = {}) {
   const beid = Number(id);
   if (!Number.isFinite(beid)) throw new Error("ID inválido.");
 
-  // Não concatena "&amp;", usa searchParams.
+  // Endpoint que devolve { employee, depHistories: {items, meta}, payHistories: {items, meta} }
   const url = new URL(`${API_BASE}/v1/employee/${beid}/paged`, window.location?.origin || "http://localhost");
-  // Estes params são ignorados pelo servidor neste endpoint, mas não fazem mal.
   url.searchParams.set("pageNumber", String(pageNumber));
   url.searchParams.set("pageSize", String(pageSize));
 
@@ -66,38 +66,78 @@ export async function getDepHistoriesById(token, id, opts = {}) {
     },
   });
 
-  if (res.status === 204) {
-    return { items: [], meta: { pageNumber, pageSize, totalCount: 0, totalPages: 1 } };
-  }
-
   if (!res.ok) {
-    const errBody = await res.clone().json().catch(() => null);
-    const serverMsg = errBody?.message || errBody?.error || "";
-    throw new Error(`Erro ao obter Employee (HTTP ${res.status})${serverMsg ? " - " + serverMsg : ""}`);
+    let serverMsg = "";
+    try {
+      const err = await res.clone().json();
+      serverMsg = err?.message || err?.error || "";
+    } catch {}
+    throw new Error(`Erro ao obter histories (HTTP ${res.status})${serverMsg ? " - " + serverMsg : ""}`);
   }
 
-  const employee = await res.json();
+  const data = await res.json();
 
-  // Extrai histories do DTO (suporta departmentHistories/DepartmentHistories)
-  const allHistories = Array.isArray(employee?.departmentHistories ?? employee?.DepartmentHistories)
-    ? (employee.departmentHistories ?? employee.DepartmentHistories)
+  // ✅ Formato novo suportado pelo teu endpoint
+  if (data?.depHistories && data?.payHistories) {
+    const depItems = Array.isArray(data.depHistories.items) ? data.depHistories.items : [];
+    const payItems = Array.isArray(data.payHistories.items) ? data.payHistories.items : [];
+
+    const depMeta = {
+      pageNumber: Number(data.depHistories?.meta?.pageNumber ?? pageNumber),
+      pageSize:   Number(data.depHistories?.meta?.pageSize   ?? pageSize),
+      totalCount: Number(data.depHistories?.meta?.totalCount ?? depItems.length),
+      totalPages: Number(
+        data.depHistories?.meta?.totalPages ??
+        Math.max(1, Math.ceil((Number(data.depHistories?.meta?.totalCount ?? depItems.length)) / Math.max(1, pageSize)))
+      ),
+    };
+
+    const payMeta = {
+      pageNumber: Number(data.payHistories?.meta?.pageNumber ?? pageNumber),
+      pageSize:   Number(data.payHistories?.meta?.pageSize   ?? pageSize),
+      totalCount: Number(data.payHistories?.meta?.totalCount ?? payItems.length),
+      totalPages: Number(
+        data.payHistories?.meta?.totalPages ??
+        Math.max(1, Math.ceil((Number(data.payHistories?.meta?.totalCount ?? payItems.length)) / Math.max(1, pageSize)))
+      ),
+    };
+
+    return {
+      employee: data.employee ?? null,
+      depHistories: { items: depItems, meta: depMeta },
+      payHistories: { items: payItems, meta: payMeta },
+      raw: data,
+    };
+  }
+
+  // 🔁 Fallback (formato antigo): endpoint /employee/{id} que devolvia EmployeeDto com departmentHistories
+  // Útil se, por engano, chamares outra rota. Faz paginação local apenas para não rebentar.
+  const allDep = Array.isArray(data?.departmentHistories ?? data?.DepartmentHistories)
+    ? (data.departmentHistories ?? data.DepartmentHistories)
     : [];
 
-  // Ordena por startDate DESC (suporta casing startDate/StartDate)
-  const getStart = (h) => new Date(h?.startDate ?? h?.StartDate ?? 0).getTime();
-  const sorted = [...allHistories].sort((a, b) => getStart(b) - getStart(a));
+  const sortStart = (h) => new Date(h?.startDate ?? h?.StartDate ?? 0).getTime();
+  const depSorted = [...allDep].sort((a, b) => sortStart(b) - sortStart(a));
 
-  // Paginação client-side
-  const totalCount = sorted.length;
+  const totalCount = depSorted.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const startIdx = (pageNumber - 1) * pageSize;
-  const items = sorted.slice(startIdx, startIdx + pageSize);
+  const depPageItems = depSorted.slice(startIdx, startIdx + pageSize);
 
   return {
-    items,
-    meta: { pageNumber, pageSize, totalCount, totalPages },
+    employee: data?.employee ?? null,
+    depHistories: {
+      items: depPageItems,
+      meta: { pageNumber, pageSize, totalCount, totalPages },
+    },
+    payHistories: {
+      items: [], // não disponível neste formato
+      meta: { pageNumber, pageSize, totalCount: 0, totalPages: 1 },
+    },
+    raw: data,
   };
 }
+
 
 
 export async function getAllDepartmentsFromEmployees(token) {
