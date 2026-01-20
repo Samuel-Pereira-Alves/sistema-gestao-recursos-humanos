@@ -1,14 +1,11 @@
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { addNotificationForUser } from "../../utils/notificationBus";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
 import {
-  buildDerivedDepartments,
   formatDate,
-  normalize,
-  idToString,
   dateInputToIsoMidnight,
   getBusinessEntityID,
   getDepartmentID,
@@ -19,11 +16,12 @@ import {
   getGroupName,
   formatDateForRoute,
 } from "../../utils/Utils";
-import { getAllEmployees, getEmployees } from "../../Service/employeeService";
+import { getAllEmployees } from "../../Service/employeeService";
 import AssignmentModal from "../../components/AssignmentForm/AssignmentModal";
 import {
   createDepartmentHistory,
   deleteDepHistory,
+  getAllDepartments,
   getAllDepartmentsFromEmployees,
   patchDepartmentHistory,
 } from "../../Service/departmentHistoryService";
@@ -35,104 +33,111 @@ export default function Movimentos() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
 
-  // Movimentos (flatten da página corrente de employees)
+  // Itens (já flattened vindos do backend)
   const [items, setItems] = useState([]);
 
-  // Colaboradores para o modal (carregados on-demand)
+  // Colaboradores (para modal)
   const [employees, setEmployees] = useState([]);
 
-  // Lista de departamentos derivada dos movimentos
+  // Departamentos (para resolvers de nome, etc.)
   const [departments, setDepartments] = useState([]);
 
-  // Pesquisa
+  // Pesquisa + debounce
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedTerm, setDebouncedTerm] = useState("");
 
-  // Paginação SERVER-SIDE (employees → flatten)
+  // Paginação SERVER-SIDE
   const [serverPage, setServerPage] = useState(1);
-  const [serverPageSize, setServerPageSize] = useState(5); // 👈 só 5 por página
   const [serverTotalPages, setServerTotalPages] = useState(1);
+  const itemsPerPage = 5;
 
-  // === Carregar tabela (server-side) ===
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setFetchError(null);
-      const token = localStorage.getItem("authToken");
+  // Concorrência / cancelamento
+  const abortRef = useRef(null);
+  const reqIdRef = useRef(0);
 
-      const data = await getEmployees(token, {
-        pageNumber: serverPage,
-        pageSize: serverPageSize,        // 👈 respeita 5
-        // search: searchTerm.trim(),    // ← ativa só se o back suportar pesquisa server-side
-      });
-
-      console.log(data)
-      
-      const employeesArr = Array.isArray(data) ? data : data?.items ?? [];
-
-      const flattened = employeesArr.flatMap((emp) =>
-        (emp?.departmentHistories ?? emp?.DepartmentHistories ?? []).map((dh) => ({
-          ...dh,
-          employee: emp, // referência ao colaborador para render
-        }))
-      );
-
-      flattened.sort(
-        (a, b) => new Date(getStartDate(b)) - new Date(getStartDate(a))
-      );
-
-      setItems(flattened);
-      console.log(data.meta.totalPages)
-      setServerTotalPages(data?.meta?.totalPages ?? 1);
-
-      const deps = await getAllDepartmentsFromEmployees(token);
-      setDepartments(deps);
-    } catch (err) {
-      console.error("[fetchData] erro:", err);
-      setFetchError(err.message || "Erro desconhecido ao obter dados.");
-    } finally {
-      setLoading(false);
-    }
-  }, [serverPage, serverPageSize /*, searchTerm*/]);
-
+  // Debounce 300ms
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    const t = setTimeout(() => setDebouncedTerm(searchTerm.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
-  // Pesquisa local (fallback) SOBRE a página corrente
-  const rawSearch = searchTerm.trim();
-  const isNumericSearch = /^\d+$/.test(rawSearch);
-  const termo = normalize(searchTerm);
+  // Loader principal (página + termo), com AbortController e clamp
+  const load = useCallback(
+    async (page, term) => {
+      setFetchError(null);
 
-  const filtered = useMemo(() => {
-    if (!rawSearch) return items;
+      const safePage = Math.max(1, Number(page) || 1);
+      const safeTerm = (term ?? "").toString();
 
-    return items.filter((h) => {
-      const employee = h?.employee ?? {};
-      const person = employee?.person ?? {};
+      // cancela o pedido anterior
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-      if (isNumericSearch) {
-        const beid = idToString(employee?.businessEntityID);
-        return beid === rawSearch;
+      const myReq = ++reqIdRef.current;
+      setLoading(true);
+
+      try {
+        const data = await getAllDepartments({
+          pageNumber: safePage,
+          pageSize: itemsPerPage,
+          query: safeTerm,          // pesquisa server-side
+          signal: controller.signal,
+        });
+
+        if (myReq !== reqIdRef.current) return; // ignora respostas fora de ordem
+
+        const newTotalPages = Math.max(1, Number(data?.totalPages || 1));
+
+        // clamp para última página válida
+        if (safePage > newTotalPages) {
+          setServerTotalPages(newTotalPages);
+          setServerPage(newTotalPages);
+          return; // o useEffect volta a invocar load com a nova página
+        }
+
+        // Normalização: itens devem vir em data.items (array)
+        const arr = Array.isArray(data?.items) ? data.items : [];
+        setItems(arr);
+        setServerTotalPages(newTotalPages);
+
+      } catch (err) {
+        if (err?.name === "AbortError") return;
+        if (myReq !== reqIdRef.current) return;
+
+        console.error("[load] erro:", err);
+        setFetchError(err?.message || "Erro a carregar dados.");
+        setItems([]);
+        setServerTotalPages(1);
+      } finally {
+        if (myReq === reqIdRef.current) setLoading(false);
       }
+    },
+    [itemsPerPage]
+  );
 
-      const fullName = `${normalize(person.firstName)} ${normalize(person.lastName)}`.trim();
-      const deptName = normalize(getDepartmentName(h));
-      const groupName = normalize(getGroupName(h));
-      const start = normalize(formatDate(getStartDate(h)));
-      const end = normalize(formatDate(getEndDate(h)));
+  // Reage a (página, termo debounced)
+  useEffect(() => {
+    load(serverPage, debouncedTerm);
+  }, [serverPage, debouncedTerm, load]);
 
-      return (
-        (fullName && fullName.includes(termo)) ||
-        (deptName && deptName.includes(termo)) ||
-        (groupName && groupName.includes(termo)) ||
-        (start && start.includes(termo)) ||
-        (end && end.includes(termo))
-      );
-    });
-  }, [items, rawSearch, termo, isNumericSearch]);
+  // Cleanup abort ao desmontar
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
 
-  // Como paginamos no servidor, NÃO repaginamos no cliente
-  const pageItems = filtered;
+  // Carregar lista de departamentos uma vez (best-effort)
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        const deps = await getAllDepartmentsFromEmployees(token);
+        setDepartments(Array.isArray(deps) ? deps : []);
+      } catch {
+        // ignora erros do dropdown
+      }
+    })();
+  }, []);
 
   // === Modal state ===
   const [action, setAction] = useState({
@@ -155,33 +160,28 @@ export default function Movimentos() {
     },
   });
 
+  const fetchEmployeesForModal = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const data = await getAllEmployees(token);
+      const list = Array.isArray(data) ? data : [];
 
-const fetchEmployeesForModal = useCallback(async () => {
-  try {
-    const token = localStorage.getItem("authToken");
-    const data = await getAllEmployees(token);
+      const idStr = localStorage.getItem("businessEntityId");
+      const myId = Number(idStr || "0");
 
-    // garante que é array
-    const list = Array.isArray(data) ? data : [];
+      const employeesExceptActual = list
+        .filter((e) => Number(e?.businessEntityID) !== myId)
+        .sort((a, b) => {
+          const nameA = (a?.person?.firstName || "").toLowerCase();
+          const nameB = (b?.person?.firstName || "").toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
 
-    const idStr = localStorage.getItem("businessEntityId");
-    const myId = Number(idStr || "0");
-
-    const employeesExceptActual = list
-      .filter(e => Number(e?.businessEntityID) !== myId)
-      .sort((a, b) => {
-        const nameA = (a?.person?.firstName || "").toLowerCase();
-        const nameB = (b?.person?.firstName || "").toLowerCase();
-        return nameA.localeCompare(nameB);
-      });
-
-    setEmployees(employeesExceptActual);
-  } catch (error) {
-    console.error("[fetchEmployeesForModal] erro:", error);
-    // opcional: feedback no UI (toast/alert)
-  }
-}, []);
-
+      setEmployees(employeesExceptActual);
+    } catch (error) {
+      console.error("[fetchEmployeesForModal] erro:", error);
+    }
+  }, []);
 
   const openCreate = () => {
     setAction({
@@ -202,14 +202,14 @@ const fetchEmployeesForModal = useCallback(async () => {
 
       const beid = getBusinessEntityID(h);
       const depId = getDepartmentID(h);
-      const shId  = getShiftID(h);
+      const shId = getShiftID(h);
       const start = getStartDate(h);
       const formattedDate = formatDateForRoute(start);
 
       const token = localStorage.getItem("authToken");
       await deleteDepHistory(token, beid, depId, shId, formattedDate);
 
-      await fetchData();
+      await load(serverPage, debouncedTerm);
 
       addNotificationForUser(
         "Foi eliminado um movimento de departamentos no seu perfil.",
@@ -228,6 +228,7 @@ const fetchEmployeesForModal = useCallback(async () => {
     const shId = getShiftID(h);
     const start = getStartDate(h);
     const end = getEndDate(h);
+    const departmentName = h.dep.name;
 
     setAction({
       open: true,
@@ -239,6 +240,7 @@ const fetchEmployeesForModal = useCallback(async () => {
         departmentID: String(depId),
         shiftID: String(shId),
         startDate: start,
+        departmentName
       },
       form: {
         businessEntityID: String(beid),
@@ -246,6 +248,7 @@ const fetchEmployeesForModal = useCallback(async () => {
         shiftID: String(shId),
         startDate: start,
         endDate: end ?? "",
+        departmentName
       },
     });
   };
@@ -282,20 +285,19 @@ const fetchEmployeesForModal = useCallback(async () => {
           { type: "DEPARTMENT" }
         );
       } else {
-        const { businessEntityID, departmentID, shiftID, startDate } = keys;
+        const { businessEntityID, departmentID, shiftID, startDate, departmentName } = keys;
         if (!businessEntityID || !departmentID || !shiftID || !startDate)
           throw new Error("Chaves do registo em falta.");
 
-        const patchBody = {
-          endDate: form.endDate ? form.endDate : null,
-        };
+        const patchBody = { endDate: form.endDate ? form.endDate : null };
 
         await patchDepartmentHistory(
           businessEntityID,
           departmentID,
           shiftID,
           startDate,
-          patchBody
+          patchBody,
+          departmentName
         );
         addNotificationForUser(
           "O seu registo de Movimentos de Departamentos foi atualizado pelo RH.",
@@ -304,7 +306,7 @@ const fetchEmployeesForModal = useCallback(async () => {
         );
       }
 
-      await fetchData();
+      await load(serverPage, debouncedTerm);
       closeAction();
     } catch (e) {
       setAction((s) => ({ ...s, error: e.message || "Erro na operação." }));
@@ -313,10 +315,15 @@ const fetchEmployeesForModal = useCallback(async () => {
     }
   };
 
-  const resolveDepartmentName = (id) => {
-    const dep = departments.find((d) => String(d.departmentID) === String(id));
-    return dep?.name ?? "—";
-  };
+  
+// Usa o nome que vem no DTO (h.dep.name) e faz fallback por ID se necessário.
+const resolveDepartmentName = (id) => {
+  const depa = departments.find(d => d.departmentID == id)
+  
+  return depa?.name ?? "ja";
+};
+
+
 
   return (
     <div className="container mt-4">
@@ -332,25 +339,28 @@ const fetchEmployeesForModal = useCallback(async () => {
 
       {/* Search */}
       <div className="card mb-3 border-0 shadow-sm">
-        <div className="card-body">
-          {loading ? (
-            <div className="text-center py-3">
-              <div className="spinner-border text-secondary" role="status">
-                <span className="visually-hidden">Carregando...</span>
-              </div>
+        <div className="card-body position-relative">
+          <input
+            type="text"
+            className="form-control pe-5"
+            placeholder="Procurar por ID, colaborador, departamento, grupo ou data..."
+            value={searchTerm}
+            onChange={(e) => {
+              const v = e.target.value;
+              setSearchTerm(v);
+              // reset da página só quando necessário
+              if (serverPage !== 1) setServerPage(1);
+            }}
+            aria-label="Pesquisar histórico de departamentos"
+          />
+          {/* Spinner subtil dentro da searchbar enquanto pesquisa */}
+          {loading && (
+            <div
+              className="position-absolute top-50 end-0 translate-middle-y me-3 text-muted small"
+              aria-hidden="true"
+            >
+              <span className="spinner-border spinner-border-sm" />
             </div>
-          ) : (
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Procurar por ID, colaborador, departamento, grupo ou data..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setServerPage(1); // reset página sempre que muda a pesquisa
-              }}
-              aria-label="Pesquisar histórico de departamentos"
-            />
           )}
         </div>
       </div>
@@ -379,146 +389,147 @@ const fetchEmployeesForModal = useCallback(async () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {pageItems.map((h) => {
-                      const employee = h?.employee ?? {};
-                      const person = employee?.person ?? {};
-                      const deptName = getDepartmentName(h);
-                      const groupName = getGroupName(h);
-                      const start = getStartDate(h);
-                      const end = getEndDate(h);
+                    {items.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center text-muted py-4">
+                          Sem registos
+                        </td>
+                      </tr>
+                    ) : (
+                      items.map((h) => {
+                        // Assumimos que o backend envia um DTO flattened:
+                        // {
+                        //   businessEntityID, departmentID, shiftID, startDate, endDate,
+                        //   person: { firstName, lastName, businessEntityID? },
+                        //   dep: { name, groupName }
+                        // }
+                        const person = h?.person ?? {};
+                        const deptName = h?.dep?.name ?? getDepartmentName(h);
+                        const groupName = h?.dep?.groupName ?? getGroupName(h);
+                        const start = getStartDate(h);
+                        const end = getEndDate(h);
 
-                      const key = `${getBusinessEntityID(h)}|${getDepartmentID(
-                        h
-                      )}|${getShiftID(h)}|${start}`;
+                        const key = `${getBusinessEntityID(h)}|${getDepartmentID(h)}|${getShiftID(h)}|${start}`;
 
-                      return (
-                        <tr key={key}>
-                          <td className="px-4 py-3">
-                            {person.firstName} {person.lastName}
-                            <div className="small text-muted">
-                              ID: {employee?.businessEntityID ?? "—"}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">{deptName}</td>
-                          <td className="px-4 py-3">{groupName}</td>
-                          <td className="px-4 py-3 text-muted">
-                            {formatDate(start)}
-                          </td>
-                          <td className="px-4 py-3 text-muted">
-                            {formatDate(end)}
-                          </td>
-                          <td className="px-4 py-3 text-end">
-                            <div className="d-flex justify-content-end gap-2">
-                              <button
-                                className="btn btn-outline-primary"
-                                onClick={() => openEdit(h)}
-                                disabled={
-                                  String(localStorage.getItem("businessEntityId")) ===
-                                  String(employee?.businessEntityID)
-                                }
-                              >
-                                Editar
-                              </button>
-                              <button
-                                className="btn btn-outline-danger"
-                                onClick={() => openDelete(h)}
-                                disabled={
-                                  String(localStorage.getItem("businessEntityId")) ===
-                                  String(employee?.businessEntityID)
-                                }
-                              >
-                                Eliminar
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                        return (
+                          <tr key={key}>
+                            <td className="px-4 py-3">
+                              {person.firstName} {person.lastName}
+                              <div className="small text-muted">
+                                ID: {h?.businessEntityID ?? person?.businessEntityID ?? "—"}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">{deptName}</td>
+                            <td className="px-4 py-3">{groupName}</td>
+                            <td className="px-4 py-3 text-muted">{formatDate(start)}</td>
+                            <td className="px-4 py-3 text-muted">{formatDate(end)}</td>
+                            <td className="px-4 py-3 text-end">
+                              <div className="d-flex justify-content-end gap-2">
+                                <button
+                                  className="btn btn-outline-primary"
+                                  onClick={() => openEdit(h)}
+                                  disabled={
+                                    String(localStorage.getItem("businessEntityId")) ===
+                                    String(h?.businessEntityID ?? person?.businessEntityID)
+                                  }
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  className="btn btn-outline-danger"
+                                  onClick={() => openDelete(h)}
+                                  disabled={
+                                    String(localStorage.getItem("businessEntityId")) ===
+                                    String(h?.businessEntityID ?? person?.businessEntityID)
+                                  }
+                                >
+                                  Eliminar
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
 
               {/* Mobile Cards */}
               <div className="d-md-none">
-                {pageItems.map((h) => {
-                  const employee = h?.employee ?? {};
-                  const person = employee?.person ?? {};
-                  const start = getStartDate(h);
-                  const end = getEndDate(h);
-                  const key = `${getBusinessEntityID(h)}|${getDepartmentID(
-                    h
-                  )}|${getShiftID(h)}|${start}`;
+                {items.length === 0 ? (
+                  <div className="text-center p-3 text-muted">Sem registos</div>
+                ) : (
+                  items.map((h) => {
+                    const person = h?.person ?? {};
+                    const start = getStartDate(h);
+                    const end = getEndDate(h);
+                    const key = `${getBusinessEntityID(h)}|${getDepartmentID(h)}|${getShiftID(h)}|${start}`;
 
-                  return (
-                    <div key={key} className="border-bottom p-3">
-                      <h6 className="mb-1">
-                        <strong>
-                          {person.firstName} {person.lastName}
-                        </strong>
-                      </h6>
-                      <p className="text-muted small mb-1">
-                        <strong>ID:</strong> {employee?.businessEntityID ?? "—"}
-                      </p>
-                      <p className="text-muted small mb-1">
-                        <strong>Departamento:</strong> {getDepartmentName(h)}
-                      </p>
-                      <p className="text-muted small mb-1">
-                        <strong>Grupo:</strong> {getGroupName(h)}
-                      </p>
-                      <p className="text-muted small mb-1">
-                        <strong>Início:</strong> {formatDate(start)}
-                      </p>
-                      <p className="text-muted small mb-2">
-                        <strong>Fim:</strong> {formatDate(end)}
-                      </p>
-                      <div className="d-flex gap-2">
-                        <button
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => openEdit(h)}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline-danger ms-2"
-                          onClick={() => openDelete(h)}
-                        >
-                          Apagar
-                        </button>
+                    return (
+                      <div key={key} className="border-bottom p-3">
+                        <h6 className="mb-1">
+                          <strong>
+                            {person.firstName} {person.lastName}
+                          </strong>
+                        </h6>
+                        <p className="text-muted small mb-1">
+                          <strong>ID:</strong> {h?.businessEntityID ?? person?.businessEntityID ?? "—"}
+                        </p>
+                        <p className="text-muted small mb-1">
+                          <strong>Departamento:</strong> {h?.dep?.name}
+                        </p>
+                        <p className="text-muted small mb-1">
+                          <strong>Grupo:</strong> {h?.dep?.groupName ?? getGroupName(h)}
+                        </p>
+                        <p className="text-muted small mb-1">
+                          <strong>Início:</strong> {formatDate(start)}
+                        </p>
+                        <p className="text-muted small mb-2">
+                          <strong>Fim:</strong> {formatDate(end)}
+                        </p>
+                        <div className="d-flex gap-2">
+                          <button className="btn btn-sm btn-outline-primary" onClick={() => openEdit(h)}>
+                            Editar
+                          </button>
+                          <button className="btn btn-sm btn-outline-danger ms-2" onClick={() => openDelete(h)}>
+                            Apagar
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
 
-              {/* Empty state */}
-              {!pageItems.length && (
+              {/* Empty state (quando sem items) */}
+              {!items.length && (
                 <div className="p-4">
                   <p className="text-muted mb-0">
-                    Sem resultados para <strong>{rawSearch || "…"}</strong>. Tenta outro termo.
+                    Sem resultados para <strong>{debouncedTerm || "…"}</strong>. Tenta outro termo.
                   </p>
                 </div>
               )}
-            
-                <Pagination
-                  currentPage={serverPage}
-                  totalPages={serverTotalPages}
-                  setPage={setServerPage}
-                />
-                </>
+
+              {/* Pagination */}
+              <Pagination
+                currentPage={serverPage}
+                totalPages={serverTotalPages}
+                setPage={setServerPage} // garantir número
+              />
+            </>
           )}
         </div>
       </div>
 
-      {fetchError && (
-        <div className="alert alert-danger mt-3">{fetchError}</div>
-      )}
+      {fetchError && <div className="alert alert-danger mt-3">{fetchError}</div>}
 
       <AssignmentModal
         action={action}
         setAction={setAction}
         closeAction={closeAction}
         submitAction={submitAction}
-        employees={employees}           // ← 5 carregados on-demand
+        employees={employees}
         departments={departments}
         resolveDepartmentName={resolveDepartmentName}
         resolveShiftLabel={resolveShiftLabel}

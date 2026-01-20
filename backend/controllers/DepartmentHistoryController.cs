@@ -459,5 +459,104 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 detail: "Erro ao eliminar o registo.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
+
+        [HttpGet("departments/paged")]
+[Authorize(Roles = "admin")] 
+public async Task<ActionResult<PagedResult<PayHistoryDto>>> GetAllDepartmentsPaged(
+    [FromQuery] int pageNumber = 1,
+    [FromQuery] int pageSize = 5,
+    [FromQuery] string? search = null,
+    CancellationToken ct = default)
+{
+    const int MaxPageSize = 200;
+    if (pageNumber < 1) pageNumber = 1;
+    if (pageSize < 1) pageSize = 20;
+    if (pageSize > MaxPageSize) pageSize = MaxPageSize;
+
+    // Base: só PayHistories
+    var q = _db.DepartmentHistories
+        .AsNoTracking()
+        .Include(p => p.Employee) // apenas para projetar Person
+            .ThenInclude(e => e.Person)
+        .AsQueryable();
+
+    // 🔎 Pesquisa simples, cobrindo:
+    // - Nome (First/Last)
+    // - ID do colaborador (numérico)
+    // - Valor (rate) por string
+    // - Data por string (YYYY-MM-DD ou formato corrente)
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        var s = search.Trim();
+        var like = $"%{s}%";
+        var isNumeric = int.TryParse(s, out var idNumber);
+
+        // Se tiveres collation CI_AI na BD, podes usar EF.Functions.Collate para acentos;
+        // caso contrário, EF.Functions.Like simples fica dependente do collation da coluna.
+        q = q.Where(p =>
+            EF.Functions.Like(p.Employee!.Person!.FirstName!, like) ||
+            EF.Functions.Like(p.Employee!.Person!.LastName!,  like) ||
+            (isNumeric && p.BusinessEntityID == idNumber) 
+        );
     }
+
+    q = q
+        .OrderBy(p => p.Employee.Person.FirstName)
+        .ThenBy(p => p.BusinessEntityID);
+
+    // Total filtrado
+    var totalCount = await q.CountAsync(ct);
+
+    // Página
+    var items = await q
+        .Skip((pageNumber - 1) * pageSize)
+        .Take(pageSize)
+        .Select(p => new DepartmentHistoryDto
+        {
+            BusinessEntityID = p.BusinessEntityID,
+            DepartmentId = p.DepartmentID,
+            StartDate = p.StartDate,
+            EndDate = p.EndDate,
+            Dep = new Department
+            {
+                GroupName = p.Department.GroupName,
+                Name = p.Department.Name,
+
+            },
+            ShiftID = p.ShiftID,
+            Person = new Person
+            {
+                BusinessEntityID = p.Employee!.BusinessEntityID,
+                FirstName     = p.Employee.Person!.FirstName,
+                LastName         = p.Employee.Person!.LastName
+            }
+        })
+        .ToListAsync(ct);
+
+    var result = new PagedResult<DepartmentHistoryDto>
+    {
+        Items      = items,
+        TotalCount = totalCount,
+        PageNumber = pageNumber,
+        PageSize   = pageSize
+    };
+
+    // Cabeçalho opcional de paginação
+    var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        result.TotalCount,
+        result.PageNumber,
+        result.PageSize,
+        result.TotalPages,
+        result.HasPrevious,
+        result.HasNext
+    });
+    Response.Headers["X-Pagination"] = paginationHeader;
+
+    return Ok(result);
+}
+    }
+
+
+    
 }

@@ -143,21 +143,24 @@ export function dateInputToIsoMidnight(dateStr) {
   return `${dateStr}T00:00:00`;
 }
 
-export const getBusinessEntityID = (h) =>
-  h?.businessEntityID ??
-  h?.BusinessEntityID ??
-  h?.employee?.businessEntityID ??
-  "";
+// Utils.jsx
+export const getBusinessEntityID = (h) => {
+  return (
+    h?.businessEntityID ??
+    h?.BusinessEntityID ??
+    h?.employee?.businessEntityID ??
+    ""
+  );
+};
 
-export const getDepartmentID = (h) =>
-  h?.departmentID ??
-  h?.DepartmentID ??
-  h?.department?.departmentID ??
-  h?.department?.DepartmentID ??
-  "";
 
-export const getShiftID = (h) =>
-  h?.shiftID ?? h?.ShiftID ?? h?.shift?.shiftID ?? h?.shift?.ShiftID ?? "";
+export const getDepartmentID = (h) =>{
+  return h.departmentId
+}
+
+export const getShiftID = (h) => {
+  return h?.shiftID
+}
 export const getStartDate = (h) => h?.startDate ?? h?.StartDate ?? "";
 export const getEndDate = (h) => h?.endDate ?? h?.EndDate ?? "";
 export const getDepartmentName = (h) =>
@@ -168,11 +171,7 @@ export const getDepartmentName = (h) =>
   "—";
 
 export const getGroupName = (h) =>
-  h?.department?.groupName ??
-  h?.department?.GroupName ??
-  h?.groupName ??
-  h?.GroupName ??
-  "—";
+  h?.dep.groupName;
 
 
   export function formatDateForRoute(input) {
