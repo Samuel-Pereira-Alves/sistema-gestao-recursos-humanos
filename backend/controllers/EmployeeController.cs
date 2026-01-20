@@ -539,11 +539,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 {
                     newMovement.ShiftID = 1;  //Por default vão todos para o turno da manhã
                 }
+                _db.DepartmentHistories.Add(newMovement);
 
                 _logger.LogInformation("Alteração de departamento para BusinessEntityID={BEID} realizada com sucesso", dto.BusinessEntityID);
                 await _appLog.InfoAsync($"Alteração de departamento para BEID={dto.BusinessEntityID} realizada com sucesso");
-
-                _db.DepartmentHistories.Add(newMovement);
             }
 
             employee.ModifiedDate = DateTime.UtcNow;
