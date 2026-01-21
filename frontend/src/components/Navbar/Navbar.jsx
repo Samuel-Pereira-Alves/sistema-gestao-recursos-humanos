@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
+
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import NotificationBell from "../NotificationBell/NotificationBell";
-import axios from 'axios';
 import { getEmployee } from "../../Service/employeeService";
 
 function Navbar() {
@@ -9,27 +9,63 @@ function Navbar() {
   const bellBtnRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  const businessEntityId = localStorage.getItem("businessEntityId");
-  const isLoggedIn = Boolean(businessEntityId);
-
+  // ✅ Estado que reflete o localStorage (torna reativo)
+  const [businessEntityId, setBusinessEntityId] = useState(() => localStorage.getItem("businessEntityId"));
+  const [firstName, setFirstName] = useState(() => localStorage.getItem("firstName") || "");
+  const [lastName, setLastName] = useState(() => localStorage.getItem("lastName") || "");
   const [loadingName, setLoadingName] = useState(false);
 
+  const isLoggedIn = Boolean(businessEntityId);
+  const profileUrl = businessEntityId ? `/profile/${businessEntityId}` : "/profile";
+
+  // ✅ Função para sincronizar o estado a partir do localStorage
+  const syncFromStorage = useCallback(() => {
+    setBusinessEntityId(localStorage.getItem("businessEntityId"));
+    setFirstName(localStorage.getItem("firstName") || "");
+    setLastName(localStorage.getItem("lastName") || "");
+  }, []);
+
+  // ✅ Ouve o evento custom "authChanged" (disparado no login) e o nativo "storage"
+  useEffect(() => {
+    const onAuthChanged = () => syncFromStorage();
+    const onStorage = (e) => {
+      if (["businessEntityId", "firstName", "lastName", "authToken"].includes(e.key)) {
+        syncFromStorage();
+      }
+    };
+
+    window.addEventListener("authChanged", onAuthChanged);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("authChanged", onAuthChanged);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [syncFromStorage]);
+
+  // ✅ Carregar o nome após login (se faltar) — sem ler localStorage nas deps
   useEffect(() => {
     let cancelled = false;
     async function loadUserName() {
       if (!isLoggedIn || !businessEntityId) return;
+      if (firstName && lastName) return; // já tens
       try {
-        const token = localStorage.getItem("authToken");
         setLoadingName(true);
+        const token = localStorage.getItem("authToken");
         const data = await getEmployee(businessEntityId, token);
         const first = data?.person?.firstName || "";
         const middle = data?.person?.middleName || "";
         const last = data?.person?.lastName || "";
         const full = [first, middle, last].filter(Boolean).join(" ").trim() || "Utilizador";
+
         if (!cancelled) {
+          // Atualiza storage + estado para re-render imediato
           localStorage.setItem("userName", full);
-          if (first) localStorage.setItem("firstName", first);
-          if (last) localStorage.setItem("lastName", last);
+          localStorage.setItem("firstName", first);
+          localStorage.setItem("lastName", last);
+          setFirstName(first);
+          setLastName(last);
+          // (Opcional) notifica outros listeners
+          window.dispatchEvent(new Event("authChanged"));
         }
       } catch (err) {
         console.error(err);
@@ -39,19 +75,11 @@ function Navbar() {
     }
     loadUserName();
     return () => { cancelled = true; };
-  }, [isLoggedIn, businessEntityId]);
+  }, [isLoggedIn, businessEntityId, firstName, lastName]);
 
-  const profileUrl = `/profile/${localStorage.getItem("businessEntityId")}`;
-  const logout = () => {
-    localStorage.clear();
-    window.location.href = "/";
-  };
+  const initials = ((firstName?.charAt(0) || "") + (lastName?.charAt(0) || "")).toUpperCase() || "U";
 
-  const first = localStorage.getItem("firstName") || "";
-  const last = localStorage.getItem("lastName") || "";
-
-  const initials = `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || "U";
-
+  // Outside click do dropdown
   useEffect(() => {
     function handleClickOutside(e) {
       if (!open) return;
@@ -59,12 +87,19 @@ function Navbar() {
       const insideButton = bellBtnRef.current?.contains(e.target);
       if (!insideDropdown && !insideButton) setOpen(false);
     }
-
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
+
+  const logout = () => {
+    localStorage.clear();
+    // Atualiza estado imediatamente + notifica
+    setBusinessEntityId(null);
+    setFirstName("");
+    setLastName("");
+    window.dispatchEvent(new Event("authChanged"));
+    window.location.href = "/";
+  };
 
   return (
     <nav className="navbar navbar-expand-lg navbar-light bg-light border-bottom shadow-sm fixed-top">

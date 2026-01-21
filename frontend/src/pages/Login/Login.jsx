@@ -12,30 +12,32 @@ function Login() {
 
   const navigate = useNavigate();
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setErrorMsg("");
-  setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setLoading(true);
 
-  try {
-    const data = await login(username, password); 
+    try {
+      const data = await login(username, password);
 
-    localStorage.setItem("authToken", data.token);
-    localStorage.setItem("role", data.role);
-    localStorage.setItem("employeeId", data.employeeId);
-    localStorage.setItem("systemUserId", data.systemUserId);
-    localStorage.setItem("businessEntityId", data.businessEntityId);
-    localStorage.setItem("username", username);
+      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("role", data.role);
+      localStorage.setItem("employeeId", data.employeeId);
+      localStorage.setItem("systemUserId", data.systemUserId);
+      localStorage.setItem("businessEntityId", data.businessEntityId);
+      localStorage.setItem("username", username);
 
-    navigate("/");
-  } catch (error) {
-    console.error("Erro no login:", error);
-    // Mostra mensagem amigável; podes usar error.message se preferires a do backend
-    setErrorMsg("Credenciais inválidas. Tente novamente.");
-  } finally {
-    setLoading(false);
-  }
-};
+      window.dispatchEvent(new Event("authChanged"));
+
+      navigate("/");
+    } catch (error) {
+      console.error("Erro no login:", error);
+      // Mostra mensagem amigável; podes usar error.message se preferires a do backend
+      setErrorMsg("Credenciais inválidas. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   return (
