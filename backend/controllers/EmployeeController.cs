@@ -134,9 +134,12 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 // Base sem coleções (evita carregar PayHistories/DepartmentHistories nesta listagem)
                 IQueryable<Employee> query = _db.Employees
-                    .AsNoTracking()
-                    .Include(e => e.Person)
-                    .Where(e => e.CurrentFlag);
+                .AsNoTracking()
+                .Include(e => e.PayHistories)
+                .Include(e => e.DepartmentHistories)
+                .ThenInclude(dh => dh.Department)
+                .Include(e => e.Person)
+                .Where(e => e.CurrentFlag);
 
                 // Pesquisa (accent-insensitive se o collation existir; senão usa Like/Contains simples)
                 if (!string.IsNullOrWhiteSpace(search))
