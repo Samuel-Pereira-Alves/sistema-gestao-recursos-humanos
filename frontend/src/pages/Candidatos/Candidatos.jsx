@@ -12,6 +12,7 @@ import {
 } from "../../Service/candidatosService";
 import { addNotification } from "../../utils/notificationBus";
 import Loading from "../../components/Loading/Loading";
+import { Button } from "bootstrap";
 
 export default function Candidatos() {
   const [rows, setRows] = useState([]);
@@ -150,7 +151,9 @@ export default function Candidatos() {
   };
 
   return (
+    
     <div className="container mt-4">
+      <BackButton />
       {/* Header */}
       <div className="mb-4 d-flex justify-content-between align-items-center">
         <h1 className="h4 mb-0">Gestão de Candidatos</h1>
@@ -190,8 +193,8 @@ export default function Candidatos() {
             </div>
           ) : rows.length === 0 ? (
             <div className="text-center py-5">
-              <div className="alert alert-light border text-muted d-inline-block">
-                Candidatos não encontrados.
+              <div className="alert alert-light text-muted d-inline-block">
+                Não existem candidatos.
               </div>
             </div>
           ) : (

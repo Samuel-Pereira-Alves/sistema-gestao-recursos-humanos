@@ -125,6 +125,7 @@ function Funcionarios() {
 return (
   <>
     <div className="container mt-4">
+      <BackButton />
       {/* Header */}
       <div className="mb-4">
         <h1 className="h4 mb-1">Gestão de Funcionários</h1>

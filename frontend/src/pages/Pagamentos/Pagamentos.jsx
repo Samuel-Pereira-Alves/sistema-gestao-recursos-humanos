@@ -239,6 +239,7 @@ export default function Pagamentos() {
 
   return (
     <div className="container mt-4">
+      <BackButton />
       <div className="mb-4 d-flex justify-content-between align-items-center">
         <h1 className="h3 mb-1">Gestão de Pagamentos</h1>
         {!loading && (
