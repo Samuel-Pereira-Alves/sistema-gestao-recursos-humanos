@@ -6,7 +6,7 @@ namespace sistema_gestao_recursos_humanos.backend.models.dtos
     {
         public int BusinessEntityID { get; set; }
         public DateTime RateChangeDate { get; set; }
-        [Range(6, 199, ErrorMessage = "O valor deve ser maior que 5 e menor que 200.")]
+        [Range(6.5, 200, ErrorMessage = "O valor deve estar entre 6.5 e 200.")]
  
         public decimal Rate { get; set; }
         public Person? Person {get; set;}

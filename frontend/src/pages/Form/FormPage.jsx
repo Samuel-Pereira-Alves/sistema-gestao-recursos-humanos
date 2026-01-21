@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { addNotification } from "../../utils/notificationBus";
 import axios from "axios";
+import { normalizeApiError } from "../../utils/Utils";
 
 function Form({ onCancel }) {
   const [firstName, setFirstName] = useState("");
@@ -34,7 +35,8 @@ function Form({ onCancel }) {
     const isPdf =
       f.type === "application/pdf" || f.name?.toLowerCase().endsWith(".pdf");
     if (!isPdf) newErrors.ficheiro = "Apenas ficheiros PDF são aceites.";
-    if (f.size > MAX_SIZE) newErrors.ficheiro = `O ficheiro excede ${MAX_SIZE_MB}MB.`;
+    if (f.size > MAX_SIZE)
+      newErrors.ficheiro = `O ficheiro excede ${MAX_SIZE_MB}MB.`;
     return newErrors;
   };
 
@@ -45,7 +47,8 @@ function Form({ onCancel }) {
 
     const nid = nationalIDNumber.trim();
     if (!nid) {
-      newErrors.nationalIDNumber = "Número de identificação nacional é obrigatório.";
+      newErrors.nationalIDNumber =
+        "Número de identificação nacional é obrigatório.";
     } else if (!/^\d{9}$/.test(nid)) {
       newErrors.nationalIDNumber = "Deve conter exatamente 9 dígitos.";
     }
@@ -58,7 +61,8 @@ function Form({ onCancel }) {
     }
 
     if (!["S", "M"].includes(maritalStatus)) {
-      newErrors.maritalStatus = "Seleciona estado civil: Solteiro (S) ou Casado (M).";
+      newErrors.maritalStatus =
+        "Seleciona estado civil: Solteiro (S) ou Casado (M).";
     }
 
     if (!["M", "F"].includes(gender)) {
@@ -133,17 +137,21 @@ function Form({ onCancel }) {
   };
 
   const doUpload = async (formData) => {
-    await axios.post("http://localhost:5136/api/v1/jobcandidate/upload", formData, {
-      onUploadProgress: (evt) => {
-        if (evt.total) {
-          const percent = Math.round((evt.loaded / evt.total) * 100);
-          setUploadProgress(percent);
-          setUploadMsg(percent < 100 ? "A enviar…" : "A finalizar…");
-        } else {
-          setUploadMsg("A enviar…");
-        }
-      }
-    });
+    await axios.post(
+      "http://localhost:5136/api/v1/jobcandidate/upload",
+      formData,
+      {
+        onUploadProgress: (evt) => {
+          if (evt.total) {
+            const percent = Math.round((evt.loaded / evt.total) * 100);
+            setUploadProgress(percent);
+            setUploadMsg(percent < 100 ? "A enviar…" : "A finalizar…");
+          } else {
+            setUploadMsg("A enviar…");
+          }
+        },
+      },
+    );
   };
 
   const clearForm = () => {
@@ -189,24 +197,23 @@ function Form({ onCancel }) {
 
       //enviar email
       try {
-
-        await axios.post('http://localhost:5136/api/email/send', {
+        await axios.post("http://localhost:5136/api/email/send", {
           to: email,
-          subject: 'Candidatura',
-          text: 'A sua candidatura foi recebida. Iremos analisá-la e responder brevemente!'
+          subject: "Candidatura",
+          text: "A sua candidatura foi recebida. Iremos analisá-la e responder brevemente!",
         });
       } catch (e) {
         if (e.response) {
-          console.error('Erro API:', e.response.data);
+          console.error("Erro API:", e.response.data);
         } else {
-          console.error('Erro rede/CORS:', e.message);
+          console.error("Erro rede/CORS:", e.message);
         }
       }
 
-
       addNotification(
         `Nova candidatura: ${firstName} ${lastName} – verifica o painel de candidaturas.`,
-        "admin", {type: "CANDIDATE"}
+        "admin",
+        { type: "CANDIDATE" },
       );
 
       setUploadProgress(100);
@@ -220,7 +227,9 @@ function Form({ onCancel }) {
       }
     } catch (err) {
       console.error(err);
-      setErrors({ ficheiro: err.message || "Ocorreu um erro ao enviar. Tenta novamente." });
+      setErrors({
+        nationalIDNumber: err.response.data?.detail
+      });
       setUploadMsg("Falha no envio.");
       setUploadProgress(null);
     } finally {
@@ -238,7 +247,8 @@ function Form({ onCancel }) {
         <header className="mb-3 text-center">
           <h6 className="mb-1">Dados do candidato e CV (PDF)</h6>
           <p className="text-muted small mb-0">
-            Preenche os teus dados e seleciona o ficheiro em formato PDF. Limite: {MAX_SIZE_MB}MB.
+            Preenche os teus dados e seleciona o ficheiro em formato PDF.
+            Limite: {MAX_SIZE_MB}MB.
           </p>
         </header>
 
@@ -266,7 +276,9 @@ function Form({ onCancel }) {
               onChange={(e) => setFirstName(e.target.value)}
               autoComplete="given-name"
             />
-            {errors.firstName && <div className="invalid-feedback">{errors.firstName}</div>}
+            {errors.firstName && (
+              <div className="invalid-feedback">{errors.firstName}</div>
+            )}
           </div>
 
           {/* Apelido */}
@@ -282,7 +294,9 @@ function Form({ onCancel }) {
               onChange={(e) => setLastName(e.target.value)}
               autoComplete="family-name"
             />
-            {errors.lastName && <div className="invalid-feedback">{errors.lastName}</div>}
+            {errors.lastName && (
+              <div className="invalid-feedback">{errors.lastName}</div>
+            )}
           </div>
 
           {/* Email */}
@@ -302,7 +316,10 @@ function Form({ onCancel }) {
 
           {/* Nº Cartao Cidadao */}
           <div className="col-md-6">
-            <label htmlFor="nationalIDNumber" className="form-label fw-semibold">
+            <label
+              htmlFor="nationalIDNumber"
+              className="form-label fw-semibold"
+            >
               Nº Cartão Cidadão <span className="text-danger">*</span>
             </label>
             <input
@@ -314,7 +331,9 @@ function Form({ onCancel }) {
               className={`form-control input-gray ${errors.nationalIDNumber ? "is-invalid" : ""}`}
               value={nationalIDNumber}
               onChange={(e) => {
-                const onlyDigits = e.target.value.replace(/\D/g, "").slice(0, 9);
+                const onlyDigits = e.target.value
+                  .replace(/\D/g, "")
+                  .slice(0, 9);
                 setNationalIDNumber(onlyDigits);
               }}
               placeholder="123456789"
@@ -338,7 +357,9 @@ function Form({ onCancel }) {
               onChange={(e) => setBirthDate(e.target.value)}
               placeholder="YYYY-MM-DD"
             />
-            {errors.birthDate && <div className="invalid-feedback">{errors.birthDate}</div>}
+            {errors.birthDate && (
+              <div className="invalid-feedback">{errors.birthDate}</div>
+            )}
           </div>
 
           {/* Estado civil */}
@@ -356,7 +377,9 @@ function Form({ onCancel }) {
               <option value="S">Solteiro(a) (S)</option>
               <option value="M">Casado(a) (M)</option>
             </select>
-            {errors.maritalStatus && <div className="invalid-feedback">{errors.maritalStatus}</div>}
+            {errors.maritalStatus && (
+              <div className="invalid-feedback">{errors.maritalStatus}</div>
+            )}
           </div>
 
           {/* Género */}
@@ -374,7 +397,9 @@ function Form({ onCancel }) {
               <option value="M">Masculino (M)</option>
               <option value="F">Feminino (F)</option>
             </select>
-            {errors.gender && <div className="invalid-feedback">{errors.gender}</div>}
+            {errors.gender && (
+              <div className="invalid-feedback">{errors.gender}</div>
+            )}
           </div>
         </div>
 
@@ -401,7 +426,9 @@ function Form({ onCancel }) {
             {!ficheiro ? (
               <>
                 <div className="fw-semibold">Arraste o ficheiro PDF aqui</div>
-                <div className="text-muted small">ou clique para selecionar</div>
+                <div className="text-muted small">
+                  ou clique para selecionar
+                </div>
                 <div id="cv-help" className="text-muted small mt-2">
                   Apenas PDF. Tamanho máximo: {MAX_SIZE_MB}MB.
                 </div>
@@ -409,8 +436,14 @@ function Form({ onCancel }) {
               </>
             ) : (
               <div className="selected-file my-1">
-                <div className="file-pill d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-body-tertiary" title={ficheiro.name}>
-                  <span className="file-name text-truncate" style={{ maxWidth: 260 }}>
+                <div
+                  className="file-pill d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-body-tertiary"
+                  title={ficheiro.name}
+                >
+                  <span
+                    className="file-name text-truncate"
+                    style={{ maxWidth: 260 }}
+                  >
                     {ficheiro.name}
                   </span>
                   <button
@@ -434,12 +467,23 @@ function Form({ onCancel }) {
           {/* Barra de progresso */}
           {uploadProgress !== null && (
             <div className="mt-2">
-              <div className="progress" role="progressbar" aria-valuenow={uploadProgress} aria-valuemin="0" aria-valuemax="100">
-                <div className="progress-bar" style={{ width: `${uploadProgress}%` }}>
+              <div
+                className="progress"
+                role="progressbar"
+                aria-valuenow={uploadProgress}
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
+                <div
+                  className="progress-bar"
+                  style={{ width: `${uploadProgress}%` }}
+                >
                   {uploadProgress}%
                 </div>
               </div>
-              {uploadMsg && <div className="small text-muted mt-1">{uploadMsg}</div>}
+              {uploadMsg && (
+                <div className="small text-muted mt-1">{uploadMsg}</div>
+              )}
             </div>
           )}
 
@@ -453,7 +497,11 @@ function Form({ onCancel }) {
             onChange={handleFileChange}
           />
 
-          {errors.ficheiro && <div className="invalid-feedback d-block mt-2">{errors.ficheiro}</div>}
+          {errors.ficheiro && (
+            <div className="invalid-feedback d-block mt-2">
+              {errors.ficheiro}
+            </div>
+          )}
         </div>
 
         {/* Botões */}

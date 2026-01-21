@@ -49,80 +49,80 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // -----------------------
         // GET: api/v1/jobcandidate
         // -----------------------
-        
-[HttpGet]
-[Authorize(Roles = "admin")]
-public async Task<ActionResult<PagedResult<JobCandidateDto>>> GetAll(
-    [FromQuery] int pageNumber = 1,
-    [FromQuery] int pageSize = 4,
-    [FromQuery] string? search = null,
-    CancellationToken ct = default)
-{
-    _logger.LogInformation("Recebida requisição para obter JobCandidates (admin).");
-    AddLog("Recebida requisição para obter JobCandidates (admin).");
 
-    try
-    {
-        const int MaxPageSize = 200;
-        if (pageNumber < 1) pageNumber = 1;
-        if (pageSize < 1) pageSize = 4;
-        if (pageSize > MaxPageSize) pageSize = MaxPageSize;
-
-        
-IQueryable<JobCandidate> query = _db.JobCandidates.AsNoTracking();
-
-if (!string.IsNullOrWhiteSpace(search))
-{
-    var s = $"%{search.Trim()}%";
-    query = query.Where(jc =>
-        EF.Functions.Like(jc.FirstName, s)
-    );
-}
-
-query = query
-    .OrderByDescending(jc => jc.ModifiedDate)
-    .ThenByDescending(jc => jc.JobCandidateId);
-
-
-
-        int totalCount = await query.CountAsync(ct);
-
-        var items = await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(ct);
-
-        _logger.LogInformation("Encontrados {Count} JobCandidates (antes da paginação).", totalCount);
-        AddLog($"Encontrados {totalCount} JobCandidates (antes da paginação).");
-        await _db.SaveChangesAsync(ct);
-
-        var dtoItems = _mapper.Map<List<JobCandidateDto>>(items);
-        var result = new PagedResult<JobCandidateDto>
+        [HttpGet]
+        [Authorize(Roles = "admin")]
+        public async Task<ActionResult<PagedResult<JobCandidateDto>>> GetAll(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 4,
+            [FromQuery] string? search = null,
+            CancellationToken ct = default)
         {
-            Items = dtoItems,
-            TotalCount = totalCount,
-            PageNumber = pageNumber,
-            PageSize = pageSize
-        };
+            _logger.LogInformation("Recebida requisição para obter JobCandidates (admin).");
+            AddLog("Recebida requisição para obter JobCandidates (admin).");
 
-        var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
-        {
-            result.TotalCount,
-            result.PageNumber,
-            result.PageSize,
-            result.TotalPages,
-            result.HasPrevious,
-            result.HasNext
-        });
-        Response.Headers["X-Pagination"] = paginationHeader;
+            try
+            {
+                const int MaxPageSize = 200;
+                if (pageNumber < 1) pageNumber = 1;
+                if (pageSize < 1) pageSize = 4;
+                if (pageSize > MaxPageSize) pageSize = MaxPageSize;
 
-        return Ok(result);
-    }
-    catch (Exception ex)
-    {
-        return await HandleUnexpectedJobCandidateErrorAsync(ex, ct);
-    }
-}
+
+                IQueryable<JobCandidate> query = _db.JobCandidates.AsNoTracking();
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var s = $"%{search.Trim()}%";
+                    query = query.Where(jc =>
+                        EF.Functions.Like(jc.FirstName, s)
+                    );
+                }
+
+                query = query
+                    .OrderByDescending(jc => jc.ModifiedDate)
+                    .ThenByDescending(jc => jc.JobCandidateId);
+
+
+
+                int totalCount = await query.CountAsync(ct);
+
+                var items = await query
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
+
+                _logger.LogInformation("Encontrados {Count} JobCandidates (antes da paginação).", totalCount);
+                AddLog($"Encontrados {totalCount} JobCandidates (antes da paginação).");
+                await _db.SaveChangesAsync(ct);
+
+                var dtoItems = _mapper.Map<List<JobCandidateDto>>(items);
+                var result = new PagedResult<JobCandidateDto>
+                {
+                    Items = dtoItems,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+
+                var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    result.TotalCount,
+                    result.PageNumber,
+                    result.PageSize,
+                    result.TotalPages,
+                    result.HasPrevious,
+                    result.HasNext
+                });
+                Response.Headers["X-Pagination"] = paginationHeader;
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return await HandleUnexpectedJobCandidateErrorAsync(ex, ct);
+            }
+        }
 
         private async Task<ActionResult> HandleUnexpectedJobCandidateErrorAsync(Exception ex, CancellationToken ct)
         {
@@ -192,6 +192,22 @@ query = query
             _logger.LogInformation("Recebida requisição para upload de CV e criação de JobCandidate.");
             AddLog("Recebida requisição para upload de CV e criação de JobCandidate.");
             await _db.SaveChangesAsync(ct);
+
+            var employee = await _db.Employees
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.NationalIDNumber == form.NationalIDNumber, ct);
+
+            if (employee != null && employee.CurrentFlag)
+            {
+                var details = new ProblemDetails
+                {
+                    Title = "Erro no NationalIdNumber",
+                    Detail = "Já existe um funcionário ativo com este Número de Cartão de Cidadão.",
+                    Status = StatusCodes.Status409Conflict
+                };
+
+                return new ObjectResult(details) { StatusCode = StatusCodes.Status409Conflict };
+            }
 
             // 1) Validação do ficheiro (null/empty + extensão .pdf)
             var fileValidationError = await ValidateCvFileAsync(form.Cv, ct);

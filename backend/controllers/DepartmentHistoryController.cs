@@ -275,7 +275,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             // 1) Fechar movimentos abertos
             var openMovements = await _db.DepartmentHistories
-                .Where(dh => dh.BusinessEntityID == dto.BusinessEntityID && dh.EndDate == null)
+                .Where(dh => dh.BusinessEntityID == dto.BusinessEntityID && dh.EndDate == null && dh.StartDate <= dto.StartDate)
                 .ToListAsync(ct);
 
             if (openMovements.Count > 0)
