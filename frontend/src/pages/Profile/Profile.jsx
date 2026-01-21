@@ -69,7 +69,7 @@ export default function Profile() {
         setEmployee(data);
       } catch (error) {
         console.error(error);
-      }finally  {
+      } finally {
         setLoading(false);
       }
     };
@@ -171,10 +171,14 @@ export default function Profile() {
 
   if (!employee)
     return (
-      <div className="container mt-5 text-center">
-        <BackButton />
-        <div className="alert alert-light border text-muted d-inline-block">
-          Funcionário não encontrado
+      <div className="container mt-5">
+        <div className="text-start">
+          <BackButton />
+        </div>
+        <div className="text-center">
+          <div className="alert alert-light border text-muted d-inline-block">
+            Funcionário não encontrado
+          </div>
         </div>
       </div>
     );
