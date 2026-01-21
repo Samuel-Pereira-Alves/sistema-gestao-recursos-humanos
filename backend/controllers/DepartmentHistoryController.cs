@@ -395,7 +395,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     "Validação falhou ({Context}): EndDate({End:o}) < StartDate({Start:o})",
                     context, endDate.Value, startDate);
 
-                await _appLog.WarnAsync("EndDate não pode ser anterior ao StartDate");
+                await _appLog.ErrorAsync("Pedido Falhou: EndDate não pode ser anterior ao StartDate", new DbUpdateException());
 
                 var details = new ProblemDetails
                 {

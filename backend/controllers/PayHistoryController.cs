@@ -208,10 +208,22 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 if (exists)
                 {
+                    await _appLog.ErrorAsync("Pedido Falhou: Data Inserida é Inválida.", dbEx);
                     return Conflict(new ProblemDetails
                     {
                         Title = "Registo duplicado",
                         Detail = "Já existe um registo para este colaborador nesta data.",
+                        Status = StatusCodes.Status409Conflict
+                    });
+                }
+
+                if (dto.Rate < 6 || dto.Rate > 200)
+                {
+                    await _appLog.ErrorAsync("Pedido Falhou: muito alto", new DbUpdateException());
+                    return Conflict(new ProblemDetails
+                    {
+                        Title = "muito alto",
+                        Detail = "muito alto",
                         Status = StatusCodes.Status409Conflict
                     });
                 }
@@ -309,99 +321,99 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         }
 
 
-[HttpGet("payments/paged")]
-[Authorize(Roles = "admin")] // ajusta se também quiseres employee
-public async Task<ActionResult<PagedResult<PayHistoryDto>>> GetAllPaymentsPaged(
-    [FromQuery] int pageNumber = 1,
-    [FromQuery] int pageSize = 5,
-    [FromQuery] string? search = null,
-    CancellationToken ct = default)
-{
-    const int MaxPageSize = 200;
-    if (pageNumber < 1) pageNumber = 1;
-    if (pageSize < 1) pageSize = 20;
-    if (pageSize > MaxPageSize) pageSize = MaxPageSize;
-
-    // Base: só PayHistories
-    var q = _db.PayHistories
-        .AsNoTracking()
-        .Include(p => p.Employee) // apenas para projetar Person
-            .ThenInclude(e => e!.Person)
-        .AsQueryable();
-
-    // 🔎 Pesquisa simples, cobrindo:
-    // - Nome (First/Last)
-    // - ID do colaborador (numérico)
-    // - Valor (rate) por string
-    // - Data por string (YYYY-MM-DD ou formato corrente)
-    if (!string.IsNullOrWhiteSpace(search))
-    {
-        var s = search.Trim();
-        var like = $"%{s}%";
-        var isNumeric = int.TryParse(s, out var idNumber);
-
-        // Se tiveres collation CI_AI na BD, podes usar EF.Functions.Collate para acentos;
-        // caso contrário, EF.Functions.Like simples fica dependente do collation da coluna.
-        q = q.Where(p =>
-            EF.Functions.Like(p.Employee!.Person!.FirstName!, like) ||
-            EF.Functions.Like(p.Employee!.Person!.LastName!,  like) ||
-            (isNumeric && p.BusinessEntityID == idNumber) ||
-            // pesquisa por texto em rate (ex.: "12,5" / "12.5" etc.) — não é 100% index-friendly
-            EF.Functions.Like(p.Rate.ToString(), like) ||
-            // pesquisa por texto na data (depende da cultura do servidor; melhor aceitar YYYY-MM-DD no front)
-            EF.Functions.Like(p.RateChangeDate.ToString(), like)
-        );
-    }
-
-    // Ordenação estável (mais recentes primeiro)
-    q = q
-        .OrderBy(p => p.Employee!.Person!.FirstName)
-        .ThenBy(p => p.BusinessEntityID);
-
-    // Total filtrado
-    var totalCount = await q.CountAsync(ct);
-
-    // Página
-    var items = await q
-        .Skip((pageNumber - 1) * pageSize)
-        .Take(pageSize)
-        .Select(p => new PayHistoryDto
+        [HttpGet("payments/paged")]
+        [Authorize(Roles = "admin")] // ajusta se também quiseres employee
+        public async Task<ActionResult<PagedResult<PayHistoryDto>>> GetAllPaymentsPaged(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 5,
+            [FromQuery] string? search = null,
+            CancellationToken ct = default)
         {
-            BusinessEntityID = p.BusinessEntityID,
-            RateChangeDate   = p.RateChangeDate,
-            Rate             = p.Rate,
-            PayFrequency     = p.PayFrequency,
-            Person = new Person
+            const int MaxPageSize = 200;
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 20;
+            if (pageSize > MaxPageSize) pageSize = MaxPageSize;
+
+            // Base: só PayHistories
+            var q = _db.PayHistories
+                .AsNoTracking()
+                .Include(p => p.Employee) // apenas para projetar Person
+                    .ThenInclude(e => e!.Person)
+                .AsQueryable();
+
+            // 🔎 Pesquisa simples, cobrindo:
+            // - Nome (First/Last)
+            // - ID do colaborador (numérico)
+            // - Valor (rate) por string
+            // - Data por string (YYYY-MM-DD ou formato corrente)
+            if (!string.IsNullOrWhiteSpace(search))
             {
-                BusinessEntityID = p.Employee!.BusinessEntityID,
-                FirstName     = p.Employee.Person!.FirstName,
-                LastName         = p.Employee.Person!.LastName
+                var s = search.Trim();
+                var like = $"%{s}%";
+                var isNumeric = int.TryParse(s, out var idNumber);
+
+                // Se tiveres collation CI_AI na BD, podes usar EF.Functions.Collate para acentos;
+                // caso contrário, EF.Functions.Like simples fica dependente do collation da coluna.
+                q = q.Where(p =>
+                    EF.Functions.Like(p.Employee!.Person!.FirstName!, like) ||
+                    EF.Functions.Like(p.Employee!.Person!.LastName!, like) ||
+                    (isNumeric && p.BusinessEntityID == idNumber) ||
+                    // pesquisa por texto em rate (ex.: "12,5" / "12.5" etc.) — não é 100% index-friendly
+                    EF.Functions.Like(p.Rate.ToString(), like) ||
+                    // pesquisa por texto na data (depende da cultura do servidor; melhor aceitar YYYY-MM-DD no front)
+                    EF.Functions.Like(p.RateChangeDate.ToString(), like)
+                );
             }
-        })
-        .ToListAsync(ct);
 
-    var result = new PagedResult<PayHistoryDto>
-    {
-        Items      = items,
-        TotalCount = totalCount,
-        PageNumber = pageNumber,
-        PageSize   = pageSize
-    };
+            // Ordenação estável (mais recentes primeiro)
+            q = q
+                .OrderBy(p => p.Employee!.Person!.FirstName)
+                .ThenBy(p => p.BusinessEntityID);
 
-    // Cabeçalho opcional de paginação
-    var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
-    {
-        result.TotalCount,
-        result.PageNumber,
-        result.PageSize,
-        result.TotalPages,
-        result.HasPrevious,
-        result.HasNext
-    });
-    Response.Headers["X-Pagination"] = paginationHeader;
+            // Total filtrado
+            var totalCount = await q.CountAsync(ct);
 
-    return Ok(result);
-}
+            // Página
+            var items = await q
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new PayHistoryDto
+                {
+                    BusinessEntityID = p.BusinessEntityID,
+                    RateChangeDate = p.RateChangeDate,
+                    Rate = p.Rate,
+                    PayFrequency = p.PayFrequency,
+                    Person = new Person
+                    {
+                        BusinessEntityID = p.Employee!.BusinessEntityID,
+                        FirstName = p.Employee.Person!.FirstName,
+                        LastName = p.Employee.Person!.LastName
+                    }
+                })
+                .ToListAsync(ct);
+
+            var result = new PagedResult<PayHistoryDto>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
+            // Cabeçalho opcional de paginação
+            var paginationHeader = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                result.TotalCount,
+                result.PageNumber,
+                result.PageSize,
+                result.TotalPages,
+                result.HasPrevious,
+                result.HasNext
+            });
+            Response.Headers["X-Pagination"] = paginationHeader;
+
+            return Ok(result);
+        }
 
     }
 }

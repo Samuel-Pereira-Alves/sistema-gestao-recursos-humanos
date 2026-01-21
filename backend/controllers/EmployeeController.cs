@@ -570,6 +570,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 if (duplicateExists)
                 {
+                    await _appLog.ErrorAsync("Pedido Falhou: Cartão de Cidadão Inválido", new DbUpdateException());
                     return Conflict(new ProblemDetails
                     {
                         Title = "Cartão de Cidadão Inválido",
