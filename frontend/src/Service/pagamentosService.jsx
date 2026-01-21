@@ -235,10 +235,22 @@ export async function createPayHistory(body) {
 }
 
 export async function getPayHistoryById(token, id, opts = {}) {
-  const pageNumber = Number.isFinite(opts.pageNumber) ? Math.max(1, opts.pageNumber) : 1;
-  const pageSize   = Number.isFinite(opts.pageSize)   ? Math.max(1, opts.pageSize)   : 10;
+  const pageNumber = Number.isFinite(opts.pageNumber)
+    ? Math.max(1, opts.pageNumber)
+    : 1;
+  const pageSize = Number.isFinite(opts.pageSize)
+    ? Math.max(1, opts.pageSize)
+    : 10;
 
-  const url = new URL(`http://localhost:5136/api/v1/employee/${id}/paged`, window.location?.origin || "http://localhost");
+  if (!token) throw new Error("Token em falta.");
+  const beid = Number(id);
+  if (!Number.isFinite(beid)) throw new Error("ID inválido.");
+
+  const url = new URL(
+    `${API}/employee/${beid}/paged`,
+    window.location?.origin || "http://localhost"
+  );
+
   url.searchParams.set("pageNumber", String(pageNumber));
   url.searchParams.set("pageSize", String(pageSize));
 
@@ -246,22 +258,21 @@ export async function getPayHistoryById(token, id, opts = {}) {
     method: "GET",
     headers: {
       Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+      Authorization: `Bearer ${token}`
+    }
   });
 
+  if (!res.ok) throw new Error(`Erro HTTP ${res.status}`);
+
   const data = await res.json();
-  
-  const allPayments = data?.payHistories;
-
-  const totalCount = allPayments.length;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-
-  const items = allPayments
 
   return {
-    items,
-    meta: { pageNumber, pageSize, totalPages, totalCount },
+    employee: data.employee,
+    items: data.payHistories.items,
+    meta: data.payHistories.meta,
   };
 }
+
+
+
 

@@ -2,7 +2,12 @@ import React, { useEffect, useState } from "react";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
 import Loading from "../../components/Loading/Loading";
-import { formatDate, formatCurrencyEUR, freqLabel, paginate } from "../../utils/Utils";
+import {
+  formatDate,
+  formatCurrencyEUR,
+  freqLabel,
+  paginate,
+} from "../../utils/Utils";
 import { getPayHistoryById } from "../../Service/pagamentosService";
 
 export default function PayHistoryList() {
@@ -26,9 +31,13 @@ export default function PayHistoryList() {
       setLoading(true);
       setFetchError(null);
       try {
-        const data = await getPayHistoryById(token, id);
-        setPayments(data.items.items)
-        setTotalPages(data.items.meta.totalPages)
+        const data = await getPayHistoryById(token, id, {
+          pageNumber: currentPage,
+          pageSize: itemsPerPage,
+        });
+        console.log(data);
+        setPayments(data.items);
+        setTotalPages(data.meta.totalPages);
       } catch (err) {
         console.error(err);
         //setFetchError(err.message || "Erro desconhecido ao obter dados.");
@@ -79,7 +88,7 @@ export default function PayHistoryList() {
                           colSpan={4}
                           className="px-4 py-4 text-center text-muted"
                         >
-                          Sem registos.
+                          Registos não encontrados.
                         </td>
                       </tr>
                     ) : (
@@ -108,12 +117,17 @@ export default function PayHistoryList() {
               {/* Mobile Cards */}
               <div className="d-md-none">
                 {payments.length === 0 ? (
-                  <div className="text-center p-3 text-muted">Sem registos.</div>
+                  <div className="text-center p-3 text-muted">
+                    Registos não encontrados.
+                  </div>
                 ) : (
                   payments.map((p, idx) => {
                     const seq = (currentPage - 1) * itemsPerPage + idx + 1;
                     return (
-                      <div key={p.rateChangeDate} className="card mb-2 border-0 shadow-sm">
+                      <div
+                        key={p.rateChangeDate}
+                        className="card mb-2 border-0 shadow-sm"
+                      >
                         <div className="card-body">
                           <div className="d-flex justify-content-between align-items-start">
                             <div className="fw-semibold">Pagamento {seq}</div>
@@ -143,9 +157,9 @@ export default function PayHistoryList() {
                   totalPages={totalPages}
                   setPage={setCurrentPage}
                 />
-              ) : (<> </>)
-              }
-
+              ) : (
+                <> </>
+              )}
             </>
           )}
         </div>
