@@ -6,7 +6,7 @@ export default function Pagination({ currentPage, totalPages, setPage }) {
     setPage(() => Math.min(Math.max(1, Number(page) || 1), totalPages));
 
   return (
-    <div className="border-top p-3">
+    <div className="border-top p-2">
       <div className="d-flex justify-content-between align-items-center">
         <button
           className="btn btn-sm btn-outline-secondary"

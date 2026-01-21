@@ -239,7 +239,6 @@ export default function Pagamentos() {
 
   return (
     <div className="container mt-4">
-      <BackButton />
       <div className="mb-4 d-flex justify-content-between align-items-center">
         <h1 className="h3 mb-1">Gestão de Pagamentos</h1>
         {!loading && (
@@ -285,7 +284,7 @@ export default function Pagamentos() {
                       <th>Valor</th>
                       <th>Data</th>
                       <th className="text-center">Frequência</th>
-                      <th className="text-end">Ações</th>
+                      <th className="text-center" style={{width: 160}}>Ações</th>
                     </tr>
                   </thead>
                   <tbody>

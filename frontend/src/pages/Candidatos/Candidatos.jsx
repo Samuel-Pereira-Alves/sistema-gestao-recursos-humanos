@@ -10,6 +10,7 @@ import {
   openPdf,
 } from "../../Service/candidatosService";
 import { addNotification } from "../../utils/notificationBus";
+import Loading from "../../components/Loading/Loading";
 
 export default function Candidatos() {
   const [rows, setRows] = useState([]);
@@ -17,7 +18,7 @@ export default function Candidatos() {
 
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 4;
+  const itemsPerPage = 5;
 
   const [meta, setMeta] = useState({
     totalCount: 0,
@@ -25,7 +26,6 @@ export default function Candidatos() {
     pageNumber: 1,
   });
 
-  // Pesquisa + debounce
   const [searchTerm, setSearchTerm] = useState("");
   const [search, setSearch] = useState("");
 
@@ -37,12 +37,10 @@ export default function Candidatos() {
     return () => clearTimeout(t);
   }, [searchTerm]);
 
-  // Quando mudar a pesquisa → voltar à página 1
   useEffect(() => {
     setCurrentPage(1);
   }, [search]);
 
-  // Map DTO -> UI-table row
   const mapItem = (d) => {
     const id = d.jobCandidateId ?? d.jobCandidateID ?? d.id ?? d.JobCandidateId;
     const first = d.firstName ?? d.person?.firstName ?? "";
@@ -101,7 +99,8 @@ export default function Candidatos() {
       await fetchCandidatos(currentPage);
       addNotification(`O candidato ${nome} foi aprovado.`, "admin", { type: "EMPLOYEES" });
     } catch (e) {
-      alert("Erro ao aprovar candidato.");
+      //alert("Erro ao aprovar candidato.");
+      console.error(e)
     }
   };
 
@@ -124,10 +123,9 @@ export default function Candidatos() {
   };
 
   return (
-    <div className="container mt-3">
-      <BackButton />
-
-      <div className="mb-3 d-flex justify-content-between">
+    <div className="container mt-4">
+      {/* Header */}
+      <div className="mb-4 d-flex justify-content-between align-items-center">
         <h1 className="h4 mb-0">Gestão de Candidatos</h1>
         <span className="text-muted small">
           Total:&nbsp;
@@ -135,25 +133,43 @@ export default function Candidatos() {
         </span>
       </div>
 
-      {/* SEARCHBAR */}
-      <input
-        type="text"
-        className="form-control mb-3"
-        placeholder="Pesquisar por nome ou email…"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
+      {/* Search (estilo alinhado com as outras páginas) */}
+      <div className="card mb-3 border-0 shadow-sm">
+        <div className="card-body position-relative">
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Pesquisar por nome ou email…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            aria-label="Pesquisar candidatos"
+          />
+          {isLoading && (
+            <div
+              className="position-absolute top-50 end-0 translate-middle-y me-3 text-muted small"
+              aria-hidden="true"
+            >
+              <span className="spinner-border spinner-border-sm" /> A carregar...
+            </div>
+          )}
+        </div>
+      </div>
 
-      <div className="card shadow-sm">
+      <div className="card border-0 shadow-sm">
         <div className="card-body p-0">
-          {isLoading ? (
-            <div className="text-center py-3">
-              <div className="spinner-border"></div>
+          {isLoading && rows.length === 0 ? (
+            <div className="py-4">
+              <Loading text="Carregando candidatos..." />
             </div>
           ) : rows.length === 0 ? (
-            <div className="text-center py-3 text-muted">Candidatos não encontrados.</div>
+            <div className="text-center py-5">
+              <div className="alert alert-light border text-muted d-inline-block">
+                Candidatos não encontrados.
+              </div>
+            </div>
           ) : (
             <>
+              {/* Desktop Table */}
               <div className="table-responsive d-none d-sm-block">
                 <table className="table table-hover mb-0">
                   <thead className="table-light">
@@ -168,7 +184,7 @@ export default function Candidatos() {
                     {rows.map((c) => (
                       <tr key={c.id}>
                         <td className="text-center">{c.numero}</td>
-                        <td className="text-center">{c.nome}</td>
+                        <td className="text-center text-muted">{c.nome}</td>
                         <td className="text-center">
                           <button
                             className="btn btn-sm btn-outline-primary"
@@ -177,26 +193,63 @@ export default function Candidatos() {
                             Ver PDF
                           </button>
                         </td>
+
                         <td className="text-center">
-                          <div className="btn-group btn-group-sm">
+                          <div className="d-flex justify-content-center gap-2">
                             <button
-                              className="btn btn-outline-success"
+                              className="btn btn-sm btn-outline-success"
                               onClick={() => aprovarCandidato(c.id, c.nome, c.email)}
                             >
                               Aprovar
                             </button>
+
                             <button
-                              className="btn btn-outline-danger"
+                              className="btn btn-sm btn-outline-danger"
                               onClick={() => eliminarCandidato(c.id, c.nome, c.email)}
                             >
                               Eliminar
                             </button>
                           </div>
                         </td>
+
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile Cards no mesmo padrão dos outros ecrãs */}
+              <div className="d-sm-none">
+                {rows.map((c) => (
+                  <div key={c.id} className="border-bottom p-3">
+                    <h6>{c.nome}</h6>
+                    <p className="text-muted small mb-2">ID: {c.numero}</p>
+
+                    <div className="d-flex gap-2 mb-2">
+                      <button
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => downloadCvPdf(c.id)}
+                      >
+                        Ver PDF
+                      </button>
+                    </div>
+
+                    <div className="d-flex gap-2">
+                      <button
+                        className="btn btn-sm btn-outline-success"
+                        onClick={() => aprovarCandidato(c.id, c.nome, c.email)}
+                      >
+                        Aprovar
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => eliminarCandidato(c.id, c.nome, c.email)}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               {/* Pagination */}
@@ -206,12 +259,14 @@ export default function Candidatos() {
                   totalPages={meta.totalPages}
                   setPage={setCurrentPage}
                 />
-              ) : (<> </>)
-              }
+              ) : (
+                <></>
+              )}
             </>
           )}
         </div>
       </div>
     </div>
   );
+
 }

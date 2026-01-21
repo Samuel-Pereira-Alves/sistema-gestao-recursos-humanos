@@ -173,7 +173,6 @@ export default function Profile() {
     return (
       <div className="container mt-5">
         <div className="text-start">
-          <BackButton />
         </div>
         <div className="text-center">
           <div className="alert alert-light border text-muted d-inline-block">
@@ -185,8 +184,6 @@ export default function Profile() {
 
   return (
     <div className="container mt-4">
-      <BackButton />
-
       <div className="d-flex align-items-center mb-3">
         <h2 className="ms-2 h3">Perfil do Funcionário</h2>
       </div>

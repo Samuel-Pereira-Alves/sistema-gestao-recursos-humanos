@@ -13,9 +13,12 @@ import Movimentos from "./pages/Movimentos/Movimentos";
 import Pagamentos from "./pages/Pagamentos/Pagamentos";
 import ForbiddenPage from "./pages/Forbidden/Forbidden";
 import AuthGuard from "./components/AuthGuard/RequireAuth";
+import Navbar from "./components/Navbar/Navbar";
 
 function App() {
   return (
+    <>
+      <Navbar> </Navbar>
     <Routes>
       {/* Público */}
       <Route path="/" element={<Home />} />
@@ -31,7 +34,7 @@ function App() {
             <PayHistoryList />
           </AuthGuard>
         }
-      />
+        />
       <Route
         path="/dephistory"
         element={
@@ -39,23 +42,23 @@ function App() {
             <DepartmentHistoryList />
           </AuthGuard>
         }
-      />
+        />
       {/* <Route
         path="/profile/:id?"
         element={
           <AuthGuard allowedRoles={['admin']}>
-            <Profile />
+          <Profile />
           </AuthGuard>
-        }
-      />
-      <Route
-        path="/profile/"
-        element={
-          <AuthGuard allowedRoles={['employee', 'admin']}>
+          }
+          />
+          <Route
+          path="/profile/"
+          element={
+            <AuthGuard allowedRoles={['employee', 'admin']}>
             <Profile />
-          </AuthGuard>
+            </AuthGuard>
         }
-      /> */}
+        /> */}
 
       <Route
         path="/profile/:id"
@@ -64,7 +67,7 @@ function App() {
             <Profile />
           </AuthGuard>
         }
-      />
+        />
 
       {/* Somente admin */}
       <Route
@@ -74,7 +77,7 @@ function App() {
             <Candidatos />
           </AuthGuard>
         }
-      />
+        />
       <Route
         path="/funcionarios"
         element={
@@ -82,7 +85,7 @@ function App() {
             <Funcionarios />
           </AuthGuard>
         }
-      />
+        />
       <Route
         path="/gestao-pagamentos"
         element={
@@ -90,7 +93,7 @@ function App() {
             <Pagamentos />
           </AuthGuard>
         }
-      />
+        />
       <Route
         path="/gestao-movimentos"
         element={
@@ -98,8 +101,9 @@ function App() {
             <Movimentos />
           </AuthGuard>
         }
-      />
+        />
     </Routes>
+        </>
   );
 }
 

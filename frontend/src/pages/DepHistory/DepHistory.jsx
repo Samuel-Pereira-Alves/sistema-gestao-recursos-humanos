@@ -104,7 +104,6 @@
 
     return (
       <div className="container mt-4">
-        <BackButton />
 
         <div className="mb-4 d-flex justify-content-between align-items-center">
           <h1 className="h3 mb-3">Histórico de Departamentos</h1>

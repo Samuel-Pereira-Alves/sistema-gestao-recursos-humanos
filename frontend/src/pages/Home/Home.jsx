@@ -40,8 +40,7 @@ function Home() {
 
   return (
     <div>
-      <Navbar />
-      <main className="container" style={{ marginTop: "80px", marginBottom: "80px" }}>
+      <main className="container" style={{ marginTop: "0px", marginBottom: "80px" }}>
         <h2 className="mt-4">Bem-vindo ao Sistema de Gestão de RH</h2>
 
         <div className="my-5" />

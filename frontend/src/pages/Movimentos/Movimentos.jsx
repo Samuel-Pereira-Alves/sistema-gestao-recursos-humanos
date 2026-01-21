@@ -24,6 +24,7 @@ import {
   getAllDepartmentsFromEmployees,
   patchDepartmentHistory,
 } from "../../Service/departmentHistoryService";
+import Loading from "../../components/Loading/Loading";
 
 const SHIFT_LABELS = { 1: "Manhã", 2: "Tarde", 3: "Noite" };
 const resolveShiftLabel = (id) => SHIFT_LABELS[Number(id)] ?? "—";
@@ -305,235 +306,216 @@ export default function Movimentos() {
     return depa?.name ?? "ja";
   };
 
-  return (
-    <div className="container mt-4">
-      <BackButton />
-      <div className="mb-4 d-flex align-items-center justify-content-between">
-        <h1 className="h3 mb-1">Histórico de Departamentos</h1>
-        {!loading && (
-          <button className="btn btn-sm btn-primary" onClick={openCreate}>
-            Criar registo
-          </button>
+return (
+  <div className="container mt-4">
+
+    <div className="mb-4 d-flex align-items-center justify-content-between">
+      <h1 className="h3 mb-1">Histórico de Departamentos</h1>
+      {!loading && (
+        <button className="btn btn-sm btn-primary" onClick={openCreate}>
+          Criar registo
+        </button>
+      )}
+    </div>
+
+    {/* Search */}
+    <div className="card mb-3 border-0 shadow-sm">
+      <div className="card-body position-relative">
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Procurar por ID, colaborador, departamento, grupo ou data..."
+          value={searchTerm}
+          onChange={(e) => {
+            const v = e.target.value;
+            setSearchTerm(v);
+            if (serverPage !== 1) setServerPage(1);
+          }}
+          aria-label="Pesquisar histórico de departamentos"
+        />
+
+        {loading && (
+          <div
+            className="position-absolute top-50 end-0 translate-middle-y me-3 text-muted small"
+            aria-hidden="true"
+          >
+            <span className="spinner-border spinner-border-sm" /> A carregar...
+          </div>
         )}
       </div>
-
-      {/* Search */}
-      <div className="card mb-3 border-0 shadow-sm">
-        <div className="card-body position-relative">
-          <input
-            type="text"
-            className="form-control pe-5"
-            placeholder="Procurar por ID, colaborador, departamento, grupo ou data..."
-            value={searchTerm}
-            onChange={(e) => {
-              const v = e.target.value;
-              setSearchTerm(v);
-              if (serverPage !== 1) setServerPage(1);
-            }}
-            aria-label="Pesquisar histórico de departamentos"
-          />
-
-          {loading && (
-            <div
-              className="position-absolute top-50 end-0 translate-middle-y me-3 text-muted small"
-              aria-hidden="true"
-            >
-              <span className="spinner-border spinner-border-sm" />
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="card shadow-sm">
-        <div className="card-body p-0">
-          {loading ? (
-            <div className="text-center py-5">
-              <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Carregando...</span>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="table-responsive d-none d-md-block">
-                <table className="table table-hover mb-0">
-                  <thead className="table-light">
-                    <tr>
-                      <th className="px-4 py-3">Colaborador</th>
-                      <th className="px-4 py-3">Departamento</th>
-                      <th className="px-4 py-3">Grupo</th>
-                      <th className="px-4 py-3">Data Início</th>
-                      <th className="px-4 py-3">Data Fim</th>
-                      <th className="px-4 py-3 text-end">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="text-center text-muted py-4">
-                          Registos não encontrados.
-                        </td>
-                      </tr>
-                    ) : (
-                      items.map((h) => {
-                        const person = h?.person ?? {};
-                        const deptName = h?.dep?.name ?? getDepartmentName(h);
-                        const groupName = h?.dep?.groupName ?? getGroupName(h);
-                        const start = getStartDate(h);
-                        const end = getEndDate(h);
-
-                        const key = `${getBusinessEntityID(h)}|${getDepartmentID(h)}|${getShiftID(h)}|${start}`;
-
-                        return (
-                          <tr key={key}>
-                            <td className="px-4 py-3">
-                              {person.firstName} {person.lastName}
-                              <div className="small text-muted">
-                                ID:{" "}
-                                {h?.businessEntityID ??
-                                  person?.businessEntityID ??
-                                  "—"}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">{deptName}</td>
-                            <td className="px-4 py-3">{groupName}</td>
-                            <td className="px-4 py-3 text-muted">
-                              {formatDate(start)}
-                            </td>
-                            <td className="px-4 py-3 text-muted">
-                              {formatDate(end)}
-                            </td>
-                            <td className="px-4 py-3 text-end">
-                              <div className="d-flex justify-content-end gap-2">
-                                <button
-                                  className="btn btn-outline-primary"
-                                  onClick={() => openEdit(h)}
-                                  disabled={
-                                    String(
-                                      localStorage.getItem("businessEntityId"),
-                                    ) ===
-                                    String(
-                                      h?.businessEntityID ??
-                                      person?.businessEntityID,
-                                    )
-                                  }
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  className="btn btn-outline-danger"
-                                  onClick={() => openDelete(h)}
-                                  disabled={
-                                    String(
-                                      localStorage.getItem("businessEntityId"),
-                                    ) ===
-                                    String(
-                                      h?.businessEntityID ??
-                                      person?.businessEntityID,
-                                    )
-                                  }
-                                >
-                                  Eliminar
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile Cards */}
-              <div className="d-md-none">
-                {items.length === 0 ? (
-                  <div className="text-center p-3 text-muted">Registos não encontrados.</div>
-                ) : (
-                  items.map((h) => {
-                    const person = h?.person ?? {};
-                    const start = getStartDate(h);
-                    const end = getEndDate(h);
-                    const key = `${getBusinessEntityID(h)}|${getDepartmentID(h)}|${getShiftID(h)}|${start}`;
-
-                    return (
-                      <div key={key} className="border-bottom p-3">
-                        <h6 className="mb-1">
-                          <strong>
-                            {person.firstName} {person.lastName}
-                          </strong>
-                        </h6>
-                        <p className="text-muted small mb-1">
-                          <strong>ID:</strong>{" "}
-                          {h?.businessEntityID ??
-                            person?.businessEntityID ??
-                            "—"}
-                        </p>
-                        <p className="text-muted small mb-1">
-                          <strong>Departamento:</strong> {h?.dep?.name}
-                        </p>
-                        <p className="text-muted small mb-1">
-                          <strong>Grupo:</strong>{" "}
-                          {h?.dep?.groupName ?? getGroupName(h)}
-                        </p>
-                        <p className="text-muted small mb-1">
-                          <strong>Início:</strong> {formatDate(start)}
-                        </p>
-                        <p className="text-muted small mb-2">
-                          <strong>Fim:</strong> {formatDate(end)}
-                        </p>
-                        <div className="d-flex gap-2">
-                          <button
-                            className="btn btn-sm btn-outline-primary"
-                            onClick={() => openEdit(h)}
-                          >
-                            Editar
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-danger ms-2"
-                            onClick={() => openDelete(h)}
-                          >
-                            Apagar
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-
-              {/* Pagination */}
-              {items.length > 0 ? (
-                <Pagination
-                  currentPage={serverPage}
-                  totalPages={serverTotalPages}
-                  setPage={setServerPage}
-                />
-              ) : (<> </>)
-              }
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* 
-      {fetchError && (
-        <div className="alert alert-danger mt-3">{fetchError}</div>
-      )} */}
-
-      <AssignmentModal
-        action={action}
-        setAction={setAction}
-        closeAction={closeAction}
-        submitAction={submitAction}
-        employees={employees}
-        departments={departments}
-        resolveDepartmentName={resolveDepartmentName}
-        resolveShiftLabel={resolveShiftLabel}
-        formatDate={formatDate}
-        dateInputToIsoMidnight={dateInputToIsoMidnight}
-      />
     </div>
-  );
+
+    <div className="card border-0 shadow-sm">
+      <div className="card-body p-0">
+        {loading && items.length === 0 ? (
+          <div className="py-4">
+            <Loading text="Carregando histórico..." />
+          </div>
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="table-responsive d-none d-md-block">
+              <table className="table table-hover mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th>Colaborador</th>
+                    <th>Departamento</th>
+                    <th>Grupo</th>
+                    <th>Data Início</th>
+                    <th>Data Fim</th>
+                    <th className="text-start" style={{width: 2}}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center text-muted">
+                        Registos não encontrados.
+                      </td>
+                    </tr>
+                  ) : (
+                    items.map((h) => {
+                      const person = h?.person ?? {};
+                      const deptName = h?.dep?.name ?? getDepartmentName(h);
+                      const groupName = h?.dep?.groupName ?? getGroupName(h);
+                      const start = getStartDate(h);
+                      const end = getEndDate(h);
+                      const key = `${getBusinessEntityID(h)}|${getDepartmentID(h)}|${getShiftID(h)}|${start}`;
+
+                      const isSelf =
+                        String(localStorage.getItem("businessEntityId")) ===
+                        String(h?.businessEntityID ?? person?.businessEntityID);
+
+                      return (
+                        <tr key={key}>
+                          <td>
+                            {person.firstName} {person.lastName}
+                            <div className="small text-muted">
+                              ID:{" "}
+                              {h?.businessEntityID ??
+                                person?.businessEntityID ??
+                                "—"}
+                            </div>
+                          </td>
+                          <td>{deptName}</td>
+                          <td>{groupName}</td>
+                          <td className="text-muted">{formatDate(start)}</td>
+                          <td className="text-muted">{formatDate(end)}</td>
+                          <td className="text-end">
+                            <div className="d-flex justify-content-end gap-2">
+                              <button
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => openEdit(h)}
+                                disabled={isSelf}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => openDelete(h)}
+                                disabled={isSelf}
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="d-md-none">
+              {items.length === 0 ? (
+                <div className="text-center p-3 text-muted">Registos não encontrados.</div>
+              ) : (
+                items.map((h) => {
+                  const person = h?.person ?? {};
+                  const start = getStartDate(h);
+                  const end = getEndDate(h);
+                  const key = `${getBusinessEntityID(h)}|${getDepartmentID(h)}|${getShiftID(h)}|${start}`;
+
+                  const isSelf =
+                    String(localStorage.getItem("businessEntityId")) ===
+                    String(h?.businessEntityID ?? person?.businessEntityID);
+
+                  return (
+                    <div key={key} className="border-bottom p-3">
+                      <h6 className="mb-1">
+                        <strong>
+                          {person.firstName} {person.lastName}
+                        </strong>
+                      </h6>
+                      <p className="text-muted small mb-1">
+                        <strong>ID:</strong>{" "}
+                        {h?.businessEntityID ?? person?.businessEntityID ?? "—"}
+                      </p>
+                      <p className="text-muted small mb-1">
+                        <strong>Departamento:</strong> {h?.dep?.name ?? getDepartmentName(h)}
+                      </p>
+                      <p className="text-muted small mb-1">
+                        <strong>Grupo:</strong> {h?.dep?.groupName ?? getGroupName(h)}
+                      </p>
+                      <p className="text-muted small mb-1">
+                        <strong>Início:</strong> {formatDate(start)}
+                      </p>
+                      <p className="text-muted small mb-2">
+                        <strong>Fim:</strong> {formatDate(end)}
+                      </p>
+                      <div className="d-flex gap-2">
+                        <button
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => openEdit(h)}
+                          disabled={isSelf}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => openDelete(h)}
+                          disabled={isSelf}
+                        >
+                          Apagar
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Pagination */}
+            {items.length > 0 ? (
+              <Pagination
+                currentPage={serverPage}
+                totalPages={serverTotalPages}
+                setPage={setServerPage}
+              />
+            ) : (
+              <></>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+
+    {/* Mantidos os modais restantes */}
+    <AssignmentModal
+      action={action}
+      setAction={setAction}
+      closeAction={closeAction}
+      submitAction={submitAction}
+      employees={employees}
+      departments={departments}
+      resolveDepartmentName={resolveDepartmentName}
+      resolveShiftLabel={resolveShiftLabel}
+      formatDate={formatDate}
+      dateInputToIsoMidnight={dateInputToIsoMidnight}
+    />
+  </div>
+);
+
 }
