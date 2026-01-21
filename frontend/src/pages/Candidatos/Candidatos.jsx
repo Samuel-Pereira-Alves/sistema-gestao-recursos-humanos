@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
+import axios from "axios";
 import {
   approveCandidate,
   deleteCandidate,
@@ -95,8 +96,21 @@ export default function Candidatos() {
   const aprovarCandidato = async (id, nome, email) => {
     try {
       await approveCandidate(id);
-      alert("Candidato aprovado.");
       await fetchCandidatos(currentPage);
+      try {
+        alert("Candidato aprovado.");
+        await axios.post("http://localhost:5136/api/email/send", {
+          to: email,
+          subject: "Candidatura Feedback",
+          text: "Temos o prazer de informar que a sua candidatura foi aprovada. Agradecemos o interesse demonstrado e valorizamos o tempo dedicado ao processo",
+        });
+      } catch (e) {
+        if (e.response) {
+          console.error("Erro API:", e.response.data);
+        } else {
+          console.error("Erro rede/CORS:", e.message);
+        }
+      }
       addNotification(`O candidato ${nome} foi aprovado.`, "admin", { type: "EMPLOYEES" });
     } catch (e) {
       //alert("Erro ao aprovar candidato.");
@@ -110,12 +124,25 @@ export default function Candidatos() {
 
       await deleteCandidate(id);
       alert("Candidato eliminado.");
-
+      
       const result = await fetchCandidatos(currentPage);
       if ((result.items?.length ?? 0) === 0 && currentPage > 1) {
         setCurrentPage(Math.max(1, currentPage - 1));
       }
-
+      
+      try {
+        await axios.post("http://localhost:5136/api/email/send", {
+          to: email,
+          subject: "Candidatura Feedback",
+          text: "Infelizmente não vamos dar seguimento à sua candidatura. Agradecemos o interesse demonstrado e valorizamos o tempo dedicado ao processo",
+        });
+      } catch (e) {
+        if (e.response) {
+          console.error("Erro API:", e.response.data);
+        } else {
+          console.error("Erro rede/CORS:", e.message);
+        }
+      }
       addNotification(`Candidato ${nome} eliminado.`, "admin", { type: "CANDIDATE" });
     } catch (e) {
       alert("Erro ao eliminar.");
@@ -139,7 +166,7 @@ export default function Candidatos() {
           <input
             type="text"
             className="form-control"
-            placeholder="Pesquisar por nome ou email…"
+            placeholder="Procurar por nome..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             aria-label="Pesquisar candidatos"

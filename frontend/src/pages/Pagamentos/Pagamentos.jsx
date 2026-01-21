@@ -253,7 +253,7 @@ export default function Pagamentos() {
           <input
             type="text"
             className="form-control"
-            placeholder="Procurar por ID, colaborador, frequência, valor ou data..."
+            placeholder="Procurar por nome..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />

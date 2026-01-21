@@ -136,6 +136,7 @@ export async function approveCandidate(id) {
     } catch {}
     throw new Error(`Falha ao aprovar candidato (HTTP ${res.status}).${details}`);
   }
+
 }
 
 export async function deleteCandidate(id) {

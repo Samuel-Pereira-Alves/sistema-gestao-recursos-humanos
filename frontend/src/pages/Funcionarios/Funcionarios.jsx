@@ -139,7 +139,7 @@ return (
           <input
             type="text"
             className="form-control"
-            placeholder="Procurar funcionários por nome, email, cargo, ID…"
+            placeholder="Procurar funcionários por nome…"
             value={searchTerm}
             onChange={(e) => {
               const v = e.target.value;
