@@ -10,12 +10,10 @@ import {
   openPdf,
 } from "../../Service/candidatosService";
 import { addNotification } from "../../utils/notificationBus";
-import axios from "axios";
 
 export default function Candidatos() {
   const [rows, setRows] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
 
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,9 +42,6 @@ export default function Candidatos() {
     setCurrentPage(1);
   }, [search]);
 
-  // Evitar race conditions
-  const reqIdRef = useRef(0);
-
   // Map DTO -> UI-table row
   const mapItem = (d) => {
     const id = d.jobCandidateId ?? d.jobCandidateID ?? d.id ?? d.JobCandidateId;
@@ -66,10 +61,8 @@ export default function Candidatos() {
   const fetchCandidatos = useCallback(
     async (page = currentPage) => {
       const token = localStorage.getItem("authToken");
-      const myReq = ++reqIdRef.current;
 
       setIsLoading(true);
-      setError("");
 
       try {
         const { items, meta } = await getCandidatos(token, {
@@ -78,8 +71,6 @@ export default function Candidatos() {
           search,
         });
 
-        if (myReq !== reqIdRef.current) return; // ignora resposta atrasada
-
         const mapped = (items ?? []).map(mapItem);
         setRows(mapped);
         setMeta(meta);
@@ -87,13 +78,11 @@ export default function Candidatos() {
         return { items: mapped, meta };
       } catch (e) {
         console.error(e);
-        if (myReq !== reqIdRef.current) return;
-        setError("Erro ao carregar candidatos.");
         setRows([]);
         setMeta((m) => ({ ...m, totalPages: 1, pageNumber: 1 }));
         return { items: [], meta: { totalPages: 1, pageNumber: 1 } };
       } finally {
-        if (myReq === reqIdRef.current) setIsLoading(false);
+        setIsLoading(false);
       }
     },
     [currentPage, search]
@@ -162,7 +151,7 @@ export default function Candidatos() {
               <div className="spinner-border"></div>
             </div>
           ) : rows.length === 0 ? (
-            <div className="text-center py-3 text-muted">Sem candidatos</div>
+            <div className="text-center py-3 text-muted">Candidatos não encontrados.</div>
           ) : (
             <>
               <div className="table-responsive d-none d-sm-block">
@@ -211,11 +200,14 @@ export default function Candidatos() {
               </div>
 
               {/* Pagination */}
-              <Pagination
-                currentPage={currentPage}
-                totalPages={meta.totalPages}
-                setPage={setCurrentPage}
-              />
+              {rows.length > 0 ? (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={meta.totalPages}
+                  setPage={setCurrentPage}
+                />
+              ) : (<> </>)
+              }
             </>
           )}
         </div>

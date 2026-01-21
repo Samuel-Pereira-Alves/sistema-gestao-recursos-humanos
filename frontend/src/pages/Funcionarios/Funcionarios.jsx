@@ -51,37 +51,39 @@ function Funcionarios() {
 
 
 
-const fetchFuncionarios = useCallback(
-  async (page = currentPage) => {
-    const token = localStorage.getItem("authToken");
-    setLoading(true);
-    // setRows((prev) => prev); // opcional: não é necessário
+  const fetchFuncionarios = useCallback(
+    async (page = currentPage) => {
+      const token = localStorage.getItem("authToken");
+      setLoading(true);
+      // setRows((prev) => prev); // opcional: não é necessário
 
-    try {
-      const { items, meta } = await getEmployees(token, {
-        pageNumber: page,
-        pageSize: itemsPerPage,
-        search: debouncedSearch, // pesquisa server-side
-      });
+      try {
+        const { items, meta } = await getEmployees(token, {
+          pageNumber: page,
+          pageSize: itemsPerPage,
+          search: debouncedSearch, // pesquisa server-side
+        });
 
-      setRows(items);
-      setMeta(meta);
-      return { items, meta };
-    } catch (error) {
-      if (error?.name !== "AbortError") {
-        console.error(error);
-        alert(error?.message || "Erro ao carregar funcionários.");
-        setRows([]);
-        setMeta((m) => ({ ...m, totalCount: 0, totalPages: 1, pageNumber: 1 }));
+
+        console.log(items)
+        setRows(items);
+        setMeta(meta);
+        return { items, meta };
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          console.error(error);
+          //alert(error?.message || "Erro ao carregar funcionários.");
+          setRows([]);
+          setMeta((m) => ({ ...m, totalCount: 0, totalPages: 1, pageNumber: 1 }));
+        }
+        return { items: [], meta: { totalPages: 1, pageNumber: page } };
+      } finally {
+        // 👇 SEMPRE desligar o loading
+        setLoading(false);
       }
-      return { items: [], meta: { totalPages: 1, pageNumber: page } };
-    } finally {
-      // 👇 SEMPRE desligar o loading
-      setLoading(false);
-    }
-  },
-  [currentPage, itemsPerPage, debouncedSearch]
-);
+    },
+    [currentPage, itemsPerPage, debouncedSearch]
+  );
 
 
   // Dispara quando página ou pesquisa mudam
@@ -175,7 +177,7 @@ const fetchFuncionarios = useCallback(
               className="form-control form-control-sm"
               placeholder="Procurar funcionários por nome, email, cargo, ID…"
               value={searchTerm}
-              onChange={(e) => {  
+              onChange={(e) => {
                 const v = e.target.value;
                 setSearchTerm(v); // 👈 só atualiza: debounce + efeitos tratam o resto
               }}
@@ -230,7 +232,7 @@ const fetchFuncionarios = useCallback(
                                 <button
                                   disabled={
                                     String(localStorage.getItem("businessEntityId")) ===
-                                      String(id) || isDeleting
+                                    String(id) || isDeleting
                                   }
                                   className="btn btn-sm btn-outline-danger"
                                   onClick={() => handleDelete(f)}
@@ -290,11 +292,14 @@ const fetchFuncionarios = useCallback(
                 </div>
 
                 {/* Pagination */}
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={meta.totalPages}
-                  setPage={setCurrentPage}
-                />
+                {rows.length > 0 ? (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={meta.totalPages}
+                    setPage={setCurrentPage}
+                  />
+                ) : (<> </>)
+                }
               </>
             )}
           </div>

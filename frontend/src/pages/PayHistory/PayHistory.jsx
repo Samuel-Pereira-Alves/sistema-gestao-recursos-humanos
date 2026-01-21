@@ -1,17 +1,13 @@
 import React, { useEffect, useState } from "react";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
-import EmployeeDetails from "../../components/EmployeeDetails/EmployeeDetails";
 import Loading from "../../components/Loading/Loading";
-import {formatDate,formatCurrencyEUR,freqLabel,paginate} from "../../utils/Utils";
-import { getEmployee } from "../../Service/employeeService";
-import { mapPayHistories } from "../../utils/Utils";
+import { formatDate, formatCurrencyEUR, freqLabel, paginate } from "../../utils/Utils";
 import { getPayHistoryById } from "../../Service/pagamentosService";
 
 export default function PayHistoryList() {
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
-  const [employee, setEmployee] = useState(null);
   const [payments, setPayments] = useState([]);
   const [totalPages, setTotalPages] = useState(0);
 
@@ -31,12 +27,11 @@ export default function PayHistoryList() {
       setFetchError(null);
       try {
         const data = await getPayHistoryById(token, id);
-        console.log(data)
         setPayments(data.items.items)
         setTotalPages(data.items.meta.totalPages)
       } catch (err) {
         console.error(err);
-        setFetchError(err.message || "Erro desconhecido ao obter dados.");
+        //setFetchError(err.message || "Erro desconhecido ao obter dados.");
       } finally {
         setLoading(false);
       }
@@ -84,7 +79,7 @@ export default function PayHistoryList() {
                           colSpan={4}
                           className="px-4 py-4 text-center text-muted"
                         >
-                          Sem registos
+                          Sem registos.
                         </td>
                       </tr>
                     ) : (
@@ -113,7 +108,7 @@ export default function PayHistoryList() {
               {/* Mobile Cards */}
               <div className="d-md-none">
                 {payments.length === 0 ? (
-                  <div className="text-center p-3 text-muted">Sem registos</div>
+                  <div className="text-center p-3 text-muted">Sem registos.</div>
                 ) : (
                   payments.map((p, idx) => {
                     const seq = (currentPage - 1) * itemsPerPage + idx + 1;
@@ -142,11 +137,15 @@ export default function PayHistoryList() {
               </div>
 
               {/* Pagination */}
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                setPage={setCurrentPage}
-              />
+              {payments.length > 0 ? (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  setPage={setCurrentPage}
+                />
+              ) : (<> </>)
+              }
+
             </>
           )}
         </div>

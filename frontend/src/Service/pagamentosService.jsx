@@ -29,36 +29,27 @@ async function http(path, init = {}) {
       body = await res.text();
     }
   } catch {
-    // fallback defensivo
     body = await res.text();
   }
  
-  // Se por alguma razão vier JSON como string, tenta converter
   if (typeof body === "string") {
     try {
       body = JSON.parse(body);
     } catch {
-      /* fica como texto */
     }
   }
  
   if (!res.ok) {
-    // Erro coerente em TODO o app
     throw { status: res.status, body };
   }
  
   return body;
 }
- 
-
-
-// Service/employeeService.js
 
 export async function getEmployeesPaged({
   pageNumber = 1,
   pageSize = 20,
-  search = "",
-  signal,
+  search = ""
 } = {}) {
   const token = localStorage.getItem("authToken");
 
@@ -84,7 +75,6 @@ export async function getEmployeesPaged({
       signal,
     });
   } catch (err) {
-    // Erros de rede/abort
     if (err?.name === "AbortError") throw err;
     throw new Error(`Falha na ligação ao servidor: ${err?.message || "erro de rede"}`);
   }
@@ -112,13 +102,11 @@ export async function getEmployeesPaged({
     throw new Error("Resposta do servidor inválida (JSON).");
   }
 
-  // Normalização do PagedResult<EmployeeDto>
   const items = Array.isArray(data?.items) ? data.items : [];
   const totalCount = Number(data?.totalCount ?? 0);
   const respPageNumber = Number(data?.pageNumber ?? pageNumber) || 1;
   const respPageSize = Number(data?.pageSize ?? pageSize) || 20;
 
-  // Usa totalPages do backend se existir; caso contrário, calcula
   const totalPagesFromServer = Number(data?.totalPages);
   const computedTotalPages = Math.max(
     1,
@@ -136,7 +124,6 @@ export async function getEmployeesPaged({
     totalPages,
   };
 }
-
 
 export async function getAllPayments(
   { pageNumber = 1, pageSize = 5, search = "", signal } = {}
@@ -156,8 +143,7 @@ export async function getAllPayments(
     headers: {
       Accept: "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    signal, // 👈 suporta cancelamento
+    }
   });
 
   if (!res.ok) {
@@ -167,7 +153,6 @@ export async function getAllPayments(
 
   const data = await res.json();
 
-  // 👇 Normaliza camelCase/PascalCase e garante totalPages
   const normalized = {
     items: data.items ?? data.Items ?? [],
     totalCount: data.totalCount ?? data.TotalCount ?? 0,
@@ -188,12 +173,9 @@ export async function getAllPayments(
   return normalized;
 }
 
-
-// Service/pagamentosService.js
 export async function listPagamentosFlattened(pageNumber = 1, pageSize = 10) {
   const token = localStorage.getItem("authToken");
 
-  // constrói a URL de forma segura
   const url = new URL("http://localhost:5136/api/v1/employee/paged");
   url.searchParams.set("pageNumber", String(pageNumber));
   url.searchParams.set("pageSize", String(pageSize));
@@ -256,10 +238,7 @@ export async function getPayHistoryById(token, id, opts = {}) {
   const pageNumber = Number.isFinite(opts.pageNumber) ? Math.max(1, opts.pageNumber) : 1;
   const pageSize   = Number.isFinite(opts.pageSize)   ? Math.max(1, opts.pageSize)   : 10;
 
-  // ⚠️ Este endpoint devolve EmployeeDto, não devolve { items, meta }
-  // Não concatena "&amp;", usa searchParams.
   const url = new URL(`http://localhost:5136/api/v1/employee/${id}/paged`, window.location?.origin || "http://localhost");
-  // Estes params são ignorados pelo servidor neste endpoint, mas não fazem mal.
   url.searchParams.set("pageNumber", String(pageNumber));
   url.searchParams.set("pageSize", String(pageSize));
 
@@ -271,17 +250,13 @@ export async function getPayHistoryById(token, id, opts = {}) {
     },
   });
 
-
   const data = await res.json();
-
   
-  // Extrai histories do DTO (suporta departmentHistories/DepartmentHistories)
   const allPayments = data?.payHistories;
 
-      const totalCount = allPayments.length;
+  const totalCount = allPayments.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-  // Paginação client-side
   const items = allPayments
 
   return {

@@ -31,28 +31,16 @@ const resolveShiftLabel = (id) => SHIFT_LABELS[Number(id)] ?? "—";
 export default function Movimentos() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
-
-  // Itens (já flattened vindos do backend)
   const [items, setItems] = useState([]);
-
-  // Colaboradores (para modal)
   const [employees, setEmployees] = useState([]);
-
-  // Departamentos (para resolvers de nome, etc.)
   const [departments, setDepartments] = useState([]);
 
-  // Pesquisa + debounce
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedTerm, setDebouncedTerm] = useState("");
 
-  // Paginação SERVER-SIDE
   const [serverPage, setServerPage] = useState(1);
   const [serverTotalPages, setServerTotalPages] = useState(1);
   const itemsPerPage = 5;
-
-  // Concorrência / cancelamento
-  const abortRef = useRef(null);
-  const reqIdRef = useRef(0);
 
   // Debounce 300ms
   useEffect(() => {
@@ -60,7 +48,6 @@ export default function Movimentos() {
     return () => clearTimeout(t);
   }, [searchTerm]);
 
-  // Loader principal (página + termo), com AbortController e clamp
   const load = useCallback(
     async (page, term) => {
       setFetchError(null);
@@ -68,72 +55,51 @@ export default function Movimentos() {
       const safePage = Math.max(1, Number(page) || 1);
       const safeTerm = (term ?? "").toString();
 
-      // cancela o pedido anterior
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      const myReq = ++reqIdRef.current;
       setLoading(true);
 
       try {
         const data = await getAllDepartments({
           pageNumber: safePage,
           pageSize: itemsPerPage,
-          query: safeTerm, // pesquisa server-side
-          signal: controller.signal,
+          query: safeTerm
         });
-
-        if (myReq !== reqIdRef.current) return; // ignora respostas fora de ordem
 
         const newTotalPages = Math.max(1, Number(data?.totalPages || 1));
 
-        // clamp para última página válida
         if (safePage > newTotalPages) {
           setServerTotalPages(newTotalPages);
           setServerPage(newTotalPages);
-          return; // o useEffect volta a invocar load com a nova página
+          return;
         }
 
-        // Normalização: itens devem vir em data.items (array)
         const arr = Array.isArray(data?.items) ? data.items : [];
         setItems(arr);
         setServerTotalPages(newTotalPages);
       } catch (err) {
         if (err?.name === "AbortError") return;
-        if (myReq !== reqIdRef.current) return;
 
         console.error("[load] erro:", err);
-        setFetchError(err?.message || "Erro a carregar dados.");
+        //setFetchError(err?.message || "Erro a carregar dados.");
         setItems([]);
         setServerTotalPages(1);
       } finally {
-        if (myReq === reqIdRef.current) setLoading(false);
+        setLoading(false);
       }
     },
     [itemsPerPage],
   );
 
-  // Reage a (página, termo debounced)
   useEffect(() => {
     load(serverPage, debouncedTerm);
   }, [serverPage, debouncedTerm, load]);
 
-  // Cleanup abort ao desmontar
-  useEffect(() => {
-    return () => abortRef.current?.abort();
-  }, []);
-
-  // Carregar lista de departamentos uma vez (best-effort)
   useEffect(() => {
     (async () => {
-      try {
-        const token = localStorage.getItem("authToken");
-        const deps = await getAllDepartmentsFromEmployees(token);
-        setDepartments(Array.isArray(deps) ? deps : []);
-      } catch {
-        // ignora erros do dropdown
-      }
+
+      const token = localStorage.getItem("authToken");
+      const deps = await getAllDepartmentsFromEmployees(token);
+      setDepartments(Array.isArray(deps) ? deps : []);
+
     })();
   }, []);
 
@@ -333,7 +299,6 @@ export default function Movimentos() {
     }
   };
 
-  // Usa o nome que vem no DTO (h.dep.name) e faz fallback por ID se necessário.
   const resolveDepartmentName = (id) => {
     const depa = departments.find((d) => d.departmentID == id);
 
@@ -363,12 +328,11 @@ export default function Movimentos() {
             onChange={(e) => {
               const v = e.target.value;
               setSearchTerm(v);
-              // reset da página só quando necessário
               if (serverPage !== 1) setServerPage(1);
             }}
             aria-label="Pesquisar histórico de departamentos"
           />
-          {/* Spinner subtil dentro da searchbar enquanto pesquisa */}
+
           {loading && (
             <div
               className="position-absolute top-50 end-0 translate-middle-y me-3 text-muted small"
@@ -407,17 +371,11 @@ export default function Movimentos() {
                     {items.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="text-center text-muted py-4">
-                          Sem registos
+                          Registos não encontrados.
                         </td>
                       </tr>
                     ) : (
                       items.map((h) => {
-                        // Assumimos que o backend envia um DTO flattened:
-                        // {
-                        //   businessEntityID, departmentID, shiftID, startDate, endDate,
-                        //   person: { firstName, lastName, businessEntityID? },
-                        //   dep: { name, groupName }
-                        // }
                         const person = h?.person ?? {};
                         const deptName = h?.dep?.name ?? getDepartmentName(h);
                         const groupName = h?.dep?.groupName ?? getGroupName(h);
@@ -456,7 +414,7 @@ export default function Movimentos() {
                                     ) ===
                                     String(
                                       h?.businessEntityID ??
-                                        person?.businessEntityID,
+                                      person?.businessEntityID,
                                     )
                                   }
                                 >
@@ -471,7 +429,7 @@ export default function Movimentos() {
                                     ) ===
                                     String(
                                       h?.businessEntityID ??
-                                        person?.businessEntityID,
+                                      person?.businessEntityID,
                                     )
                                   }
                                 >
@@ -490,7 +448,7 @@ export default function Movimentos() {
               {/* Mobile Cards */}
               <div className="d-md-none">
                 {items.length === 0 ? (
-                  <div className="text-center p-3 text-muted">Sem registos</div>
+                  <div className="text-center p-3 text-muted">Registos não encontrados.</div>
                 ) : (
                   items.map((h) => {
                     const person = h?.person ?? {};
@@ -544,30 +502,25 @@ export default function Movimentos() {
                 )}
               </div>
 
-              {/* Empty state (quando sem items) */}
-              {!items.length && (
-                <div className="p-4">
-                  <p className="text-muted mb-0">
-                    Sem resultados para <strong>{debouncedTerm || "…"}</strong>.
-                    Tenta outro termo.
-                  </p>
-                </div>
-              )}
 
               {/* Pagination */}
-              <Pagination
-                currentPage={serverPage}
-                totalPages={serverTotalPages}
-                setPage={setServerPage} // garantir número
-              />
+              {items.length > 0 ? (
+                <Pagination
+                  currentPage={serverPage}
+                  totalPages={serverTotalPages}
+                  setPage={setServerPage}
+                />
+              ) : (<> </>)
+              }
             </>
           )}
         </div>
       </div>
 
+      {/* 
       {fetchError && (
         <div className="alert alert-danger mt-3">{fetchError}</div>
-      )}
+      )} */}
 
       <AssignmentModal
         action={action}
