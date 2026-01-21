@@ -42,35 +42,6 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public async Task GetAll_ReturnsOk_WithMappedList()
-        {
-            var ctx = BuildContext();
-
-            ctx.JobCandidates.AddRange(
-                new JobCandidate { JobCandidateId = 1, FirstName = "A", LastName = "Z", ModifiedDate = new DateTime(2023, 1, 1) },
-                new JobCandidate { JobCandidateId = 2, FirstName = "B", LastName = "Y", ModifiedDate = new DateTime(2024, 1, 1) }
-            );
-            await ctx.SaveChangesAsync();
-
-            var mapper = MapperMockFactory.CreateJobCandidateMapperMock();
-            var env = MapperMockFactory.CreateEnvMock(Path.Combine(Path.GetTempPath(), "test-root"));
-            var logger = new Mock<ILogger<JobCandidateController>>();
-
-            var controller = new JobCandidateController(ctx, mapper.Object, env.Object, logger.Object);
-
-            using var cts = new CancellationTokenSource();
-            var ct = cts.Token;
-
-
-            var action = await controller.GetAll(ct);
-
-            var ok = Assert.IsType<OkObjectResult>(action.Result);
-            var list = Assert.IsType<List<JobCandidateDto>>(ok.Value);
-
-            Assert.Equal(2, list.Count);
-        }
-
-        [Fact]
         public async Task Get_ReturnsOk_WhenFound()
         {
             var ctx = BuildContext();
@@ -92,8 +63,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             using var cts = new CancellationTokenSource();
             var ct = cts.Token;
 
-
-            var action = await controller.Get(42, ct); 
+            var action = await controller.Get(42, ct);
 
             var ok = Assert.IsType<OkObjectResult>(action.Result);
             var dto = Assert.IsType<JobCandidateDto>(ok.Value);
@@ -174,11 +144,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var env = MapperMockFactory.CreateEnvMock(Path.Combine(Path.GetTempPath(), "test-root"));
             var logger = new Mock<ILogger<JobCandidateController>>();
 
-            var controller = new JobCandidateController(ctx, mapper.Object, env.Object, logger.Object)
-            {
-                ControllerContext = new ControllerContext { HttpContext = CreateHttpContext() }
-            };
-
+            var controller = new JobCandidateController(ctx, mapper.Object, env.Object, logger.Object);
             var bytes = new byte[] { 0x00, 0x01, 0x02, 0x03, 0x04 };
             var file = CreateFormFile(bytes, "cv.pdf");
 

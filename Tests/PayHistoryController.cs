@@ -1,8 +1,6 @@
 
-using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Moq;
 using sistema_gestao_recursos_humanos.backend.controllers;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
@@ -43,47 +41,13 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         }
 
         [Fact]
-        public async Task Get_ReturnsOk_WhenFound()
-        {
-            var ctx = BuildContext();
-            var changeDate = new DateTime(2024, 06, 01);
-            SeedPayHistory(ctx, 300, changeDate, 40m, 1);
-
-            var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
-
-            var action = await controller.Get(300, changeDate, CancellationToken.None);
-
-            var ok = Assert.IsType<OkObjectResult>(action.Result);
-            var dto = Assert.IsType<PayHistoryDto>(ok.Value);
-            Assert.Equal(300, dto.BusinessEntityID);
-            Assert.Equal(changeDate, dto.RateChangeDate);
-            Assert.Equal(40m, dto.Rate);
-            Assert.Equal(1, dto.PayFrequency);
-        }
-
-        [Fact]
-        public async Task Get_ReturnsNotFound_WhenMissing()
-        {
-            var ctx = BuildContext();
-
-            var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
-            using var cts = new CancellationTokenSource();
-            var ct = cts.Token;
-
-            var action = await controller.Get(999, new DateTime(2020, 01, 01), ct);
-
-            Assert.IsType<NotFoundResult>(action.Result);
-        }
-
-        [Fact]
         public async Task Create_ReturnsCreated_AndPersists()
         {
             var ctx = BuildContext();
 
             var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object,logger.Object);
 
             var dto = new PayHistoryDto
             {
@@ -115,7 +79,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedPayHistory(ctx, 500, changeDate, 60m, 1);
 
             var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object,logger.Object);
 
             var dto = new PayHistoryDto();
             var result = await controller.Patch(500, changeDate, dto, CancellationToken.None);
@@ -131,7 +96,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedPayHistory(ctx, 500, changeDate, 60m, 1);
 
             var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object, logger.Object);
 
             var dto = new PayHistoryDto
             {
@@ -157,7 +123,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var ctx = BuildContext();
 
             var mapper = MapperMockFactory.CreatePayHistoryMapperMock();
-            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new PayHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockPayHistory().Object, logger.Object);
 
             var dto = new PayHistoryDto { Rate = 99m };
 

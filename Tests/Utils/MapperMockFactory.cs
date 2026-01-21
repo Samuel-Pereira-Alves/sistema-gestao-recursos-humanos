@@ -5,6 +5,7 @@ using Moq;
 using sistema_gestao_recursos_humanos.backend.controllers;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
+using sistema_gestao_recursos_humanos.backend.services;
 
 namespace sistema_gestao_recursos_humanos.Tests.Utils
 {
@@ -357,6 +358,14 @@ namespace sistema_gestao_recursos_humanos.Tests.Utils
         {
             return new Mock<ILogger<NotificationController>>(MockBehavior.Loose);
         }
+
+        
+public static Mock<IAppLogService> CreateAppLogMock()
+    {
+        var mock = new Mock<IAppLogService>(MockBehavior.Loose);
+        return mock;
+    }
+
         public static Mock<ILogger<AuthController>> CreateLoggerMockAuth()
         {
             return new Mock<ILogger<AuthController>>(MockBehavior.Loose);

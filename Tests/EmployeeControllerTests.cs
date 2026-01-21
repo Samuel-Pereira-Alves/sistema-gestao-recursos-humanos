@@ -72,7 +72,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedEmployee(ctx, id: 101, jobTitle: "QA");
 
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object, logger.Object);
 
             using var cts = new CancellationTokenSource();
             var ct = cts.Token;
@@ -93,7 +94,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedEmployee(ctx, id: 100, jobTitle: "Dev");
 
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object, logger.Object);
 
             using var cts = new CancellationTokenSource();
             var ct = cts.Token;
@@ -109,7 +111,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object, logger.Object);
 
             using var cts = new CancellationTokenSource();
             var ct = cts.Token;
@@ -127,7 +130,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedEmployee(ctx, id: 100, jobTitle: "Dev");
 
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object, logger.Object);
 
             var dto = new EmployeeDto
             {
@@ -154,7 +158,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object, logger.Object);
 
             var dto = new EmployeeDto { BusinessEntityID = 100, JobTitle = "Lead Dev" };
 
@@ -174,7 +179,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedEmployee(ctx, id: 100, jobTitle: "Dev", currentFlag: true);
 
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object, logger.Object);
 
             using var cts = new CancellationTokenSource();
             var ct = cts.Token;
@@ -192,7 +198,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateEmployeeMapperMock();
-            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new EmployeeController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockEmployee().Object, logger.Object);
 
             using var cts = new CancellationTokenSource();
             var ct = cts.Token;

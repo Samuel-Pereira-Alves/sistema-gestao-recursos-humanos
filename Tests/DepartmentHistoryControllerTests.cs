@@ -70,7 +70,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedBasicData(ctx, startDate: start, addHistory: true);
 
             var mapper = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object, logger.Object);
 
             var dto = new DepartmentHistoryDto
             {
@@ -105,7 +106,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedBasicData(ctx, startDate: start, addHistory: true);
 
             var mapper = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object, logger.Object);
 
             using var cts = new CancellationTokenSource();
             var ct = cts.Token;
@@ -125,7 +127,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object, logger.Object);
 
             using var cts = new CancellationTokenSource();
             var ct = cts.Token;
@@ -143,7 +146,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedBasicData(ctx, startDate: start, addHistory: true);
 
             var mapperMock = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapperMock.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new DepartmentHistoryController(ctx, mapperMock.Object, MapperMockFactory.CreateLoggerMockDepartment().Object, logger.Object);
 
             var dto = new DepartmentHistoryDto
             {
@@ -173,7 +177,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedBasicData(ctx, startDate: start, addHistory: true);
 
             var mapperMock = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapperMock.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new DepartmentHistoryController(ctx, mapperMock.Object, MapperMockFactory.CreateLoggerMockDepartment().Object, logger.Object);
 
             using var cts = new CancellationTokenSource();
             var ct = cts.Token;
@@ -190,7 +195,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object, logger.Object);
 
             var result = await controller.Delete(100, 1, 1, new DateTime(2020, 1, 1), CancellationToken.None);
 
@@ -205,7 +211,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedBasicData(ctx, startDate: start, addHistory: true);
 
             var mapper = MapperMockFactory.CreateDepartmentHistoryMapperMock();
-            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new DepartmentHistoryController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockDepartment().Object, logger.Object);
 
             var dto = new DepartmentHistoryDto { EndDate = new DateTime(2019, 12, 31) };
 
@@ -213,7 +220,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
 
             if (result is ObjectResult obj)
             {
-                Assert.Equal(StatusCodes.Status400BadRequest, obj.StatusCode);
+                Assert.Equal(StatusCodes.Status409Conflict, obj.StatusCode);
             }
             else
             {

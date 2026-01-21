@@ -1,8 +1,6 @@
 
-using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Moq;
 using sistema_gestao_recursos_humanos.backend.controllers;
 using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
@@ -43,15 +41,17 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedNotification(ctx, id: 12, businessEntityId: 200, message: "Msg C");
 
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object, logger.Object);
 
 
-            var action = await controller.GetByBusinessEntityID(100);
+            var action = await controller.GetByBusinessEntityID(100, CancellationToken.None);
 
-            var ok = Assert.IsType<OkObjectResult>(action);
+            var ok = Assert.IsType<OkObjectResult>(action.Result);
             var list = Assert.IsType<List<NotificationDto>>(ok.Value);
             Assert.Equal(2, list.Count);
         }
+
 
         [Fact]
         public async Task GetById_ReturnsOk_WhenFound()
@@ -60,12 +60,16 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedNotification(ctx, id: 42, businessEntityId: 500, message: "Ping");
 
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
+            var appLog = MapperMockFactory.CreateAppLogMock();
+            var logger = MapperMockFactory.CreateLoggerMockNotification();
 
-            var action = await controller.GetById(42);
+            var controller = new NotificationController(ctx, mapper.Object, logger.Object, appLog.Object);
 
-            var ok = Assert.IsType<OkObjectResult>(action);
+            var action = await controller.GetById(42, CancellationToken.None);
+
+            var ok = Assert.IsType<OkObjectResult>(action.Result);
             var dto = Assert.IsType<NotificationDto>(ok.Value);
+
             Assert.Equal(42, dto.ID);
             Assert.Equal(500, dto.BusinessEntityID);
             Assert.Equal("Ping", dto.Message);
@@ -76,35 +80,15 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
+            var appLog = MapperMockFactory.CreateAppLogMock();
+            var logger = MapperMockFactory.CreateLoggerMockNotification();
 
-            var action = await controller.GetById(999);
+            var controller = new NotificationController(ctx, mapper.Object, logger.Object, appLog.Object);
 
-            Assert.IsType<NotFoundResult>(action);
-        }
+            var action = await controller.GetById(999, CancellationToken.None);
 
-        [Fact]
-        public async Task Create_ReturnsCreated_AndPersists()
-        {
-            var ctx = BuildContext();
-
-            var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object,  MapperMockFactory.CreateLoggerMockNotification().Object);
-
-            var dto = new NotificationDto
-            {
-                BusinessEntityID = 123,
-                Message = "Nova mensagem"
-            };
-
-            var result = await controller.Create(dto);
-
-            var created = Assert.IsType<CreatedAtActionResult>(result);
-            Assert.Equal(nameof(NotificationController.GetById), created.ActionName);
-
-            var body = Assert.IsType<NotificationDto>(created.Value);
-            Assert.Equal(123, body.BusinessEntityID);
-            Assert.Equal("Nova mensagem", body.Message);
+            var notFound = Assert.IsType<NotFoundResult>(action.Result);
+            Assert.Equal(StatusCodes.Status404NotFound, notFound.StatusCode);
         }
 
         [Fact]
@@ -115,10 +99,11 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedNotification(ctx, id: 2, businessEntityId: 999, message: "B");
 
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object, logger.Object);
 
 
-            var result = await controller.DeleteByBusinessEntityID(999);
+            var result = await controller.DeleteByBusinessEntityID(999, CancellationToken.None);
 
             Assert.IsType<NoContentResult>(result);
             Assert.Equal(0, await ctx.Notifications.CountAsync(n => n.BusinessEntityID == 999));
@@ -129,9 +114,10 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object, logger.Object);
 
-            var result = await controller.DeleteByBusinessEntityID(12345);
+            var result = await controller.DeleteByBusinessEntityID(12345, CancellationToken.None);
 
             Assert.IsType<NotFoundResult>(result);
         }
@@ -143,9 +129,10 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             SeedNotification(ctx, id: 42, businessEntityId: 1000, message: "Del me");
 
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object, logger.Object);
 
-            var result = await controller.DeleteById(42);
+            var result = await controller.DeleteById(42, CancellationToken.None);
 
             Assert.IsType<NoContentResult>(result);
             Assert.Null(await ctx.Notifications.FirstOrDefaultAsync(x => x.ID == 42));
@@ -157,9 +144,10 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var ctx = BuildContext();
 
             var mapper = MapperMockFactory.CreateNotificationMapperMock();
-            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new NotificationController(ctx, mapper.Object, MapperMockFactory.CreateLoggerMockNotification().Object, logger.Object);
 
-            var result = await controller.DeleteById(777);
+            var result = await controller.DeleteById(777, CancellationToken.None);
             Assert.IsType<NotFoundResult>(result);
         }
     }

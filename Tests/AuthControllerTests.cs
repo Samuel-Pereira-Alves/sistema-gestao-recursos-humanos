@@ -90,7 +90,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var user = SeedUser(ctx);
             SeedEmployee(ctx, user.BusinessEntityID);
             var config = BuildConfig();
-            var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object, logger.Object);
 
             var request = new SystemUsersDTO { Username = user.Username, Password = "P@ssw0rd" };
 
@@ -129,7 +130,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var ctx = BuildContext();
             SeedUser(ctx);
             var config = BuildConfig();
-            var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object, logger.Object);
 
             var request = new SystemUsersDTO { Username = "samuel", Password = "password-errada" };
 
@@ -141,7 +143,7 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
 
             // Assert
             var unauthorized = Assert.IsType<ObjectResult>(result);
-            Assert.Equal(StatusCodes.Status401Unauthorized, unauthorized.StatusCode); // 401
+            Assert.Equal(StatusCodes.Status401Unauthorized, unauthorized.StatusCode);
         }
 
         [Fact]
@@ -152,7 +154,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
             var user = SeedUser(ctx, role: string.Empty);
             SeedEmployee(ctx, user.BusinessEntityID);
             var config = BuildConfig();
-            var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object,  logger.Object);
 
             var request = new SystemUsersDTO { Username = user.Username, Password = "P@ssw0rd" };
 
@@ -171,7 +174,8 @@ namespace sistema_gestao_recursos_humanos.Tests.Controllers
         {
             var ctx = BuildContext();
             var config = BuildConfig();
-            var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object);
+            var logger = MapperMockFactory.CreateAppLogMock();
+            var controller = new AuthController(ctx, config, MapperMockFactory.CreateLoggerMockAuth().Object,  logger.Object);
 
             var dto = new SystemUsersDTO { Username = "naoexiste", Password = "qualquer" };
             var result = await controller.Login(dto, CancellationToken.None);
