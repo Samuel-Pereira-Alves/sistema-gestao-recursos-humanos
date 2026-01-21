@@ -86,7 +86,6 @@ export async function patchDepartmentHistory(
       const error = await res.json();
       msg = error.detail || error.title || error.message || msg;
     } catch {
-      // tenta texto simples
       const text = await res.text().catch(() => "");
       if (text) msg = text;
     }
@@ -195,7 +194,6 @@ export async function getAllDepartmentsFromEmployees(token) {
     return [];
   }
 
-  /** @type {any[]} */
   let employees = [];
   try {
     const data = await res.json();
@@ -208,14 +206,12 @@ export async function getAllDepartmentsFromEmployees(token) {
     employees = [];
   }
 
-  // Deduplicação por departmentID
-  const map = new Map(); // key: departmentID, value: { departmentID, name, groupName }
+  const map = new Map(); 
 
   for (const emp of employees) {
     const histories =
       emp?.departmentHistories ?? emp?.DepartmentHistories ?? [];
     for (const h of histories) {
-      // Normaliza campos (alguns backends usam departmentId vs departmentID)
       const depObj = h?.department ?? {};
       const departmentID = Number(
         h?.departmentId ??
@@ -235,7 +231,6 @@ export async function getAllDepartmentsFromEmployees(token) {
     }
   }
 
-  // Ordena por nome do departamento
   const departments = Array.from(map.values()).sort((a, b) =>
     a.name.localeCompare(b.name, "pt", { sensitivity: "base" }),
   );
@@ -246,8 +241,7 @@ export async function getAllDepartmentsFromEmployees(token) {
 export async function getAllDepartments({
   pageNumber = 1,
   pageSize = 5,
-  query = "",
-  signal,
+  query = ""
 } = {}) {
   const token = localStorage.getItem("authToken");
 
@@ -260,7 +254,6 @@ export async function getAllDepartments({
     pageSize: String(pageSize),
   });
 
-  // Garantir tipo string SEMPRE
   const q = (query ?? "").toString().trim();
   if (q) qs.set("search", q);
   url.search = qs.toString();
@@ -270,8 +263,7 @@ export async function getAllDepartments({
     headers: {
       Accept: "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    signal, // volta a pôr o cancelamento (opcional mas recomendado)
+    }
   });
 
   if (!res.ok) {
@@ -282,7 +274,6 @@ export async function getAllDepartments({
 
   const raw = await res.json();
 
-  // Normalização (caso venha PascalCase)
   const normalized = {
     items: raw.items ?? raw.Items ?? [],
     totalCount: raw.totalCount ?? raw.TotalCount ?? 0,

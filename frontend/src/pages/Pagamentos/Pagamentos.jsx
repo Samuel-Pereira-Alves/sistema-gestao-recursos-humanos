@@ -18,9 +18,8 @@ import {
   patchPayHistory,
   deletePayHistory,
   createPayHistory,
-  getAllPayments, // 👈 usar apenas este para listar
+  getAllPayments,
 } from "../../Service/pagamentosService";
-import { getEmployeesPaged } from "../../Service/pagamentosService";
 import { getAllEmployees } from "../../Service/employeeService";
 import { addNotificationForUser } from "../../utils/notificationBus";
 
@@ -36,13 +35,10 @@ export default function Pagamentos() {
   const [totalPages, setTotalPages] = useState(1);
 
   // Dados
-  const [pagamentos, setPagamentos] = useState([]); // lista achatada vinda do back
-  const [employeesDrop, setEmployeesDrop] = useState([]); // para o modal de criar
+  const [pagamentos, setPagamentos] = useState([]);
+  const [employeesDrop, setEmployeesDrop] = useState([]);
   const itemsPerPage = 5;
 
-  // ---- Concorrência ----
-  const abortRef = useRef(null);
-  const reqIdRef = useRef(0);
   const lastTermRef = useRef("");
 
   // Debounce: 300ms
@@ -51,69 +47,50 @@ export default function Pagamentos() {
     return () => clearTimeout(t);
   }, [searchTerm]);
 
-  // Loader principal (página + termo), com AbortController e clamp de página
- 
-// Loader principal (página + termo), com AbortController e clamp de página
-const load = useCallback(
-  async (page, term) => {
-    setFetchError(null);
+  const load = useCallback(
+    async (page, term) => {
+      setFetchError(null);
 
-    // cancela o pedido anterior
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+      setLoading(true);
 
-    const myReq = ++reqIdRef.current;
-    setLoading(true);
-
-    try {
-      const data = await getAllPayments({
-        pageNumber: page,
-        pageSize: itemsPerPage,
-        search: term || "",
-        signal: controller.signal,
-      });
-
-      if (myReq !== reqIdRef.current) return;
-
-      const newTotalPages = Math.max(1, Number(data?.totalPages || 1));
-
-      // 👉 Clamp para última página válida (em vez de ir para 1)
-      if (page > newTotalPages) {
-        setTotalPages(newTotalPages);
-        setCurrentPage(newTotalPages);
-        // Não fazemos return aqui; deixamos o useEffect reagir à mudança da página
-        return;
-      }
-
-      setPagamentos(Array.isArray(data?.items) ? data.items : []);
-      setTotalPages(newTotalPages);
-
-      // Dropdown (best-effort)
       try {
-        const token = localStorage.getItem("authToken");
-        const employeedrop = await getAllEmployees(token);
-        if (myReq === reqIdRef.current) setEmployeesDrop(employeedrop);
-      } catch {
-        // ignora erros do dropdown
+        const data = await getAllPayments({
+          pageNumber: page,
+          pageSize: itemsPerPage,
+          search: term || "",
+        });
+
+        const newTotalPages = Math.max(1, Number(data?.totalPages || 1));
+
+        if (page > newTotalPages) {
+          setTotalPages(newTotalPages);
+          setCurrentPage(newTotalPages);
+          return;
+        }
+
+        setPagamentos(Array.isArray(data?.items) ? data.items : []);
+        setTotalPages(newTotalPages);
+
+        try {
+          const token = localStorage.getItem("authToken");
+          const employeedrop = await getAllEmployees(token);
+          setEmployeesDrop(employeedrop);
+        } catch {
+        }
+      } catch (err) {
+        if (err?.name === "AbortError") return;
+
+        console.error(err);
+        //setFetchError(err?.message || "Erro a carregar dados.");
+        setPagamentos([]);
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      if (err?.name === "AbortError") return;
-      if (myReq !== reqIdRef.current) return;
+    },
+    [itemsPerPage]
+  );
 
-      console.error(err);
-      setFetchError(err?.message || "Erro a carregar dados.");
-      setPagamentos([]);
-      setTotalPages(1);
-    } finally {
-      if (myReq === reqIdRef.current) setLoading(false);
-    }
-  },
-  [itemsPerPage]
-);
-
-
-  // Reage a termo (debounced) e página
   useEffect(() => {
     const termChanged = debouncedTerm !== lastTermRef.current;
 
@@ -121,17 +98,12 @@ const load = useCallback(
       lastTermRef.current = debouncedTerm;
       if (currentPage !== 1) {
         setCurrentPage(1);
-        return; // evita chamada com página antiga; chamará quando page=1
+        return;
       }
     }
 
     load(currentPage, debouncedTerm);
   }, [currentPage, debouncedTerm, load]);
-
-  // Cleanup abort
-  useEffect(() => {
-    return () => abortRef.current?.abort();
-  }, []);
 
   // ---- Estados e ações de edição ----
   const [editOpen, setEditOpen] = useState(false);
@@ -277,7 +249,6 @@ const load = useCallback(
         )}
       </div>
 
-      {/* Search (sempre visível) */}
       <div className="card mb-3 border-0 shadow-sm">
         <div className="card-body position-relative">
           <input
@@ -321,7 +292,7 @@ const load = useCallback(
                     {pagamentos.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="text-center text-muted">
-                          Sem registos
+                          Registos não encontrados.
                         </td>
                       </tr>
                     ) : (
@@ -365,7 +336,7 @@ const load = useCallback(
               {/* Mobile Cards */}
               <div className="d-md-none">
                 {pagamentos.length === 0 ? (
-                  <div className="text-center p-3 text-muted">Sem registos</div>
+                  <div className="text-center p-3 text-muted">Registos não encontrados.</div>
                 ) : (
                   pagamentos.map((p) => {
                     const key = `${p.businessEntityID}|${p.rateChangeDate}`;
@@ -399,12 +370,15 @@ const load = useCallback(
                 )}
               </div>
 
-              {/* Pagination (usa meta do servidor) */}
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                setPage={setCurrentPage}
-              />
+              {/* Pagination */}
+              {pagamentos.length > 0 ? (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  setPage={setCurrentPage}
+                />
+              ) : (<> </>)
+              }
             </>
           )}
         </div>

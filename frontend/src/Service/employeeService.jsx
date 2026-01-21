@@ -8,7 +8,6 @@ export async function getDepartments(token) {
 
   const data = await res.json();
 
-  // Extract unique departments
   const uniqueDepartments = Array.from(
     new Map(
       data.map(entry => {
@@ -46,7 +45,6 @@ export async function updateEmployee(id, payload, token) {
       const error = await res.json();
       msg = error.detail || error.title || error.message || msg;
     } catch {
-      // tenta texto simples
       const text = await res.text().catch(() => "");
       if (text) msg = text;
     }
@@ -67,9 +65,6 @@ export async function getEmployees(
 ) {
   if (!token) throw new Error("Token em falta.");
 
-  console.log(2)
-
-  // Garante que pageNumber/pageSize são válidos
   const pn = Number.isFinite(pageNumber) && pageNumber > 0 ? pageNumber : 1;
   const ps = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 20;
   const url = (() => {
@@ -88,16 +83,12 @@ export async function getEmployees(
     },
   });
 
-  
-
-  // Header X-Pagination (PascalCase) pode vir mesmo quando o body já tem meta
   let metaFromHeader = null;
   try {
     const paginationHeader = res.headers.get("X-Pagination");
     if (paginationHeader) metaFromHeader = JSON.parse(paginationHeader);
   } catch { /* ignore */ }
 
-  // Tenta ler body como JSON; se falhar, usa vazio
   let body = null;
   try {
     body = await res.json();
@@ -105,15 +96,12 @@ export async function getEmployees(
     body = null;
   }
 
-  // Normalizações:
-  // 1) items pode vir como `items` (camel) ou `Items` (Pascal) ou body pode ser o array diretamente
   const items =
     Array.isArray(body?.items) ? body.items
     : Array.isArray(body?.Items) ? body.Items
     : Array.isArray(body) ? body
     : [];
 
-  // 2) meta pode vir no body (camel/Pascal) ou apenas no header
   const totalCount =
     Number.isFinite(body?.totalCount) ? body.totalCount
     : Number.isFinite(body?.TotalCount) ? body.TotalCount
@@ -174,8 +162,6 @@ export async function deleteEmployee(token, businessEntityID) {
     },
   });
 
-  console.log(res)
-
   if (!res.ok) {
     throw new Error(`Erro ao eliminar funcionário (HTTP ${res.status})`);
   }
@@ -187,7 +173,6 @@ export async function deleteEmployee(token, businessEntityID) {
   return true;
 }
 
-
 export async function getAllEmployees(token) {
   const res = await fetch(`${API_BASE}/employee/`, {
     method: "GET",
@@ -198,24 +183,20 @@ export async function getAllEmployees(token) {
   });
 
   if (!res.ok) {
-    // tenta capturar mensagem do servidor
     let serverMsg = "";
     try {
       const errBody = await res.json();
       serverMsg = errBody?.message || errBody?.error || "";
-    } catch { /* ignore */ }
+    } catch { }
     const suffix = serverMsg ? ` - ${serverMsg}` : "";
     throw new Error(`Erro ao obter funcionários (HTTP ${res.status})${suffix}`);
   }
 
-  // 204 No Content → devolve lista vazia
   if (res.status === 204) return [];
 
-  // tenta parse do JSON; como o teu endpoint devolve um array, devolve-o tal e qual
   try {
     const data = await res.json();
     if (Array.isArray(data)) return data;
-    // fallback defensivo (caso algum dia mude para wrapper)
     if (Array.isArray(data?.items)) return data.items;
     return [];
   } catch {
