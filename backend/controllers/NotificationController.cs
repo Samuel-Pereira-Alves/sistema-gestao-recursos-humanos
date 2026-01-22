@@ -157,9 +157,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             try
             {
                 var roleLower = role.ToLowerInvariant();
+                var currentUserBeId = int.Parse(User.FindFirst("BusinessEntityID")?.Value ?? "0");
 
                 var users = await _db.SystemUsers
-                    .Where(u => u.Role.ToLower() == roleLower)
+                    .Where(u => u.Role.ToLower() == roleLower && u.BusinessEntityID != currentUserBeId)
                     .AsNoTracking()
                     .ToListAsync(ct);
 
