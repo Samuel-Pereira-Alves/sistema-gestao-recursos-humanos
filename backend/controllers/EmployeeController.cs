@@ -588,7 +588,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (dto.SalariedFlag != default(bool)) employee.SalariedFlag = dto.SalariedFlag;
             if (dto.HireDate != default(DateTime)) employee.HireDate = dto.HireDate;
             if (dto.BirthDate != default(DateTime)) employee.BirthDate = dto.BirthDate;
-            if (dto.DepartmentID.HasValue)
+            if (dto.DepartmentID.HasValue && dto.NationalIDNumber != employee.NationalIDNumber)
             {
                 var nowUtc = DateTime.UtcNow;
 
