@@ -56,7 +56,19 @@ function Form({ onCancel }) {
 
     const bd = new Date(birthDate);
     if (birthDate && bd > new Date()) {
-      newErrors.birthDate = "Data futura não é válida.";
+      newErrors.birthDate = "Data De Nascimento Inválida.";
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const eighteen = new Date(
+      bd.getFullYear() + 18,
+      bd.getMonth(),
+      bd.getDate(),
+    );
+
+    if (eighteen > today) {
+      newErrors.birthDate = "O utilizador deve ter pelo menos 18 anos.";
     }
 
     if (!["S", "M"].includes(maritalStatus)) {
@@ -227,7 +239,7 @@ function Form({ onCancel }) {
     } catch (err) {
       console.error("Erro ao enviar candidatura:", err);
       setErrors({
-        nationalIDNumber: err.response.data?.detail
+        nationalIDNumber: err.response.data?.detail,
       });
       setUploadMsg("Falha no envio.");
       setUploadProgress(null);
