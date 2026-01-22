@@ -73,7 +73,7 @@ export default function Candidatos() {
 
         return { items: mapped, meta };
       } catch (e) {
-        console.error(e);
+        console.error("Erro ao carregar candidatos:", e);
         setRows([]);
         setMeta((m) => ({ ...m, totalPages: 1, pageNumber: 1 }));
         return { items: [], meta: { totalPages: 1, pageNumber: 1 } };
@@ -111,7 +111,7 @@ export default function Candidatos() {
       addNotification(`O candidato ${nome} foi aprovado.`, "admin", { type: "EMPLOYEES" });
     } catch (e) {
       //alert("Erro ao aprovar candidato.");
-      console.error(e)
+      console.error("Erro ao aprovar candidato:", e);
     }
   };
 

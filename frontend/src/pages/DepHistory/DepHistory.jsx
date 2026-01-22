@@ -78,7 +78,7 @@ export default function DepartmentHistoryList() {
       } catch (err) {
         if (err?.name === "AbortError") return;
 
-        console.error(err);
+        console.error("Erro ao obter histórico de departamentos:", err);
         //setFetchError(err?.message || "Erro desconhecido ao obter dados.");
         setDepartamentos([]);
         setTotalPages(1);

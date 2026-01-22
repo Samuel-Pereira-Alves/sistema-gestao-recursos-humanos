@@ -61,7 +61,7 @@ export default function NotificationBell() {
       }
       setOpen(false);
     } catch (e) {
-      console.error("Erro ao processar clique na notificação:", e);
+      console.error("Erro ao processar notificação:", e);
     }
   };
 

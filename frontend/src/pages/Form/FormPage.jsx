@@ -225,7 +225,7 @@ function Form({ onCancel }) {
         setTimeout(() => onCancel(), 900);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Erro ao enviar candidatura:", err);
       setErrors({
         nationalIDNumber: err.response.data?.detail
       });

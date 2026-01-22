@@ -66,7 +66,7 @@ function Navbar() {
           window.dispatchEvent(new Event("authChanged"));
         }
       } catch (err) {
-        console.error("Erro ao carregar nome:", err);
+        console.error("Failed to load user name:", err);
       } finally {
         if (!cancelled) setLoadingName(false);
       }

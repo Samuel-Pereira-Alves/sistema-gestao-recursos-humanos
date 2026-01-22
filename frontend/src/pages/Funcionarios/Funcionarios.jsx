@@ -104,7 +104,7 @@ function Funcionarios() {
         { type: "EMPLOYEES" }
       );
     } catch (e) {
-      console.error(e);
+      console.error("Erro ao eliminar colaborador:", e);
       alert(e?.message || "Erro ao eliminar colaborador.");
     } finally {
       setDeleteLoadingId(null);

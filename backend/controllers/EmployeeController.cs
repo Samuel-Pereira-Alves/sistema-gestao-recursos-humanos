@@ -551,13 +551,40 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (DbUpdateException dbEx)
             {
+                var today = DateTime.Today;
+                var birth = employeeDto.BirthDate.Date;
+
+                if (birth > today)
+                {
+                    _logger.LogInformation("Pedido Falhou: Data de Nascimento Inválida: Birth={Birth}, Today={Today}", birth, today);
+                    await _appLog.ErrorAsync("Birth Date Inválida", new DbUpdateException());
+                    return Conflict(new ProblemDetails
+                    {
+                        Title = "Data de Nascimento Inválida",
+                        Detail = "O Funcionário deve ter pelo menos 18 anos.",
+                        Status = StatusCodes.Status409Conflict
+                    });
+                }
+
+                if (birth.AddYears(18) > today)
+                {
+                    _logger.LogInformation("Pedido Falhou:: Birth Date Inválida: Birth={Birth}, Today={Today}", birth, today);
+                    await _appLog.ErrorAsync("Pedido Falhou:: Birth Date Inválida", new DbUpdateException());
+                    return Conflict(new ProblemDetails
+                    {
+                        Title = "Data de Nascimento Inválida",
+                        Detail = "O Funcionário deve ter pelo menos 18 anos.",
+                        Status = StatusCodes.Status409Conflict
+                    });
+                }
+
                 var duplicateExists = await _db.Employees
                     .AsNoTracking()
                     .AnyAsync(e => e.NationalIDNumber == employeeDto.NationalIDNumber, ct);
 
                 if (duplicateExists)
                 {
-                    _logger.LogError(new DbUpdateException(), "Pedido Falhou: Cartão de Cidadão Inválido");
+                    _logger.LogInformation("Pedido Falhou: Cartão de Cidadão Inválido");
                     await _appLog.ErrorAsync("Pedido Falhou: Cartão de Cidadão Inválido", new DbUpdateException());
                     return Conflict(new ProblemDetails
                     {
@@ -570,7 +597,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
             catch (Exception ex)
             {
-                // Reutiliza o handler genérico de erro inesperado (já existente nesta classe)
+                
                 return await HandleUnexpectedEmployeeErrorAsync(ex, ct);
             }
         }

@@ -65,7 +65,7 @@ export async function openPdf(id) {
 
     URL.revokeObjectURL(blobUrl);
   } catch (error) {
-    console.error(error);
+    console.error("Erro ao baixar o CV:", error);
     alert("Falha ao baixar o CV.");
   }
 }

@@ -292,7 +292,7 @@ export default function Movimentos() {
       await load(serverPage, debouncedTerm);
       closeAction();
     } catch (e) {
-      console.Error("[submitAction] erro:", e);
+      console.error("[submitAction] erro:", e);
       setAction((s) => ({ ...s, error: e.message || "Erro na operação." }));
     } finally {
       setAction((s) => ({ ...s, loading: false }));

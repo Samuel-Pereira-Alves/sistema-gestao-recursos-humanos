@@ -50,7 +50,7 @@ export default function Profile() {
         const data = await getDepartments(token);
         setDepartments(data);
       } catch (err) {
-        console.error(err);
+        console.error("Erro ao obter departamentos:", err);
       }
     })();
   }, []);

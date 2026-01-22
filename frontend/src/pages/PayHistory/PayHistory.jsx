@@ -38,7 +38,7 @@ export default function PayHistoryList() {
         setPayments(data.items);
         setTotalPages(data.meta.totalPages);
       } catch (err) {
-        console.error(err);
+        console.error("Erro ao obter histórico de pagamentos:", err);
         //setFetchError(err.message || "Erro desconhecido ao obter dados.");
       } finally {
         setLoading(false);
