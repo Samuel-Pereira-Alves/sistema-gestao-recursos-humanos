@@ -46,8 +46,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 statusCode: StatusCodes.Status500InternalServerError);
         }
 
-        // POST: api/v1/notification
-        // Cria uma notificação (para o BusinessEntityID presente no body)
         [HttpPost]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Create([FromBody] NotificationDto dto, CancellationToken ct)
@@ -57,6 +55,15 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             var validation = await ValidateCreateDtoAsync(dto, ct);
             if (validation is IActionResult badReq) return badReq;
+
+            var currentUserBeId = int.Parse(User.FindFirst("BusinessEntityID")?.Value ?? "0");
+
+            if (currentUserBeId == dto.BusinessEntityID)
+            {
+                _logger.LogInformation("Criação de Notification ignorada — utilizador tentou criar para si próprio.");
+                await _appLog.InfoAsync("Notificação não criada porque o utilizador é o mesmo do BusinessEntityID.");
+                return NoContent();
+            }
 
             try
             {
