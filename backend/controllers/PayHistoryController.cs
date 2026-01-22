@@ -208,6 +208,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 if (exists)
                 {
+                    _logger.LogInformation("Pedido Falhou: Registo duplicado para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", dto.BusinessEntityID, dto.RateChangeDate);
                     await _appLog.ErrorAsync("Pedido Falhou: Data Inserida é Inválida.", dbEx);
                     return Conflict(new ProblemDetails
                     {
@@ -217,13 +218,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     });
                 }
 
-                if (dto.Rate < 6 || dto.Rate > 200)
+                if (dto.Rate <= 6.5m || dto.Rate >= 200m)
                 {
-                    await _appLog.ErrorAsync("Pedido Falhou: muito alto", new DbUpdateException());
+                    _logger.LogInformation("Pedido Falhou: Valor Inserido Inválido para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", dto.BusinessEntityID, dto.RateChangeDate);
+                    await _appLog.ErrorAsync("Pedido Falhou: Valor Inserido Inválido", dbEx);
                     return Conflict(new ProblemDetails
                     {
-                        Title = "muito alto",
-                        Detail = "muito alto",
+                        Title = "Valor Inválido",
+                        Detail = "Valor Inválido - Coloque um valor entre 6.5 e 200",
                         Status = StatusCodes.Status409Conflict
                     });
                 }
