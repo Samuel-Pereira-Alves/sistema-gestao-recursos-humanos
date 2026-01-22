@@ -1,7 +1,6 @@
 import React, { useRef, useState } from "react";
 import { addNotification } from "../../utils/notificationBus";
 import axios from "axios";
-import { normalizeApiError } from "../../utils/Utils";
 
 function Form({ onCancel }) {
   const [firstName, setFirstName] = useState("");

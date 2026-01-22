@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
@@ -285,7 +284,7 @@ export default function Pagamentos() {
                       <th>Valor</th>
                       <th>Data</th>
                       <th className="text-center">Frequência</th>
-                      <th className="text-center" style={{width: 160}}>Ações</th>
+                      <th className="text-center" style={{ width: 160 }}>Ações</th>
                     </tr>
                   </thead>
                   <tbody>

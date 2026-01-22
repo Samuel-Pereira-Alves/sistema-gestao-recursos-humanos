@@ -1,4 +1,3 @@
-
 export default function ReadOnlyField({ label, value }) {
   return (
     <p className="mb-1">

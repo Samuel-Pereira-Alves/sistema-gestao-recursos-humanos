@@ -1,4 +1,3 @@
-
 export default function Pagination({ currentPage, totalPages, setPage }) {
   const prev = () => setPage(p => Math.max(1, p - 1));
   const next = () => setPage(p => Math.min(totalPages, p + 1));

@@ -1,8 +1,6 @@
 import axios from "axios";
 const API_BASE = "http://localhost:5136/api";
 
-
-
 export async function getCandidatos(token, { pageNumber, pageSize, search }) {
   const url = new URL(`${API_BASE}/v1/jobcandidate`);
   const params = new URLSearchParams();
@@ -41,8 +39,6 @@ export async function getCandidatos(token, { pageNumber, pageSize, search }) {
     },
   };
 }
-
-
 
 export async function openPdf(id) {
   try {
@@ -133,7 +129,7 @@ export async function approveCandidate(id) {
         const t = await res.text();
         details = t ? ` Detalhes: ${t}` : "";
       }
-    } catch {}
+    } catch { }
     throw new Error(`Falha ao aprovar candidato (HTTP ${res.status}).${details}`);
   }
 
@@ -161,33 +157,33 @@ export async function deleteCandidate(id) {
         const t = await res.text();
         details = t ? ` Detalhes: ${t}` : "";
       }
-    } catch {}
+    } catch { }
     throw new Error(`Falha ao eliminar (HTTP ${res.status}).${details}`);
   }
 }
 
-export async function sendEmailFeedback(condition, email){
+export async function sendEmailFeedback(condition, email) {
 
-    var frase = condition === false
+  var frase = condition === false
     ? "Infelizmente, a sua candidatura não foi aprovada nesta fase do processo. Agradecemos o seu interesse e o tempo dedicado à candidatura. Continuaremos a considerar o seu perfil para futuras oportunidades compatíveis."
     : "Parabéns! A sua candidatura foi aprovada nesta fase do processo. Em breve entraremos em contacto para lhe fornecer mais detalhes sobre os próximos passos. Obrigado pelo seu interesse e confiança.";
-    
-    console.log(email)
-    try {
-        
-        await axios.post(`${API_BASE}/email/send`, {
-            to: email,
-            subject: 'Feedback Candidatura',
-            text: frase
-        }, {
-            headers: { "Content-Type": "application/json" }
-        }
-    );
-} catch (e) {
-    if (e.response) {
-        console.error('Erro API:', e.response.data);
-    } else {
-        console.error('Erro rede/CORS:', e.message);
+
+  console.log(email)
+  try {
+
+    await axios.post(`${API_BASE}/email/send`, {
+      to: email,
+      subject: 'Feedback Candidatura',
+      text: frase
+    }, {
+      headers: { "Content-Type": "application/json" }
     }
-}
+    );
+  } catch (e) {
+    if (e.response) {
+      console.error('Erro API:', e.response.data);
+    } else {
+      console.error('Erro rede/CORS:', e.message);
+    }
+  }
 }

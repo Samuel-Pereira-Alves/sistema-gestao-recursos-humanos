@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { useNavigate } from "react-router-dom";
@@ -32,13 +31,11 @@ function Login() {
       navigate("/");
     } catch (error) {
       console.error("Erro no login:", error);
-      // Mostra mensagem amigável; podes usar error.message se preferires a do backend
       setErrorMsg("Credenciais inválidas. Tente novamente.");
     } finally {
       setLoading(false);
     }
   };
-
 
   return (
     <div className="login-bg d-flex align-items-center justify-content-center min-vh-100">

@@ -1,11 +1,11 @@
-let _notifications = []; 
+let _notifications = [];
 let _subscribers = new Set();
 
 export function addNotification(message, role, meta = {}) {
   fetch(`http://localhost:5136/api/v1/notification/${role}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, type: meta.type || null}),
+    body: JSON.stringify({ message, type: meta.type || null }),
   }).catch((err) => {
     console.error('Failed to send notification to server:', err);
   });
@@ -16,7 +16,7 @@ export function addNotification(message, role, meta = {}) {
 
 export function addNotificationForUser(message, id, meta = {}) {
   const token = localStorage.getItem("authToken");
-  
+
   fetch(`http://localhost:5136/api/v1/notification/`, {
     method: 'POST',
     headers: {
@@ -24,7 +24,7 @@ export function addNotificationForUser(message, id, meta = {}) {
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ message, businessEntityId: id, type: meta.type || null}),
+    body: JSON.stringify({ message, businessEntityId: id, type: meta.type || null }),
   }).catch((err) => {
     console.error('Failed to send notification to server:', err);
   });
@@ -50,19 +50,19 @@ export async function clearNotifications() {
   _emit();
 }
 
-export async function deleteNotification(id){
+export async function deleteNotification(id) {
   const token = localStorage.getItem("authToken");
   await fetch(`http://localhost:5136/api/v1/notification/${id}`, {
-      method: 'DELETE',
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    }).catch((err) => {
-      console.error('Failed to delete notification from server:', err);
-    });
-    _notifications = _notifications.filter(n => n.id != id);
-    _emit();
+    method: 'DELETE',
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  }).catch((err) => {
+    console.error('Failed to delete notification from server:', err);
+  });
+  _notifications = _notifications.filter(n => n.id != id);
+  _emit();
 }
 
 export async function removeNotifications() {
@@ -113,7 +113,6 @@ function _emit() {
   });
 }
 
-/** Subscreve para receber atualizações */
 export function subscribe(listener) {
   _subscribers.add(listener);
   return () => {

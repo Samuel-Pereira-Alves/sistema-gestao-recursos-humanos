@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BackButton from "../../components/Button/BackButton";
 import Pagination from "../../components/Pagination/Pagination";
@@ -12,7 +11,6 @@ import {
 } from "../../Service/candidatosService";
 import { addNotification } from "../../utils/notificationBus";
 import Loading from "../../components/Loading/Loading";
-import { Button } from "bootstrap";
 
 export default function Candidatos() {
   const [rows, setRows] = useState([]);
@@ -31,7 +29,6 @@ export default function Candidatos() {
   const [searchTerm, setSearchTerm] = useState("");
   const [search, setSearch] = useState("");
 
-  // Debounce 300ms
   useEffect(() => {
     const t = setTimeout(() => {
       setSearch(searchTerm.trim());
@@ -57,7 +54,6 @@ export default function Candidatos() {
     };
   };
 
-  // Fetch principal
   const fetchCandidatos = useCallback(
     async (page = currentPage) => {
       const token = localStorage.getItem("authToken");
@@ -163,7 +159,7 @@ export default function Candidatos() {
         </span>
       </div>
 
-      {/* Search (estilo alinhado com as outras páginas) */}
+      {/* Search */}
       <div className="card mb-3 border-0 shadow-sm">
         <div className="card-body position-relative">
           <input
@@ -248,7 +244,7 @@ export default function Candidatos() {
                 </table>
               </div>
 
-              {/* Mobile Cards no mesmo padrão dos outros ecrãs */}
+              {/* Mobile Cards */}
               <div className="d-sm-none">
                 {rows.map((c) => (
                   <div key={c.id} className="border-bottom p-3">
@@ -298,5 +294,4 @@ export default function Candidatos() {
       </div>
     </div>
   );
-
 }

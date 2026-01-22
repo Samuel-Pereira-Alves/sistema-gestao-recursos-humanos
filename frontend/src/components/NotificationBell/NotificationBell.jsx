@@ -40,7 +40,6 @@ export default function NotificationBell() {
 
   const handleItemClick = async (n) => {
     try {
-      // Decide rota com base no tipo
       switch (n.type) {
         case "PROFILE":
           navigate(`/profile/${n.businessEntityID}`);

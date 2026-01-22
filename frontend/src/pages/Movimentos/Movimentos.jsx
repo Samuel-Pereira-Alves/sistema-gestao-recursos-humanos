@@ -31,7 +31,6 @@ const resolveShiftLabel = (id) => SHIFT_LABELS[Number(id)] ?? "—";
 
 export default function Movimentos() {
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(null);
   const [items, setItems] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -51,7 +50,6 @@ export default function Movimentos() {
 
   const load = useCallback(
     async (page, term) => {
-      setFetchError(null);
 
       const safePage = Math.max(1, Number(page) || 1);
       const safeTerm = (term ?? "").toString();

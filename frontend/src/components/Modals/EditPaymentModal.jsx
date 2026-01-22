@@ -1,4 +1,3 @@
-
 import React from "react";
 import ReadOnlyField from "../ReadOnlyField/ReadOnlyField";
 import { formatDate } from "../../utils/Utils";

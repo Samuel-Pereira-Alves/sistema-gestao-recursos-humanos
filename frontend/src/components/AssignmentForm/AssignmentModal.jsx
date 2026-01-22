@@ -1,9 +1,8 @@
-// src/components/AssignmentModal.jsx
 import React, { useMemo } from "react";
 import AssignmentForm from "./AssignmentForm";
 
 export default function AssignmentModal({
-  action,                
+  action,
   setAction,
   closeAction,
   submitAction,
@@ -27,31 +26,16 @@ export default function AssignmentModal({
       ? "Criar registo"
       : "Guardar alterações";
 
-  // Helpers para validação
-  // const isCreateInvalid = action.mode === "create" && (
-  //   !action.form?.businessEntityID ||
-  //   !action.form?.departmentID ||
-  //   !action.form?.shiftID ||
-  //   !action.form?.startDate
-  // );
-
-  // No edit: só considerar alteração de endDate (padrão pagamentos)
-  const initialEndDate = action?.keys?.endDate ?? ""; // pode não existir
+  const initialEndDate = action?.keys?.endDate ?? "";
   const currentEndDate = action?.form?.endDate ?? "";
 
-  // Consideramos "mudou" se o valor atual (normalizado YYYY-MM-DD) for diferente do original
   const normalizeDate = (d) => (d ? String(d).substring(0, 10) : "");
   const endChanged = normalizeDate(currentEndDate) !== normalizeDate(initialEndDate);
 
-  // Validação básica da data no edit: permitir vazio (nulo), ou YYYY-MM-DD
   const isValidDateOrEmpty = (val) => {
     const v = normalizeDate(val);
     return v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v);
   };
-
-  const isEditInvalid = action.mode === "edit" && (!endChanged || !isValidDateOrEmpty(currentEndDate));
-
-  //const disablePrimary = action.loading || isCreateInvalid || isEditInvalid;
 
   return (
     <div
@@ -91,7 +75,6 @@ export default function AssignmentModal({
               resolveShiftLabel={resolveShiftLabel}
               formatDate={formatDate}
               dateInputToIsoMidnight={dateInputToIsoMidnight}
-              // Passar info para mostrar feedback em Edit
               endChanged={endChanged}
               isValidDateOrEmpty={isValidDateOrEmpty}
             />
@@ -108,12 +91,10 @@ export default function AssignmentModal({
             <button
               className="btn btn-primary"
               onClick={submitAction}
-              //disabled={disablePrimary}
             >
               {primaryLabel}
             </button>
           </div>
-
         </div>
       </div>
     </div>

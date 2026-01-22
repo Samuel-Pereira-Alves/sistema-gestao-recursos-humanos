@@ -115,7 +115,7 @@ export async function getDepHistoriesById(token, id, opts = {}) {
   );
   url.searchParams.set("pageNumber", String(pageNumber));
   url.searchParams.set("pageSize", String(pageSize));
-  if (q) url.searchParams.set("q", q); 
+  if (q) url.searchParams.set("q", q);
 
   const res = await fetch(url.toString(), {
     method: "GET",
@@ -130,7 +130,7 @@ export async function getDepHistoriesById(token, id, opts = {}) {
     try {
       const err = await res.clone().json();
       serverMsg = err?.message || err?.error || "";
-    } catch {}
+    } catch { }
     throw new Error(
       `Erro ao obter histories (HTTP ${res.status})${serverMsg ? " - " + serverMsg : ""}`,
     );
@@ -138,7 +138,6 @@ export async function getDepHistoriesById(token, id, opts = {}) {
 
   const data = await res.json();
 
- 
   return {
     employee: data.employee ?? null,
     depHistories: {
@@ -182,7 +181,6 @@ export async function getAllDepartmentsFromEmployees(token) {
       const err = await res.json();
       serverMsg = err?.message || err?.error || "";
     } catch {
-      /* ignore */
     }
     const suffix = serverMsg ? ` - ${serverMsg}` : "";
     throw new Error(
@@ -206,7 +204,7 @@ export async function getAllDepartmentsFromEmployees(token) {
     employees = [];
   }
 
-  const map = new Map(); 
+  const map = new Map();
 
   for (const emp of employees) {
     const histories =
@@ -215,9 +213,9 @@ export async function getAllDepartmentsFromEmployees(token) {
       const depObj = h?.department ?? {};
       const departmentID = Number(
         h?.departmentId ??
-          h?.departmentID ??
-          depObj?.departmentID ??
-          depObj?.departmentId,
+        h?.departmentID ??
+        depObj?.departmentID ??
+        depObj?.departmentId,
       );
 
       if (!Number.isFinite(departmentID)) continue;
@@ -286,7 +284,7 @@ export async function getAllDepartments({
         1,
         Math.ceil(
           (raw.totalCount ?? raw.TotalCount ?? 0) /
-            (raw.pageSize ?? raw.PageSize ?? pageSize),
+          (raw.pageSize ?? raw.PageSize ?? pageSize),
         ),
       ),
     meta: raw.meta ?? raw.Meta ?? null,

@@ -27,7 +27,7 @@ export function formatDate(date) {
 }
 
 export function getEmployeeId(routeId) {
-   return routeId;
+  return routeId;
 }
 
 export function filterPagamentos(pagamentos, term) {
@@ -42,12 +42,12 @@ export function filterPagamentos(pagamentos, term) {
       return idToString(p.employee?.businessEntityID) === raw;
     }
     const first = normalize(p.employee?.person?.firstName);
-    const last  = normalize(p.employee?.person?.lastName);
-    const full  = `${first} ${last}`.trim();
+    const last = normalize(p.employee?.person?.lastName);
+    const full = `${first} ${last}`.trim();
 
-    const freq  = normalize(freqLabel(p.payFrequency));
+    const freq = normalize(freqLabel(p.payFrequency));
     const valor = normalize(formatCurrencyEUR(p.rate));
-    const data  = normalize(formatDate(p.rateChangeDate));
+    const data = normalize(formatDate(p.rateChangeDate));
 
     return (
       (full && full.includes(termo)) ||
@@ -105,7 +105,6 @@ export function mapDepartmentHistories(list) {
     }));
 }
 
-
 export function formatCurrencyEUR(value) {
   if (value == null) return "—";
   const n = Number(value);
@@ -143,7 +142,6 @@ export function dateInputToIsoMidnight(dateStr) {
   return `${dateStr}T00:00:00`;
 }
 
-// Utils.jsx
 export const getBusinessEntityID = (h) => {
   return (
     h?.businessEntityID ??
@@ -153,8 +151,7 @@ export const getBusinessEntityID = (h) => {
   );
 };
 
-
-export const getDepartmentID = (h) =>{
+export const getDepartmentID = (h) => {
   return h.departmentId
 }
 
@@ -173,72 +170,67 @@ export const getDepartmentName = (h) =>
 export const getGroupName = (h) =>
   h?.dep.groupName;
 
+export function formatDateForRoute(input) {
+  const d = (input instanceof Date) ? input : new Date(input);
 
-  export function formatDateForRoute(input) {
-    const d = (input instanceof Date) ? input : new Date(input);
-
-    if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
-      throw new Error("StartDate inválida. Use uma data existente (ex.: 2020-02-29).");
-    }
-
-    const pad = (n) => String(n).padStart(2, "0");
-
-    const year = d.getFullYear();
-    const month = pad(d.getMonth() + 1);
-    const day = pad(d.getDate());
-    const hours = pad(d.getHours());
-    const minutes = pad(d.getMinutes());
-    const seconds = pad(d.getSeconds());
-
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
+    throw new Error("StartDate inválida. Use uma data existente (ex.: 2020-02-29).");
   }
 
-  export function buildDerivedDepartments(list) {
-      const map = new Map();
-      list.forEach((h) => {
-        const id = getDepartmentID(h);
-        const name = getDepartmentName(h);
-        if (id) {
-          const key = String(id);
-          if (!map.has(key)) {
-            map.set(key, { departmentID: key, name });
-          } else {
-            const existing = map.get(key);
-            if (
-              (!existing.name || existing.name === "—") &&
-              name &&
-              name !== "—"
-            ) {
-              map.set(key, { departmentID: key, name });
-            }
-          }
-        }
-      });
-      const derived = Array.from(map.values());
-      derived.sort((a, b) =>
-        String(a.name).localeCompare(String(b.name), "pt-PT", {
-          sensitivity: "base",
-        })
-      );
-      return derived;
-    }
+  const pad = (n) => String(n).padStart(2, "0");
 
-    export function normalizeApiError(err) {
-  // Erros DataAnnotations
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  const seconds = pad(d.getSeconds());
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
+export function buildDerivedDepartments(list) {
+  const map = new Map();
+  list.forEach((h) => {
+    const id = getDepartmentID(h);
+    const name = getDepartmentName(h);
+    if (id) {
+      const key = String(id);
+      if (!map.has(key)) {
+        map.set(key, { departmentID: key, name });
+      } else {
+        const existing = map.get(key);
+        if (
+          (!existing.name || existing.name === "—") &&
+          name &&
+          name !== "—"
+        ) {
+          map.set(key, { departmentID: key, name });
+        }
+      }
+    }
+  });
+  const derived = Array.from(map.values());
+  derived.sort((a, b) =>
+    String(a.name).localeCompare(String(b.name), "pt-PT", {
+      sensitivity: "base",
+    })
+  );
+  return derived;
+}
+
+export function normalizeApiError(err) {
   if (err.body?.errors) {
     return Object.values(err.body.errors).flat().join("\n");
   }
- 
-  // ProblemDetails do backend (Conflict, 500, etc.)
+
   if (err.body?.detail) {
     return err.body.detail;
   }
- 
-  // erros front end ( Campos obrigatórios, etc. )
+
   if (err.message) {
     return err.message;
   }
- 
-  // 4. fallback
+
   return "Ocorreu um erro inesperado.";
 }

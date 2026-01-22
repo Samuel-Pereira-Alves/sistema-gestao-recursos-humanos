@@ -26,5 +26,5 @@ export async function login(username, password) {
     throw new Error(msg);
   }
 
-  return res.json(); 
+  return res.json();
 }

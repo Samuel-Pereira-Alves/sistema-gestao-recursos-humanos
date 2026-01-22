@@ -64,7 +64,6 @@ export default function AssignmentForm({
           </div>
 
           {/* Departamento */}
-
           <div className="col-6">
             <label className="form-label">Departamento</label>
             <Select
@@ -87,7 +86,6 @@ export default function AssignmentForm({
           </div>
 
           {/* Turno */}
-
           <div className="col-6">
             <label className="form-label">Turno</label>
             <Select

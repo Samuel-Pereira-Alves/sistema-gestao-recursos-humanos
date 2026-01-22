@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
-import Navbar from "../../components/Navbar/Navbar";
 import Form from "../Form/FormPage";
 
 function Home() {

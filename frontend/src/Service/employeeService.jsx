@@ -68,11 +68,11 @@ export async function getEmployees(
   const pn = Number.isFinite(pageNumber) && pageNumber > 0 ? pageNumber : 1;
   const ps = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 20;
   const url = (() => {
-      const u = new URL(`${API_BASE}/employee/paged`, origin);
-      u.searchParams.set("pageNumber", String(pn));
-      u.searchParams.set("pageSize", String(ps));
-      if (search && search.trim()) u.searchParams.set("search", search.trim());
-      return u.toString();
+    const u = new URL(`${API_BASE}/employee/paged`, origin);
+    u.searchParams.set("pageNumber", String(pn));
+    u.searchParams.set("pageSize", String(ps));
+    if (search && search.trim()) u.searchParams.set("search", search.trim());
+    return u.toString();
   })();
 
   const res = await fetch(url, {
@@ -87,7 +87,7 @@ export async function getEmployees(
   try {
     const paginationHeader = res.headers.get("X-Pagination");
     if (paginationHeader) metaFromHeader = JSON.parse(paginationHeader);
-  } catch { /* ignore */ }
+  } catch { }
 
   let body = null;
   try {
@@ -98,45 +98,45 @@ export async function getEmployees(
 
   const items =
     Array.isArray(body?.items) ? body.items
-    : Array.isArray(body?.Items) ? body.Items
-    : Array.isArray(body) ? body
-    : [];
+      : Array.isArray(body?.Items) ? body.Items
+        : Array.isArray(body) ? body
+          : [];
 
   const totalCount =
     Number.isFinite(body?.totalCount) ? body.totalCount
-    : Number.isFinite(body?.TotalCount) ? body.TotalCount
-    : Number.isFinite(metaFromHeader?.TotalCount) ? metaFromHeader.TotalCount
-    : items.length;
+      : Number.isFinite(body?.TotalCount) ? body.TotalCount
+        : Number.isFinite(metaFromHeader?.TotalCount) ? metaFromHeader.TotalCount
+          : items.length;
 
   const pageNum =
     Number.isFinite(body?.pageNumber) ? body.pageNumber
-    : Number.isFinite(body?.PageNumber) ? body.PageNumber
-    : Number.isFinite(metaFromHeader?.PageNumber) ? metaFromHeader.PageNumber
-    : pn;
+      : Number.isFinite(body?.PageNumber) ? body.PageNumber
+        : Number.isFinite(metaFromHeader?.PageNumber) ? metaFromHeader.PageNumber
+          : pn;
 
   const size =
     Number.isFinite(body?.pageSize) ? body.pageSize
-    : Number.isFinite(body?.PageSize) ? body.PageSize
-    : Number.isFinite(metaFromHeader?.PageSize) ? metaFromHeader.PageSize
-    : ps;
+      : Number.isFinite(body?.PageSize) ? body.PageSize
+        : Number.isFinite(metaFromHeader?.PageSize) ? metaFromHeader.PageSize
+          : ps;
 
   const totalPages =
     Number.isFinite(body?.totalPages) ? body.totalPages
-    : Number.isFinite(body?.TotalPages) ? body.TotalPages
-    : Number.isFinite(metaFromHeader?.TotalPages) ? metaFromHeader.TotalPages
-    : Math.max(1, Math.ceil((totalCount || 0) / (size || 1)));
+      : Number.isFinite(body?.TotalPages) ? body.TotalPages
+        : Number.isFinite(metaFromHeader?.TotalPages) ? metaFromHeader.TotalPages
+          : Math.max(1, Math.ceil((totalCount || 0) / (size || 1)));
 
   const hasPrevious =
     typeof body?.hasPrevious === "boolean" ? body.hasPrevious
-    : typeof body?.HasPrevious === "boolean" ? body.HasPrevious
-    : typeof metaFromHeader?.HasPrevious === "boolean" ? metaFromHeader.HasPrevious
-    : pageNum > 1;
+      : typeof body?.HasPrevious === "boolean" ? body.HasPrevious
+        : typeof metaFromHeader?.HasPrevious === "boolean" ? metaFromHeader.HasPrevious
+          : pageNum > 1;
 
   const hasNext =
     typeof body?.hasNext === "boolean" ? body.hasNext
-    : typeof body?.HasNext === "boolean" ? body.HasNext
-    : typeof metaFromHeader?.HasNext === "boolean" ? metaFromHeader.HasNext
-    : pageNum < totalPages;
+      : typeof body?.HasNext === "boolean" ? body.HasNext
+        : typeof metaFromHeader?.HasNext === "boolean" ? metaFromHeader.HasNext
+          : pageNum < totalPages;
 
   return {
     items,
@@ -151,7 +151,6 @@ export async function getEmployees(
     raw: body,
   };
 }
-
 
 export async function deleteEmployee(token, businessEntityID) {
   const res = await fetch(`${API_BASE}/employee/${encodeURIComponent(String(businessEntityID))}`, {

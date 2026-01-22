@@ -210,8 +210,6 @@ export async function listPagamentosFlattened(pageNumber = 1, pageSize = 10) {
   return { employees, pagamentos: flattened, meta };
 }
 
-
-
 export async function patchPayHistory(businessEntityID, rateChangeDate, body) {
   return http(`/payhistory/${businessEntityID}/${rateChangeDate}`, {
     method: "PATCH",
@@ -272,7 +270,3 @@ export async function getPayHistoryById(token, id, opts = {}) {
     meta: data.payHistories.meta,
   };
 }
-
-
-
-

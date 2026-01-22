@@ -1,4 +1,3 @@
-
 import React from "react";
 import Select from "react-select";
 
@@ -14,7 +13,6 @@ export default function CreatePaymentModal({
 }) {
   if (!open) return null;
 
-  // Preparar opções para React-Select
   const options = employees.map((emp) => {
     const id = emp.businessEntityID ?? emp.id;
     const fullName = [

@@ -1,12 +1,11 @@
 
-// src/components/Navbar/Navbar.jsx
-import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import NotificationBell from "../NotificationBell/NotificationBell";
 import { getEmployee } from "../../Service/employeeService";
 
 function Navbar() {
-  const [isOpen, setIsOpen] = useState(false); // controla o collapse da navbar
+  const [isOpen, setIsOpen] = useState(false); 
   const [businessEntityId, setBusinessEntityId] = useState(() => localStorage.getItem("businessEntityId"));
   const [firstName, setFirstName] = useState(() => localStorage.getItem("firstName") || "");
   const [lastName, setLastName] = useState(() => localStorage.getItem("lastName") || "");
@@ -18,13 +17,11 @@ function Navbar() {
     [businessEntityId]
   );
 
-  // Fecha a navbar ao trocar de rota (mobile UX)
   const location = useLocation();
   useEffect(() => {
     setIsOpen(false);
   }, [location.pathname]);
 
-  // Sincronizar com localStorage quando login/logout acontece
   const syncFromStorage = useCallback(() => {
     setBusinessEntityId(localStorage.getItem("businessEntityId"));
     setFirstName(localStorage.getItem("firstName") || "");
@@ -46,7 +43,6 @@ function Navbar() {
     };
   }, [syncFromStorage]);
 
-  // Carrega nome se faltarem dados após login
   useEffect(() => {
     let cancelled = false;
     async function loadUserName() {
@@ -102,7 +98,7 @@ function Navbar() {
           HR Management
         </Link>
 
-        {/* Botão do toggler controlado por React */}
+        {/* Botão do toggler */}
         <button
           className="navbar-toggler"
           type="button"
@@ -114,21 +110,15 @@ function Navbar() {
           <span className="navbar-toggler-icon"></span>
         </button>
 
-        {/* Collapse controlado por estado */}
+        {/* Collapse */}
         <div className={`collapse navbar-collapse ${isOpen ? "show" : ""}`} id="navbarNav">
           <ul className="navbar-nav ms-auto align-items-lg-center">
-            {/* Exemplo de links públicos comuns */}
             <li className="nav-item d-lg-none">
-              {/* opcional: colocar ligações extra visíveis só no mobile */}
             </li>
 
             {isLoggedIn ? (
               <>
-                {/* Sino de notificações (certifica-te que o componente não chama Bootstrap JS dropdown) */}
-              
-                  <NotificationBell className="me-2" />
-             
-
+                <NotificationBell className="me-2" />
                 <li className="nav-item d-flex align-items-center me-lg-3">
                   <span className="text-muted me-2 d-none d-md-inline">Bem-vindo,</span>
                   <Link
