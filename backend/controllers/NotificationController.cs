@@ -54,7 +54,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogInformation("Recebido pedido para criar Notificação.");
             await _appLog.InfoAsync("Recebido pedido para criar Notificação.");
-            await _db.SaveChangesAsync(ct);
 
             var validation = await ValidateCreateDtoAsync(dto, ct);
             if (validation is IActionResult badReq) return badReq;
@@ -66,7 +65,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 _logger.LogInformation("Notification criada com sucesso. ID={Id}, BEID={BEID}.",
                     notification.ID, notification.BusinessEntityID);
                 await _appLog.InfoAsync($"Notification criada com sucesso. ID={notification.ID}, BEID={notification.BusinessEntityID}.");
-                await _db.SaveChangesAsync(ct);
 
                 return CreatedAtAction(
                     nameof(GetById),
@@ -93,7 +91,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 const string msg = "Body não enviado no pedido.";
                 _logger.LogWarning(msg);
                 await _appLog.WarnAsync(msg);
-                await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Body é obrigatório" });
             }
 
@@ -102,7 +99,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 const string msg = "Mensagem inválida (vazia ou nula).";
                 _logger.LogWarning(msg);
                 await _appLog.WarnAsync(msg);
-                await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Message é obrigatório" });
             }
 
@@ -111,14 +107,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 var msg = $"BusinessEntityID inválido: {dto.BusinessEntityID}.";
                 _logger.LogWarning(msg);
                 await _appLog.WarnAsync(msg);
-                await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "BusinessEntityID deve ser um inteiro positivo" });
             }
 
             var exists = await _db.Employees.AnyAsync(e => e.BusinessEntityID == dto.BusinessEntityID, ct);
             if (!exists)
             {
-                await _appLog.ErrorAsync($"Employee não encontrado. BEID={dto.BusinessEntityID}");
+                _logger.LogWarning($"Employee não encontrado. BEID={dto.BusinessEntityID}");
+                await _appLog.WarnAsync($"Employee não encontrado. BEID={dto.BusinessEntityID}");
                 return NotFound(new { message = "Employee não encontrado", businessEntityId = dto.BusinessEntityID });
             }
             return null;
@@ -141,14 +137,12 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var msgReq = $"Recebida requisição para criar notificações para a role '{role}'.";
             _logger.LogInformation(msgReq);
             await _appLog.InfoAsync(msgReq);
-            await _db.SaveChangesAsync(ct);
 
             if (string.IsNullOrWhiteSpace(role))
             {
                 const string msg = "Role ausente ou inválida.";
                 _logger.LogWarning(msg);
                 await _appLog.WarnAsync(msg);
-                await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Role é obrigatória" });
             }
 
@@ -157,7 +151,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 const string msg = "Body/Mensagem inválidos.";
                 _logger.LogWarning(msg);
                 await _appLog.WarnAsync(msg);
-                await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "Body e Message são obrigatórios" });
             }
 
@@ -175,13 +168,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     var msg = $"Nenhum utilizador encontrado para a role '{role}'.";
                     _logger.LogWarning(msg);
                     await _appLog.WarnAsync(msg);
-                    await _db.SaveChangesAsync(ct);
                     return NotFound(new { message = $"No users found for role '{role}'" });
                 }
 
                 _logger.LogInformation("Encontrados {Count} utilizadores para a role '{Role}'.", users.Count, role);
                 await _appLog.InfoAsync($"Encontrados {users.Count} utilizadores para a role '{role}'");
-                await _db.SaveChangesAsync(ct);
 
                 var now = DateTime.UtcNow;
                 var notifs = users.Select(u => new Notification
@@ -197,7 +188,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 _logger.LogInformation("Criadas {Count} notificações para a role '{Role}'.", notifs.Count, role);
                 await _appLog.InfoAsync($"Criadas {notifs.Count} notificações para a role '{role}'");
-                await _db.SaveChangesAsync(ct);
 
                 var createdDtos = _mapper.Map<List<NotificationDto>>(notifs);
                 return Created(string.Empty, createdDtos);
@@ -225,14 +215,12 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var msgReq = $"Recebida requisição para obter notificações para BusinessEntityID={businessEntityId}.";
             _logger.LogInformation(msgReq);
             await _appLog.InfoAsync(msgReq);
-            await _db.SaveChangesAsync(ct);
 
             if (businessEntityId <= 0)
             {
                 var msg = $"BusinessEntityID inválido: {businessEntityId}.";
                 _logger.LogWarning(msg);
                 await _appLog.InfoAsync(msg);
-                await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "BusinessEntityID deve ser inteiro positivo" });
             }
 
@@ -247,7 +235,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 var info = $"Encontradas {notifications.Count} notificações para BEID={businessEntityId}.";
                 _logger.LogInformation(info);
                 await _appLog.InfoAsync(info);
-                await _db.SaveChangesAsync(ct);
 
                 var dto = _mapper.Map<List<NotificationDto>>(notifications);
                 return Ok(dto);
@@ -267,7 +254,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var msgReq = $"Recebida requisição para obter Notification com ID={id}.";
             _logger.LogInformation(msgReq);
             await _appLog.InfoAsync(msgReq);
-            await _db.SaveChangesAsync(ct);
 
             try
             {
@@ -280,13 +266,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     var msg = $"Notification não encontrada para ID={id}.";
                     _logger.LogWarning(msg);
                     await _appLog.WarnAsync(msg);
-                    await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
-
+                _logger.LogInformation($"Notification encontrada para ID={id}.");
                 await _appLog.InfoAsync($"Notification encontrada para ID={id}.");
-                await _db.SaveChangesAsync(ct);
-
                 return Ok(_mapper.Map<NotificationDto>(notification));
             }
             catch (Exception ex)
@@ -304,14 +287,12 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var msgReq = $"Recebida requisição para eliminar notificações para BusinessEntityID={businessEntityId}.";
             _logger.LogInformation(msgReq);
             await _appLog.InfoAsync(msgReq);
-            await _db.SaveChangesAsync(ct);
 
             if (businessEntityId <= 0)
             {
                 var msg = $"BusinessEntityID inválido: {businessEntityId}.";
                 _logger.LogWarning(msg);
                 await _appLog.WarnAsync(msg);
-                await _db.SaveChangesAsync(ct);
                 return BadRequest(new { message = "BusinessEntityID deve ser inteiro positivo" });
             }
 
@@ -326,15 +307,13 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     var msg = $"Nenhuma Notification encontrada para BEID={businessEntityId}.";
                     _logger.LogWarning(msg);
                     await _appLog.WarnAsync(msg);
-                    await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
                 _db.Notifications.RemoveRange(notifications);
                 await _db.SaveChangesAsync(ct);
-
+                _logger.LogInformation($"Notificações eliminadas com sucesso para BEID={businessEntityId}.");
                 await _appLog.InfoAsync($"Notificações eliminadas com sucesso para BEID={businessEntityId}.");
-                await _db.SaveChangesAsync(ct);
 
                 return NoContent();
             }
@@ -361,7 +340,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var msgReq = $"Recebida requisição para eliminar Notification com ID={id}.";
             _logger.LogInformation(msgReq);
             await _appLog.InfoAsync(msgReq);
-            await _db.SaveChangesAsync(ct);
 
             try
             {
@@ -371,15 +349,13 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     var msg = $"Notification não encontrada para ID={id}.";
                     _logger.LogWarning(msg);
                     await _appLog.WarnAsync(msg);
-                    await _db.SaveChangesAsync(ct);
                     return NotFound();
                 }
 
                 _db.Notifications.Remove(notification);
                 await _db.SaveChangesAsync(ct);
-
+                _logger.LogInformation($"Notification eliminada com sucesso para ID={id}.");
                 await _appLog.InfoAsync($"Notification eliminada com sucesso para ID={id}.");
-                await _db.SaveChangesAsync(ct);
 
                 return NoContent();
             }

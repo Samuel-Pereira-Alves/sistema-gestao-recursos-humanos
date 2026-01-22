@@ -24,7 +24,6 @@ public class EmailController : ControllerBase
     {
         _logger.LogInformation("Iniciando envio de Email");
         await _appLog.InfoAsync("Iniciando envio de Email");
-        await _db.SaveChangesAsync(ct);
 
         if (string.IsNullOrWhiteSpace(req.To) || string.IsNullOrWhiteSpace(req.Subject))
         {

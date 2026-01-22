@@ -6,6 +6,7 @@ using sistema_gestao_recursos_humanos.backend.data;
 using sistema_gestao_recursos_humanos.backend.models;
 using sistema_gestao_recursos_humanos.backend.models.dtos;
 using sistema_gestao_recursos_humanos.backend.models.tools;
+using sistema_gestao_recursos_humanos.backend.services;
 using System.Security.Claims;
 using System.Security.Cryptography;
 
@@ -19,27 +20,24 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private readonly IMapper _mapper;
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<JobCandidateController> _logger;
-
+        private readonly IAppLogService _appLog;
         public JobCandidateController(
             AdventureWorksContext db,
             IMapper mapper,
             IWebHostEnvironment env,
-            ILogger<JobCandidateController> logger)
+            ILogger<JobCandidateController> logger,
+            IAppLogService appLog)
         {
             _db = db;
             _mapper = mapper;
             _env = env;
             _logger = logger;
+            _appLog = appLog;
         }
 
         // -----------------------
         // Helpers
         // -----------------------
-        private void AddLog(string message)
-        {
-            _db.Logs.Add(new Log { Message = message, Date = DateTime.UtcNow });
-        }
-
         private static bool IsPdf(byte[] bytes)
         {
             // Assinatura "%PDF"
@@ -49,7 +47,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         // -----------------------
         // GET: api/v1/jobcandidate
         // -----------------------
-
         [HttpGet]
         [Authorize(Roles = "admin")]
         public async Task<ActionResult<PagedResult<JobCandidateDto>>> GetAll(
@@ -59,7 +56,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             CancellationToken ct = default)
         {
             _logger.LogInformation("Recebida requisição para obter JobCandidates (admin).");
-            AddLog("Recebida requisição para obter JobCandidates (admin).");
+            await _appLog.InfoAsync("Recebida requisição para obter JobCandidates (admin).");
 
             try
             {
@@ -83,8 +80,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     .OrderByDescending(jc => jc.ModifiedDate)
                     .ThenByDescending(jc => jc.JobCandidateId);
 
-
-
                 int totalCount = await query.CountAsync(ct);
 
                 var items = await query
@@ -93,8 +88,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     .ToListAsync(ct);
 
                 _logger.LogInformation("Encontrados {Count} JobCandidates (antes da paginação).", totalCount);
-                AddLog($"Encontrados {totalCount} JobCandidates (antes da paginação).");
-                await _db.SaveChangesAsync(ct);
+                await _appLog.InfoAsync($"Encontrados {totalCount} JobCandidates (antes da paginação).");
 
                 var dtoItems = _mapper.Map<List<JobCandidateDto>>(items);
                 var result = new PagedResult<JobCandidateDto>
@@ -127,8 +121,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<ActionResult> HandleUnexpectedJobCandidateErrorAsync(Exception ex, CancellationToken ct)
         {
             _logger.LogError(ex, "Erro ao processar JobCandidates.");
-            AddLog("Erro ao processar JobCandidates.");
-            await _db.SaveChangesAsync(ct);
+            await _appLog.ErrorAsync("Erro ao processar JobCandidates.", ex);
 
             return Problem(
                 title: "Erro ao processar candidatos",
@@ -144,8 +137,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<ActionResult<JobCandidateDto>> Get(int id, CancellationToken ct)
         {
             _logger.LogInformation("Recebida requisição para obter JobCandidate com ID={Id}.", id);
-            AddLog($"Recebida requisição para obter JobCandidate com ID={id}.");
-            await _db.SaveChangesAsync(ct);
+            await _appLog.InfoAsync($"Recebida requisição para obter JobCandidate com ID={id}.");
 
             try
             {
@@ -154,8 +146,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     return await HandleJobCandidateNotFoundAsync(id, ct);
 
                 _logger.LogInformation("JobCandidate encontrado para ID={Id}.", id);
-                AddLog($"JobCandidate encontrado para ID={id}.");
-                await _db.SaveChangesAsync(ct);
+                await _appLog.InfoAsync($"JobCandidate encontrado para ID={id}.");
 
                 return Ok(_mapper.Map<JobCandidateDto>(candidate));
             }
@@ -172,8 +163,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         private async Task<ActionResult> HandleJobCandidateNotFoundAsync(int id, CancellationToken ct)
         {
             _logger.LogWarning("JobCandidate não encontrado para ID={Id}.", id);
-            AddLog($"JobCandidate não encontrado para ID={id}.");
-            await _db.SaveChangesAsync(ct);
+            await _appLog.WarnAsync($"JobCandidate não encontrado para ID={id}.");
             return NotFound();
         }
 
@@ -190,8 +180,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             // 0) Logging inicial
             _logger.LogInformation("Recebida requisição para upload de CV e criação de JobCandidate.");
-            AddLog("Recebida requisição para upload de CV e criação de JobCandidate.");
-            await _db.SaveChangesAsync(ct);
+            await _appLog.InfoAsync("Recebida requisição para upload de CV e criação de JobCandidate.");
 
             var employee = await _db.Employees
                 .AsNoTracking()
@@ -239,7 +228,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             var result = new { jobCandidateId = candidate.JobCandidateId };
 
             _logger.LogInformation("Upload e criação concluídos. ID={ID}.", candidate.JobCandidateId);
-            AddLog($"Upload e criação concluídos. ID={candidate.JobCandidateId}.");
+            await _appLog.InfoAsync($"Upload e criação concluídos. ID={candidate.JobCandidateId}.");
             await _db.SaveChangesAsync(ct);
 
             return CreatedAtAction(nameof(Get), new { id = candidate.JobCandidateId }, result);
@@ -250,8 +239,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (cv is null || cv.Length == 0)
             {
                 _logger.LogWarning("Nenhum ficheiro enviado.");
-                AddLog("Nenhum ficheiro enviado.");
-                await _db.SaveChangesAsync(ct);
+                await _appLog.WarnAsync("Nenhum ficheiro enviado.");
                 return BadRequest(new { message = "Nenhum ficheiro enviado." });
             }
 
@@ -259,11 +247,9 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (!string.Equals(ext, ".pdf", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning("Ficheiro inválido: extensão {Ext}. Esperado .pdf.", ext);
-                AddLog($"Ficheiro inválido: extensão {ext}. Esperado .pdf.");
-                await _db.SaveChangesAsync(ct);
+                await _appLog.WarnAsync($"Ficheiro inválido: extensão {ext}. Esperado .pdf.");
                 return BadRequest(new { message = "O ficheiro deve ser um PDF (.pdf)." });
             }
-
             return null;
         }
         private static async Task<byte[]> ReadPdfBytesAsync(IFormFile cv, CancellationToken ct)
@@ -277,8 +263,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (!IsPdf(pdfBytes))
             {
                 _logger.LogWarning("Conteúdo inválido: ficheiro não é um PDF válido.");
-                AddLog("Conteúdo inválido: ficheiro não é um PDF válido.");
-                await _db.SaveChangesAsync(ct);
+                await _appLog.WarnAsync("Conteúdo inválido: ficheiro não é um PDF válido.");
                 return BadRequest(new { message = "Conteúdo inválido: o ficheiro não é um PDF válido." });
             }
             return null;
@@ -289,8 +274,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             try
             {
                 _logger.LogInformation("A processar PDF para extração de texto.");
-                AddLog("A processar PDF para extração de texto.");
-                await _db.SaveChangesAsync(ct);
+                await _appLog.InfoAsync("A processar PDF para extração de texto.");
 
                 using var parseStream = new MemoryStream(pdfBytes, writable: false);
                 var text = PdfTextExtractor.ExtractAllText(parseStream);
@@ -299,17 +283,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     resumeXml = AdventureWorksResumeXmlBuilder.Build(resumeData);
 
                 _logger.LogInformation("Extração concluída (XML construído? {HasXml}).", !string.IsNullOrEmpty(resumeXml));
-                AddLog($"Extração de texto concluída (XML construído? {!string.IsNullOrEmpty(resumeXml)}).");
-                await _db.SaveChangesAsync(ct);
+                await _appLog.InfoAsync($"Extração de texto concluída (XML construído? {!string.IsNullOrEmpty(resumeXml)}).");
             }
             catch (Exception ex)
             {
                 // Prossegue mesmo sem XML
                 _logger.LogWarning(ex, "Falha ao processar PDF para extração de texto.");
-                AddLog("Falha ao processar PDF para extração de texto.");
-                await _db.SaveChangesAsync(ct);
+                await _appLog.WarnAsync("Falha ao processar PDF para extração de texto.");
             }
-
             return resumeXml;
         }
         private async Task<(string? safeFileName, string? fullPath, IActionResult? error)> TrySaveCvToDiskAsync(byte[] pdfBytes, CancellationToken ct)
@@ -325,15 +306,13 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 await System.IO.File.WriteAllBytesAsync(fullPath, pdfBytes, ct);
                 _logger.LogInformation("Ficheiro guardado com sucesso: {File}.", safeFileName);
-                AddLog($"Ficheiro guardado com sucesso: {safeFileName}.");
-                await _db.SaveChangesAsync(ct);
+                await _appLog.InfoAsync($"Ficheiro guardado com sucesso: {safeFileName}.");
                 return (safeFileName, fullPath, null);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao guardar ficheiro {File}.", safeFileName);
-                AddLog($"Erro ao guardar ficheiro {safeFileName}.");
-                await _db.SaveChangesAsync(ct);
+                await _appLog.ErrorAsync($"Erro ao guardar ficheiro {safeFileName}.", ex);
 
                 var problem = Problem(
                     title: "Erro ao guardar o ficheiro",
@@ -375,10 +354,8 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             try
             {
                 await _db.SaveChangesAsync(ct);
-
                 _logger.LogInformation("JobCandidate criado com sucesso. ID={ID}, ficheiro={File}.", candidate.JobCandidateId, safeFileName);
-                AddLog($"JobCandidate criado com sucesso. ID={candidate.JobCandidateId}, ficheiro={safeFileName}.");
-                await _db.SaveChangesAsync(ct);
+                await _appLog.InfoAsync($"JobCandidate criado com sucesso. ID={candidate.JobCandidateId}, ficheiro={safeFileName}.");
 
                 return null;
             }
@@ -386,8 +363,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 try { System.IO.File.Delete(fullPath); } catch { /* ignore */ }
                 _logger.LogError(ex, "Erro ao gravar JobCandidate. Ficheiro removido: {File}.", safeFileName);
-                AddLog($"Erro ao gravar JobCandidate. Ficheiro removido: {safeFileName}.");
-                await _db.SaveChangesAsync(ct);
+                await _appLog.ErrorAsync($"Erro ao gravar JobCandidate. Ficheiro removido: {safeFileName}.", ex);
 
                 return Problem(
                     title: "Erro ao persistir o candidato",
@@ -418,8 +394,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             _logger.LogInformation("Recebida requisição para eliminar JobCandidate com ID={Id}.", id);
-            AddLog($"Recebida requisição para eliminar JobCandidate com ID={id}.");
-            await _db.SaveChangesAsync(ct);
+            await _appLog.InfoAsync($"Recebida requisição para eliminar JobCandidate com ID={id}.");
 
             try
             {
@@ -430,7 +405,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 // 2) Log de encontrado
                 _logger.LogInformation("JobCandidate encontrado para ID={Id}. A eliminar…", id);
-                AddLog($"JobCandidate encontrado para ID={id}. A eliminar…");
+                await _appLog.InfoAsync($"JobCandidate encontrado para ID={id}. A eliminar…");
 
                 // 3) Remover e gravar
                 _db.JobCandidates.Remove(jobCandidate);
@@ -438,7 +413,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 // 4) Log de sucesso
                 _logger.LogInformation("JobCandidate eliminado com sucesso. ID={Id}.", id);
-                AddLog($"JobCandidate eliminado com sucesso. ID={id}.");
+                await _appLog.InfoAsync($"JobCandidate eliminado com sucesso. ID={id}.");
                 await _db.SaveChangesAsync(ct);
 
                 return NoContent();
@@ -458,8 +433,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             CancellationToken ct)
         {
             _logger.LogError(dbEx, "Erro ao eliminar JobCandidate com ID={Id}.", id);
-            AddLog($"Erro ao eliminar JobCandidate com ID={id}.");
-            await _db.SaveChangesAsync(ct);
+            await _appLog.ErrorAsync($"Erro ao eliminar JobCandidate com ID={id}.", dbEx);
 
             return Problem(
                 title: "Erro ao eliminar",

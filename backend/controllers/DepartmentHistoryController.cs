@@ -32,7 +32,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogInformation("Recebido pedido para obter o histórico de Departamentos.");
             await _appLog.InfoAsync("Recebido pedido para obter o histórico de Departamentos.");
-            await _db.SaveChangesAsync(ct);
 
             try
             {
@@ -42,13 +41,11 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 {
                     _logger.LogWarning("Consulta de DepartmentHistories retornou 0 registos.");
                     await _appLog.WarnAsync("Consulta de DepartmentHistories retornou 0 registos.");
-                    await _db.SaveChangesAsync(ct);
                 }
 
                 var dto = _mapper.Map<List<DepartmentHistoryDto>>(histories);
                 _logger.LogInformation("Pedido realizado com sucesso.");
                 await _appLog.InfoAsync("Pedido realizado com sucesso.");
-                await _db.SaveChangesAsync(ct);
 
                 return Ok(dto);
             }
@@ -62,7 +59,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(ex, "Erro inesperado no DepartmentHistory");
             await _appLog.ErrorAsync($"Erro inesperado no DepartmentHistory", ex);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro ao processar o DepartmentHistory",
@@ -89,7 +85,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogInformation("Pedido para obter DepartmentHistory. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}", businessEntityId, departmentId, shiftId, startDate);
             await _appLog.InfoAsync($"Pedido para obter DepartmentHistory: {businessEntityId}/{departmentId}/{shiftId}/{startDate:o}");
-            await _db.SaveChangesAsync(ct);
 
             try
             {
@@ -99,7 +94,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 _logger.LogInformation("Pedido realizado com sucesso.");
                 await _appLog.InfoAsync("Pedido realizado com sucesso.");
-                await _db.SaveChangesAsync(ct);
                 return Ok(_mapper.Map<DepartmentHistoryDto>(history));
             }
             catch (Exception ex)
@@ -133,7 +127,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogWarning("DepartmentHistory não encontrado. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}", businessEntityId, departmentId, shiftId, startDate);
             await _appLog.WarnAsync("DepartmentHistory não encontrado.");
-            await _db.SaveChangesAsync(ct);
 
             return NotFound();
         }
@@ -145,7 +138,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogInformation("Recebido pedido para criar DepartmentHistory.");
             await _appLog.InfoAsync("Recebido pedido para criar DepartmentHistory.");
-            await _db.SaveChangesAsync(ct);
 
             if (dto is null)
             {
@@ -181,7 +173,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 // 4) Logging final + retorno
                 _logger.LogInformation("DepartmentHistory criado com sucesso. BEID={BEID}, DeptID={DeptID}, ShiftID={ShiftID}, StartDate={StartDate:o}", history.BusinessEntityID, history.DepartmentID, history.ShiftID, history.StartDate);
                 await _appLog.InfoAsync($"DepartmentHistory criado: {history.BusinessEntityID}/{history.DepartmentID}/{history.ShiftID}/{history.StartDate:o}");
-                await _db.SaveChangesAsync(ct);
 
                 return CreatedAtAction(nameof(Get),
                     new
@@ -308,7 +299,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(dbEx, "Erro ao gravar DepartmentHistory.");
             await _appLog.ErrorAsync($"Erro ao gravar DepartmentHistory: {dbEx.Message}", dbEx);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro ao gravar DepartmentHistory",
@@ -328,7 +318,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogInformation("Recebido PATCH para DepartmentHistory. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}", businessEntityId, departmentId, shiftId, startDate);
             await _appLog.InfoAsync($"PATCH DepartmentHistory: {businessEntityId}/{departmentId}/{shiftId}/{startDate:o}");
-            await _db.SaveChangesAsync(ct);
 
             if (dto is null)
             {
@@ -346,19 +335,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     _logger.LogWarning(
                         "DepartmentHistory não encontrado. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}", businessEntityId, departmentId, shiftId, startDate);
                     await _appLog.WarnAsync("DepartmentHistory não encontrado.");
-                    await _db.SaveChangesAsync(ct);
 
                     return NotFound();
                 }
 
                 // 2. Validar PATCH usando método já criado
-
-
-
                 var validation = await ValidateEndDateRuleAsync(dto.EndDate, history.StartDate, "PATCH");
                 if (validation is IActionResult err)
                     return err;
-
 
                 // 3. Aplicar PATCH usando método já criado
                 ApplyPatch(dto, history);
@@ -378,8 +362,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             }
         }
 
-
-
         private async Task<IActionResult?> ValidateEndDateRuleAsync(
             DateTime? endDate,
             DateTime startDate,
@@ -394,7 +376,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 _logger.LogInformation(
                     "Validação falhou ({Context}): EndDate({End:o}) < StartDate({Start:o})",
                     context, endDate.Value, startDate);
-
                 await _appLog.ErrorAsync("Pedido Falhou: EndDate não pode ser anterior ao StartDate", new DbUpdateException());
 
                 var details = new ProblemDetails
@@ -408,7 +389,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 return new ObjectResult(details) { StatusCode = StatusCodes.Status409Conflict };
                 // ou: return Conflict(details);
             }
-
             return null;
         }
 
@@ -426,7 +406,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(dbEx, "Erro ao atualizar (PATCH) DepartmentHistory.");
             await _appLog.ErrorAsync($"Erro ao atualizar (PATCH) DepartmentHistory: {dbEx.Message}", dbEx);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro ao atualizar",
@@ -446,9 +425,7 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             _logger.LogInformation(
                     "Received request to delete DepartmentHistory. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}",
                     businessEntityId, departmentId, shiftId, startDate);
-
             await _appLog.InfoAsync("Received request to delete DepartmentHistory.");
-            await _db.SaveChangesAsync(ct);
 
             try
             {
@@ -458,7 +435,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     _logger.LogWarning(
                         "DepartmentHistory não encontrado. BEID={BusinessEntityId}, DeptID={DepartmentId}, ShiftID={ShiftId}, StartDate={StartDate:o}", businessEntityId, departmentId, shiftId, startDate);
                     await _appLog.WarnAsync("DepartmentHistory não encontrado.");
-                    await _db.SaveChangesAsync(ct);
 
                     return NotFound();
                 }
@@ -489,7 +465,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(dbEx, "Database error while deleting DepartmentHistory.");
             await _appLog.ErrorAsync($"Database error while deleting DepartmentHistory: {dbEx.Message}", dbEx);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro ao eliminar DepartmentHistory",
@@ -500,10 +475,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         [HttpGet("departments/paged")]
         [Authorize(Roles = "admin")]
         public async Task<ActionResult<PagedResult<PayHistoryDto>>> GetAllDepartmentsPaged(
-    [FromQuery] int pageNumber = 1,
-    [FromQuery] int pageSize = 5,
-    [FromQuery] string? search = null,
-    CancellationToken ct = default)
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 5,
+            [FromQuery] string? search = null,
+            CancellationToken ct = default)
         {
             const int MaxPageSize = 200;
             if (pageNumber < 1) pageNumber = 1;

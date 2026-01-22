@@ -49,7 +49,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             await _appLog.InfoAsync(
                 $"Procura PayHistory: BEID={businessEntityId}, RateChangeDate={rateChangeDate:o}");
-            await _db.SaveChangesAsync(ct); // mantém como no teu código original
 
             try
             {
@@ -102,7 +101,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                         "Nenhum registo encontrado para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}",
                         businessEntityId, rateChangeDate);
                     await _appLog.WarnAsync("Nenhum registo encontrado.");
-                    await _db.SaveChangesAsync(ct); // mantém como no teu original
                     return NotFound();
                 }
 
@@ -140,7 +138,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(ex, "Erro inesperado no PayHistory");
             await _appLog.ErrorAsync("Erro inesperado no PayHistory", ex);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro ao processar o PayHistory",
@@ -152,7 +149,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(ex, "Erro inesperado de base de dados ao processar PayHistory");
             await _appLog.ErrorAsync("Erro inesperado de base de dados ao processar PayHistory", ex);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro inesperado de base de dados ao processar PayHistory",
@@ -164,7 +160,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogError(ex, "Erro de concorrência ao processar PayHistory");
             await _appLog.ErrorAsync("Erro de concorrência ao processar PayHistory", ex);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro de concorrência ao processar PayHistory",
@@ -179,7 +174,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogInformation("A iniciar criação de PayHistory para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", dto.BusinessEntityID, dto.RateChangeDate);
             await _appLog.InfoAsync("Criação de PayHistory iniciada.");
-            await _db.SaveChangesAsync(ct);
 
             if (dto is null)
                 return BadRequest(new { message = "Body é obrigatório" });
@@ -194,7 +188,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 _logger.LogInformation("PayHistory criado com sucesso para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", history.BusinessEntityID, history.RateChangeDate);
                 await _appLog.InfoAsync("PayHistory criado com sucesso.");
-                await _db.SaveChangesAsync(ct);
 
                 return CreatedAtAction(nameof(Get),
                     new { businessEntityId = history.BusinessEntityID, rateChangeDate = history.RateChangeDate },
@@ -244,7 +237,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogInformation("A iniciar PATCH para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
             await _appLog.InfoAsync("PATCH PayHistory iniciado.");
-            await _db.SaveChangesAsync(ct);
 
             if (dto is null)
                 return BadRequest(new { message = "Body é obrigatório" });
@@ -265,7 +257,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 _logger.LogInformation("PATCH concluído com sucesso para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
                 await _appLog.InfoAsync("PATCH PayHistory concluído.");
-                await _db.SaveChangesAsync(ct);
 
                 return Ok(_mapper.Map<PayHistoryDto>(history));
             }
@@ -290,7 +281,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogInformation("A iniciar DELETE para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
             await _appLog.InfoAsync("DELETE PayHistory iniciado.");
-            await _db.SaveChangesAsync(ct);
 
             var payhistory = await GetPayHistoryAsync(businessEntityId, rateChangeDate, ct);
 
@@ -304,7 +294,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 _logger.LogInformation("DELETE concluído com sucesso para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", businessEntityId, rateChangeDate);
                 await _appLog.InfoAsync("DELETE PayHistory concluído.");
-                await _db.SaveChangesAsync(ct);
 
                 return NoContent();
             }

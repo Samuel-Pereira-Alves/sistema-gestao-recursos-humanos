@@ -40,7 +40,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
         {
             _logger.LogInformation("Pedido de login recebido.");
             await _appLog.InfoAsync("Pedido de login recebido.");
-            await _db.SaveChangesAsync(ct);
 
             var validationError = await ValidateLoginRequest(request);
             if (validationError is not null)
@@ -58,9 +57,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
                 var token = GenerateJwtToken(user);
                 await RegisterSuccessfulLoginAsync(user, request.Username, ct);
-
-                _logger.LogInformation("Login feito com sucesso.");
-                await _appLog.InfoAsync("Login feito com sucesso.");
                 await _db.SaveChangesAsync(ct);
 
                 return Ok(new
@@ -106,7 +102,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 _logger.LogWarning("Login falhou para Username={Username}.", username);
                 await _appLog.WarnAsync($"Login falhou para Username={username}.");
-                await _db.SaveChangesAsync(ct);
                 return false;
             }
             return true;
@@ -126,7 +121,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     username, businessEntityId);
 
                 await _appLog.WarnAsync($"Login falhou: funcionário inexistente ou inativo. Username={username}, BusinessEntityID={businessEntityId}.");
-                await _db.SaveChangesAsync(ct);
                 return false;
             }
             return true;
@@ -146,15 +140,12 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                 username, user.Role, user.SystemUserId, user.BusinessEntityID);
 
             await _appLog.InfoAsync($"Login bem-sucedido. Username={username}, Role={user.Role}, SystemUserId={user.SystemUserId}, BusinessEntityID={user.BusinessEntityID}");
-
-            await _db.SaveChangesAsync(ct);
         }
 
         private async Task<IActionResult> HandleUnexpectedLoginErrorAsync(Exception ex, string username, CancellationToken ct)
         {
             _logger.LogError(ex, "Erro inesperado no login. Username={Username}", username);
             await _appLog.ErrorAsync($"Erro inesperado no login. Username={username}", ex);
-            await _db.SaveChangesAsync(ct);
 
             return Problem(
                 title: "Erro ao processar o login",
