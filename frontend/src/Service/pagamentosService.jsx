@@ -75,6 +75,7 @@ export async function getEmployeesPaged({
       signal,
     });
   } catch (err) {
+    console.error("Erro na ligação ao servidor:", err);
     if (err?.name === "AbortError") throw err;
     throw new Error(`Falha na ligação ao servidor: ${err?.message || "erro de rede"}`);
   }

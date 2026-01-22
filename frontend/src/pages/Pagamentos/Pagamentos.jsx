@@ -147,6 +147,7 @@ export default function Pagamentos() {
       );
       setEditOpen(false);
     } catch (e) {
+      console.error(e);
       setEditError(normalizeApiError(e));
     } finally {
       setEditLoading(false);
@@ -180,6 +181,7 @@ export default function Pagamentos() {
         { type: "PAYMENT" }
       );
     } catch (e) {
+      console.error(e);
       alert(e.message || "Erro ao eliminar registo.");
     } finally {
       setDeleteLoadingId(null);
@@ -230,6 +232,7 @@ export default function Pagamentos() {
         payFrequency: "1",
       });
     } catch (err) {
+      console.error(err);
       setCreateError(normalizeApiError(err));
     } finally {
       setCreateLoading(false);
