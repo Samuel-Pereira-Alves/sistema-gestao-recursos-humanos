@@ -256,7 +256,7 @@ export default function Pagamentos() {
           <input
             type="text"
             className="form-control"
-            placeholder="Procurar por nome..."
+            placeholder="Procurar por nome ou ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -299,6 +299,10 @@ export default function Pagamentos() {
                       </tr>
                     ) : (
                       pagamentos.map((p) => {
+                          const isSelf =
+                        String(localStorage.getItem("businessEntityId")) ===
+                        String(p.businessEntityID);
+
                         const key = `${p.businessEntityID}|${p.rateChangeDate}`;
                         const deleting = deleteLoadingId === key;
                         return (
@@ -316,12 +320,13 @@ export default function Pagamentos() {
                               <button
                                 className="btn btn-outline-primary btn-sm me-2"
                                 onClick={() => openEdit(p)}
+                                disabled= {isSelf}
                               >
                                 Editar
                               </button>
                               <button
                                 className="btn btn-outline-danger btn-sm"
-                                disabled={deleting}
+                                disabled={isSelf}
                                 onClick={() => handleDelete(p)}
                               >
                                 {deleting ? "A eliminar..." : "Eliminar"}

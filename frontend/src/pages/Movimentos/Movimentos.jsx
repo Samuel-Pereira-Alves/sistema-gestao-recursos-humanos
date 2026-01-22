@@ -324,7 +324,7 @@ return (
         <input
           type="text"
           className="form-control"
-          placeholder="Procurar por ID, colaborador, departamento, grupo ou data..."
+          placeholder="Procurar por nome ou ID..."
           value={searchTerm}
           onChange={(e) => {
             const v = e.target.value;

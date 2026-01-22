@@ -114,7 +114,7 @@ export default function DepartmentHistoryList() {
           <input
             type="text"
             className="form-control"
-            placeholder="Procurar por nome ou departamento..."
+            placeholder="Procurar por departamento ou grupo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             aria-label="Pesquisar histórico de departamentos"
