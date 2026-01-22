@@ -178,6 +178,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (dto is null)
                 return BadRequest(new { message = "Body é obrigatório" });
 
+              var validation = await ValidateRate(dto);
+                if (validation is IActionResult err)
+                    return err;
+
             try
             {
                 var history = _mapper.Map<PayHistory>(dto);
@@ -211,17 +215,6 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
                     });
                 }
 
-                if (dto.Rate <= 6.5m || dto.Rate >= 200m)
-                {
-                    _logger.LogInformation("Pedido Falhou: Valor Inserido Inválido para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", dto.BusinessEntityID, dto.RateChangeDate);
-                    await _appLog.ErrorAsync("Pedido Falhou: Valor Inserido Inválido", dbEx);
-                    return Conflict(new ProblemDetails
-                    {
-                        Title = "Valor Inválido",
-                        Detail = "Valor Inválido - Coloque um valor entre 6.5 e 200",
-                        Status = StatusCodes.Status409Conflict
-                    });
-                }
                 return await HandleDatabasePayHistoryErrorAsync(dbEx, ct);
             }
             catch (Exception ex)
@@ -246,6 +239,10 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
 
             if (history is null)
                 return NotFound();
+
+            var validation = await ValidateRate(dto);
+                if (validation is IActionResult err)
+                    return err;
 
             try
             {
@@ -272,6 +269,22 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             {
                 return await HandleUnexpectedPayHistoryErrorAsync(ex, ct);
             }
+        }
+
+        private async Task<IActionResult?> ValidateRate(PayHistoryDto dto)
+        {
+            if (dto.Rate <= 6.5m || dto.Rate >= 200m)
+            {
+                _logger.LogInformation("Pedido Falhou: Valor Inserido Inválido para BEID={BusinessEntityId}, RateChangeDate={RateChangeDate:o}", dto.BusinessEntityID, dto.RateChangeDate);
+                await _appLog.ErrorAsync("Pedido Falhou: Valor Inserido Inválido", new DbUpdateException());
+                return Conflict(new ProblemDetails
+                {
+                    Title = "Valor Inválido",
+                    Detail = "Valor Inválido - Coloque um valor entre 6.5 e 200",
+                    Status = StatusCodes.Status409Conflict
+                });
+            }
+            return null;
         }
 
         // DELETE: api/v1/payhistory/{businessEntityId}/{rateChangeDate}
