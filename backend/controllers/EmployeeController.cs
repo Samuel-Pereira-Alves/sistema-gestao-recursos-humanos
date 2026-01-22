@@ -608,14 +608,14 @@ namespace sistema_gestao_recursos_humanos.backend.controllers
             if (!string.IsNullOrEmpty(dto.JobTitle)) employee.JobTitle = dto.JobTitle;
             if (!string.IsNullOrEmpty(dto.Gender)) employee.Gender = dto.Gender;
             if (!string.IsNullOrEmpty(dto.MaritalStatus)) employee.MaritalStatus = dto.MaritalStatus;
-            if (!string.IsNullOrEmpty(dto.NationalIDNumber)) employee.NationalIDNumber = dto.NationalIDNumber;
+            if (!string.IsNullOrEmpty(dto.NationalIDNumber) && dto.NationalIDNumber != employee.NationalIDNumber) employee.NationalIDNumber = dto.NationalIDNumber;
 
             if (dto.VacationHours != default(short)) employee.VacationHours = dto.VacationHours;
             if (dto.SickLeaveHours != default(short)) employee.SickLeaveHours = dto.SickLeaveHours;
             if (dto.SalariedFlag != default(bool)) employee.SalariedFlag = dto.SalariedFlag;
             if (dto.HireDate != default(DateTime)) employee.HireDate = dto.HireDate;
             if (dto.BirthDate != default(DateTime)) employee.BirthDate = dto.BirthDate;
-            if (dto.DepartmentID.HasValue && dto.NationalIDNumber != employee.NationalIDNumber)
+            if (dto.DepartmentID.HasValue)
             {
                 var nowUtc = DateTime.UtcNow;
 
